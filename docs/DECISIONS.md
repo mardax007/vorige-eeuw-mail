@@ -111,10 +111,18 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
   server's exact reply for the error box (`errors.md`), uses the same rustls connection with the
   system certificate store as IMAP, stops when a required STARTTLS is missing, and speaks
   XOAUTH2 for Google and Microsoft. Tested against a fake server and GreenMail.
-- **No MX or SRV lookup yet.** Settings come from the provider table, the domain's autoconfig file,
-  ISPDB, and a guess under the user's own domain. The MX/SRV step of `PLAN.md` is not built; a
-  host found that way would need the confirmation screen, which exists and is tested with guessed
-  hosts. Noted in `PROGRESS.md`.
+- **MX and SRV lookup built (17 November 2026; replaces "No MX or SRV lookup yet").** After
+  autoconfig and ISPDB: the provider behind the first MX host (our table, Google Workspace mapped to
+  Gmail, else ISPDB for the MX host's domain), then SRV records (RFC 6186, implicit TLS first). DNS
+  goes through `hickory-resolver` with the system's DNS settings. Hosts from DNS outside the user's
+  own domain always get the confirmation screen.
+- **Rescue tool: `readpst` (17 November 2026).** libpst is GPL-2.0-or-later, so it can ship beside
+  the GPL-3.0 app (decision 14). It writes `.eml` files in folders, which the existing folder reader
+  takes; `pffexport` writes its own folder format and would need a new reader. The app looks for
+  `rescueeadpst.exe` next to itself and offers rescue mode only when it is there.
+- **PST password (17 November 2026).** The content of a protected PST is not encrypted; the file
+  only keeps a CRC-32 of the password. The app still asks for it and checks it before reading, out
+  of respect for whoever set it. The password is not kept or logged.
 - **Drafts stay on this computer.** "Opslaan" keeps the draft in the local index (in the account's
   Concepten folder, or "Op deze computer" when there is none) and does not append it to the server.
   Fewer writes to the mailbox, and no half-written draft on the phone.
@@ -159,4 +167,5 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-16 | P1–P3 accepted and applied to `CLAUDE.md` (Martijn) |
 | 2026-11-16 | Decisions 1, 3, 4, 6–12, 14–16, 19, 21, 22 answered (Martijn); phase 6 dropped |
 | 2026-11-16 | Build choices recorded: stack confirmed (decision 6), own SMTP client, no MX/SRV yet, local drafts, delayed server moves, report queue, mbox import, unwind on panic |
+| 2026-11-17 | MX/SRV lookup built; readpst chosen as rescue tool; PST password checked |
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |

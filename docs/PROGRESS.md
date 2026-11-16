@@ -21,8 +21,8 @@ Claude Code updates this file at the end of every session.
 
 ## State of the folder
 
-- Code: `crates/vem-core` (mail logic, 132 unit tests plus GreenMail end-to-end tests),
-  `src-tauri` (the shell, 3 tests), `src` (screens, 122 tests), `.github/workflows` (tests, draft release).
+- Code: `crates/vem-core` (mail logic, 140 unit tests plus GreenMail end-to-end tests),
+  `src-tauri` (the shell, 3 tests), `src` (screens, 125 tests), `.github/workflows` (tests, draft release).
   Commands are in `CLAUDE.md`.
 - `npm run tauri build` makes `Vorige Eeuw Mail_0.1.0_x64-setup.exe` (5.8 MB, per user). The built
   app starts and shows the Dutch first-run screen.
@@ -30,8 +30,8 @@ Claude Code updates this file at the end of every session.
 
 ### Built and tested
 
-Accounts by address (provider table, autoconfig, ISPDB, a guess under the user's domain with
-confirmation), password and Google/Microsoft sign-in (PKCE, loopback), DPAPI secrets file; IMAP sync
+Accounts by address (provider table, autoconfig, ISPDB, the provider behind the MX host, SRV
+records, a guess under the user's domain; DNS hosts outside the user's domain need confirmation), password and Google/Microsoft sign-in (PKCE, loopback), DPAPI secrets file; IMAP sync
 with IDLE, offline bodies, flags, star, tags as keywords or Gmail labels, move and delete with undo
 (server change delayed 125 s), Verwijderde items and empty; search at three levels; Alle postvakken;
 reading view in a sandboxed frame with link warnings and remote images on request; write, reply,
@@ -43,7 +43,9 @@ one message opens it; silent updates (download, wait until idle, install quietly
 day); import of PST, DBX, EML folders, Windows Live Mail folders and mbox, with copies of the
 original files, read state, star and tags, into a local account or the mailbox; import from
 another added mailbox (read-only; skips Verwijderde items, Ongewenste e-mail, Concepten and
-Postvak UIT); Outlook contacts from a PST into the address book; uploads into a mailbox honour
+Postvak UIT); Outlook contacts from a PST into the address book; the password of a protected PST is asked and
+checked; rescue mode with `readpst` for a PST the normal reader cannot read (app side; the tool is
+not in the installer yet); uploads into a mailbox honour
 `APPENDLIMIT` and `[TOOBIG]`, and stop at 500 MB a day for Gmail; Windows Live Mail headers-only
 messages are listed and the screen says its mail came in as read; Live Mail contacts through its
 business-card (.vcf) export, explained in four steps on the Import page; a new password or "Opnieuw inloggen" per mailbox in Instellingen; mbox export;
@@ -54,13 +56,18 @@ contacts to the phone (QR pairing, encrypted message in the mailbox; the phone s
 - Windows Live Mail: folder names, read state and stars from `Mail.MSMessageStore` (ESE, through
   `esent.dll` on a copy). Needs a real Live Mail store to build against; until then the import uses
   the folder names on disk and marks all mail read, as phase 3 task 6 allows.
-- PST: password-protected PST; rescue mode with `readpst` (licence check).
-- The MX/SRV step of the settings lookup.
-- Help pages published through GitHub Pages (generated in `docs/help/`, `node scripts/help-pages.mjs`).
+- Rescue mode: a Windows build of `readpst` in the installer (`rescueeadpst.exe` next to the app,
+  through `bundle.resources` and a release-workflow step). libpst has no official Windows build;
+  building it (MSYS2/MinGW) and checking its output on a real damaged PST are still to do. Until
+  then the screen never offers rescue mode.
+- PST password check: never tried on a real protected PST. Both CRC-32 variants are accepted;
+  if Outlook's check differs, a right password would be refused (VEM-IMPORT-READ-05).
+- Help pages on GitHub Pages: generated in `docs/help/`; publishing is a repository setting
+  (Pages from `docs/` on main) once the repository exists.
 
 ### Never run against real systems yet
 
-Real IMAP/SMTP providers (only GreenMail), Google and Microsoft sign-in, a real PST or DBX file
+Real IMAP/SMTP providers (only GreenMail; the MX/SRV lookup was tried read-only against real DNS), Google and Microsoft sign-in, a real PST or DBX file
 (also PST contacts), a real Live Mail store, the taskbar count and notification click on an installed build,
 the updater with a signed release, notifications from an installed build, the release workflow.
 
@@ -76,6 +83,7 @@ the updater with a signed release, notifications from an installed build, the re
 | 2026-11-16 | Mailbox-to-mailbox import (GreenMail test); new password and re-sign-in per mailbox; one import at a time, its status kept for the screens; the core sends each mailbox's sign-in type. UX review of all screens (ux-engine) with every finding fixed: the send bar follows the real outbox state, load and open errors no longer look like empty lists, Sluiten keeps a draft that did not save, no double send, sync errors on Alle postvakken, address problems under their field, copy feedback per button, import progress survives leaving the page, Quick Assist text corrected. Contactpersonen moved to the top bar, Afsluiten to the bottom of Instellingen. A code review of the screen changes followed | Quick Assist works the other way round from what the help said: the helper gives the code. A failed list load showed "no messages", which reads as lost mail | Martijn's items above; open build items; phase 5 |
 | 2026-11-16 | Unread count on the taskbar icon (drawn overlay, Windows has no badge for desktop apps); a notification about one message opens it. Import uploads honour APPENDLIMIT and TOOBIG and stop at 500 MB a day for Gmail. PST contacts into the address book without overwriting typed ones. Live Mail: headers-only messages listed, and the screen says all came in as read | `outlook-pst` 1.2.0 resolves named-property GUIDs at the wrong offset (it adds 3 twice), so contact e-mail fields are matched by their number only. Windows reports a notification click only while the toast is on screen | Martijn's items above; a real Live Mail store for the ESE reader; phase 5 |
 | 2026-11-16 | Live Mail contacts through its .vcf export (one screen, four steps). Code review of the upload limits and imports, all findings fixed: a read or star change on a message waiting for upload goes into the upload, the first upload of a day always goes, Gmail's quota day counted from 08:00 UTC, OVERQUOTA pauses uploads, APPENDLIMIT uses the CRLF size, an empty Live Mail message with a Content-Type is kept, a known contact gets new addresses, a broken vCard line cannot swallow the next card | Gmail's daily upload count follows Pacific time. A queued flag change on a not-yet-uploaded message had nowhere to go and was silently dropped | Martijn's items above; a real Live Mail store for the ESE reader; phase 5 |
+| 2026-11-17 | MX and SRV steps of the settings lookup (checked read-only against real DNS); the password of a protected PST asked on the import screen and checked; rescue mode with readpst offered once when a PST cannot be read (app side, tested with a stand-in tool); confirmation text no longer says every unchecked host was guessed | PST passwords protect nothing: the file keeps only a CRC-32. libpst has no official Windows build. Google publishes RFC 6186 SRV records for gmail.com | A Windows readpst for the installer; Martijn's items above; a real Live Mail store; phase 5 |
 
 ## Ideas parked
 
