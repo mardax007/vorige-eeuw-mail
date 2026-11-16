@@ -92,6 +92,9 @@ pub struct Account {
     pub quota: Option<Quota>,
     pub signature: Option<String>,
     pub last_error: Option<VemError>,
+    /// How this mailbox signs in, so the screens offer a password field or "Opnieuw inloggen".
+    /// None for the local mailboxes, which never sign in.
+    pub sign_in: Option<SignIn>,
     #[serde(skip)]
     pub settings: Option<ServerSettings>,
 }

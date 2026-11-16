@@ -6,7 +6,8 @@ use crate::model::{Account, AccountKind, Quota, ServerSettings, now};
 
 fn row_to_account(r: &Row<'_>) -> rusqlite::Result<Account> {
     let kind: String = r.get("kind")?;
-    let settings: Option<String> = r.get("settings_json")?;
+    let settings_json: Option<String> = r.get("settings_json")?;
+    let settings = settings_json.and_then(|s| serde_json::from_str::<ServerSettings>(&s).ok());
     let used: Option<i64> = r.get("quota_used_kb")?;
     let limit: Option<i64> = r.get("quota_limit_kb")?;
     let err: Option<String> = r.get("last_error_json")?;
@@ -18,7 +19,8 @@ fn row_to_account(r: &Row<'_>) -> rusqlite::Result<Account> {
         quota: used.map(|u| Quota { used_kb: u as u64, limit_kb: limit.map(|l| l as u64) }),
         signature: r.get("signature")?,
         last_error: err.and_then(|e| serde_json::from_str::<StoredError>(&e).ok()).map(Into::into),
-        settings: settings.and_then(|s| serde_json::from_str(&s).ok()),
+        sign_in: settings.as_ref().map(|s| s.sign_in),
+        settings,
     })
 }
 
