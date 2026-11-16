@@ -211,6 +211,8 @@ export interface ImportProgress {
   alreadyThere: number;
   /** Contacts from an Outlook file that went into the address book (final event only). */
   contactsAdded?: number;
+  /** Windows Live Mail: its read state is not known, so every message came in as read. */
+  allMarkedRead?: boolean;
   /** Filled only in the final event (finished = true). */
   skipped: ImportSkip[];
 }

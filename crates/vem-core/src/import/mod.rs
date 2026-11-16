@@ -35,6 +35,8 @@ pub struct ImportReport {
     pub already_there: u64,
     /// Contacts from the file that went into the address book (PST only).
     pub contacts: u64,
+    /// The source keeps no read state we can read (Windows Live Mail): everything came in as read.
+    pub all_marked_read: bool,
     pub skipped: Vec<(String, String)>,
 }
 
@@ -286,14 +288,16 @@ pub fn run(
     let report = pump(sink, job_id, progress, cancel, |emit| {
         // A damaged old file can make a reader crate panic; that ends this import, not the app.
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match source.kind {
-            ImportKind::Eml | ImportKind::Wlm => eml_tree(&copy, emit),
+            ImportKind::Eml => eml_tree(&copy, emit),
+            ImportKind::Wlm => wlm_tree(&copy, emit),
             ImportKind::Mbox => mbox::read_path(&copy, emit),
             ImportKind::Pst => read_pst(store, &copy, emit, &contacts),
             ImportKind::Dbx => read_dbx_tree(&copy, emit),
         }))
         .unwrap_or_else(|_| Err("the file is damaged: the reader stopped".into()))
     })?;
-    Ok(ImportReport { contacts: contacts.get(), ..report })
+    let all_marked_read = source.kind == ImportKind::Wlm && report.added > 0;
+    Ok(ImportReport { contacts: contacts.get(), all_marked_read, ..report })
 }
 
 /// Enough room on this disk for the copy of the original and the converted mail.
@@ -395,21 +399,47 @@ pub fn eml_tree(root: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped
         emit(&[], raw)?;
         return Ok(skipped);
     }
-    walk(root, &mut Vec::new(), emit, &mut skipped)?;
+    walk(root, &mut Vec::new(), emit, &mut skipped, false)?;
     Ok(skipped)
 }
 
-fn walk(dir: &Path, path: &mut Vec<String>, emit: &mut Emit<'_>, skipped: &mut Skipped) -> std::result::Result<(), String> {
+/// Windows Live Mail (and Vista's Windows Mail): .eml files in folders. Read state and stars live
+/// in its database, which is not read yet, so every message comes in as read
+/// ([`ImportReport::all_marked_read`]). Messages of which only the headers were downloaded are
+/// listed, not imported as complete.
+pub fn wlm_tree(root: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    let mut skipped = Vec::new();
+    walk(root, &mut Vec::new(), emit, &mut skipped, true)?;
+    Ok(skipped)
+}
+
+/// A Windows Live Mail file of an IMAP folder that holds only the headers: nothing after them.
+fn headers_only(raw: &[u8]) -> bool {
+    let body = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|i| &raw[i + 4..])
+        .or_else(|| raw.windows(2).position(|w| w == b"\n\n").map(|i| &raw[i + 2..]));
+    match body {
+        Some(b) => b.iter().all(|c| c.is_ascii_whitespace()),
+        None => true,
+    }
+}
+
+fn walk(dir: &Path, path: &mut Vec<String>, emit: &mut Emit<'_>, skipped: &mut Skipped, live_mail: bool) -> std::result::Result<(), String> {
     let mut entries: Vec<_> = std::fs::read_dir(dir).map_err(|e| e.kind().to_string())?.flatten().collect();
     entries.sort_by_key(|e| e.file_name());
     for e in entries {
         let p = e.path();
         if p.is_dir() {
             path.push(e.file_name().to_string_lossy().into_owned());
-            walk(&p, path, emit, skipped)?;
+            walk(&p, path, emit, skipped, live_mail)?;
             path.pop();
         } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("eml")) {
             match std::fs::read(&p) {
+                Ok(raw) if live_mail && headers_only(&raw) => {
+                    skipped.push((path.join("/"), "only the headers of this message were downloaded".into()));
+                }
                 Ok(raw) => emit(path, raw)?,
                 Err(err) => skipped.push((path.join("/"), err.kind().to_string())),
             }
@@ -531,6 +561,26 @@ mod tests {
 
         let r = run(&s, "j2", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!((r.added, r.already_there), (0, 2), "a second import adds nothing twice");
+    }
+
+    #[test]
+    fn live_mail_lists_headers_only_messages_and_says_all_are_read() {
+        let (_d, s) = store();
+        let src = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(src.path().join("Gmail/Inbox")).unwrap();
+        std::fs::write(src.path().join("Gmail/Inbox/a.eml"), eml("Compleet", "tekst")).unwrap();
+        std::fs::write(src.path().join("Gmail/Inbox/b.eml"), "Subject: Alleen kop\r\nMessage-ID: <kop@x>\r\n\r\n").unwrap();
+        let source = ImportSource { kind: ImportKind::Wlm, path: src.path().to_string_lossy().into(), size: None, label: "Live Mail".into() };
+        let r = run(&s, "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(r.added, 1);
+        assert!(r.skipped.iter().any(|(f, why)| f == "Gmail/Inbox" && why.contains("only the headers")));
+        assert!(r.all_marked_read);
+        assert_eq!(r.skipped.len(), 1);
+        let local = s.local_account("Live Mail").unwrap();
+        let folder = s.folders(Some(&local.id)).unwrap().into_iter().find(|f| f.total > 0).unwrap();
+        assert_eq!(folder.unread, 0, "everything comes in as read");
+        assert!(headers_only(b"Subject: x\n\n  \n"));
+        assert!(!headers_only(b"Subject: x\r\n\r\nHallo"));
     }
 
     #[test]

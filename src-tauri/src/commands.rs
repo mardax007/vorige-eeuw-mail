@@ -511,6 +511,7 @@ fn spawn_import(
             error: error.clone(),
             already_there: report.already_there,
             contacts_added: report.contacts,
+            all_marked_read: report.all_marked_read,
             skipped,
             ..Default::default()
         });

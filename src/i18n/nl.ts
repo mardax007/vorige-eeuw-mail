@@ -308,6 +308,7 @@ export const nl = {
   "import.doneSkipped": "Klaar. {done} berichten opgehaald, {skipped} overgeslagen.",
   "import.alreadyThere": "{count} berichten stonden er al en zijn niet nog eens neergezet.",
   "import.contactsAdded": "{count} contactpersonen uit Outlook staan nu bij Contactpersonen.",
+  "import.allMarkedRead": "Windows Live Mail bewaart niet in de berichten zelf wat u al gelezen had. Daarom staan alle opgehaalde berichten op gelezen.",
   "import.skippedTitle": "Overgeslagen",
   "import.copyList": "Lijst kopiëren",
   "import.listCopied": "De lijst staat klaar om te plakken (Ctrl+V), bijvoorbeeld in een bericht aan Martijn.",

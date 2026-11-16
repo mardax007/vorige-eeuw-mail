@@ -70,3 +70,20 @@ describe("a running import", () => {
     expect((screen.getByRole("button", { name: "Ophalen" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
+
+describe("what the import says at the end", () => {
+  it("names the contacts from Outlook", async () => {
+    const user = await openImport();
+    await user.click(within(accountRow(/^Outlook.pst/)).getByRole("button", { name: "Kiezen" }));
+    await user.click(screen.getByRole("button", { name: "Ophalen" }));
+    expect(await screen.findByText("3 contactpersonen uit Outlook staan nu bij Contactpersonen.", undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByText(/staan alle opgehaalde berichten op gelezen/)).toBeNull();
+  });
+
+  it("says Windows Live Mail mail came in as read", async () => {
+    const user = await openImport();
+    await user.click(screen.getByRole("button", { name: "Windows Live Mail" }));
+    await user.click(await screen.findByRole("button", { name: "Ophalen" }));
+    expect(await screen.findByText(/staan alle opgehaalde berichten op gelezen/, undefined, { timeout: 5000 })).toBeTruthy();
+  });
+});
