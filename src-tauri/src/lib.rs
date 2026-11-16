@@ -1,6 +1,7 @@
 //! The Tauri shell: one window, the icon next to the clock, notifications, starting with
 //! Windows, silent updates, and the commands the screens call. Mail logic lives in vem-core.
 
+mod badge;
 mod commands;
 mod shell;
 mod updates;
@@ -64,6 +65,8 @@ pub fn run() {
             let hidden = std::env::args().any(|a| a == HIDDEN_ARG);
             shell::create_main_window(app.handle(), !hidden)?;
             shell::create_tray(app.handle())?;
+            shell::watch_notification_clicks(app.handle());
+            shell::update_badge(app.handle());
             updates::spawn(app.handle().clone());
             Ok(())
         })

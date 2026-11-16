@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::NewWindowResponse;
+use tauri::image::Image;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
@@ -52,6 +53,7 @@ struct SyncState<'a> {
 impl Sink for EventSink {
     fn mail_changed(&self, account_id: &str, folder_id: Option<String>) {
         let _ = self.0.emit("mail:changed", MailChanged { account_id, folder_id });
+        update_badge(&self.0);
     }
     fn sync_state(&self, account_id: &str, busy: bool, error: Option<VemError>) {
         let _ = self.0.emit("sync:state", SyncState { account_id, busy, error });
@@ -74,6 +76,8 @@ fn notify_new_mail(app: &AppHandle, messages: &[MessageSummary]) {
         return;
     }
     let t = texts(app);
+    // A single message opens itself when the notification is clicked; several open Postvak IN.
+    let target = (messages.len() == 1).then(|| messages[0].id.clone());
     let (title, body) = if messages.len() == 1 {
         let m = &messages[0];
         let who = m.from.name.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| m.from.email.clone());
@@ -81,7 +85,43 @@ fn notify_new_mail(app: &AppHandle, messages: &[MessageSummary]) {
     } else {
         (t.new_mail_many.replace("{count}", &messages.len().to_string()), String::new())
     };
-    let _ = app.notification().builder().title(title).body(body).show();
+    let mut b = app.notification().builder().title(title).body(body);
+    if let Some(id) = target {
+        b = b.extra(OPEN_MESSAGE, id);
+    }
+    let _ = b.show();
+}
+
+/// Key in a notification's extra data: the message a click opens.
+const OPEN_MESSAGE: &str = "openMessage";
+
+/// A click on a notification opens the window, and the message when the notification was about
+/// one message. Windows reports the click only while the notification is on screen.
+pub fn watch_notification_clicks(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.notification().on_action(move |performed| {
+        if performed.action_id() != "tap" {
+            return;
+        }
+        show_main(&handle);
+        let id = performed.notification().and_then(|n| n.extra().get(OPEN_MESSAGE)).and_then(|v| v.as_str());
+        if let Some(id) = id {
+            let _ = handle.emit("open:message", serde_json::json!({ "messageId": id }));
+        }
+    });
+}
+
+/// The unread count of every Postvak IN as a small number on the taskbar icon.
+pub fn update_badge(app: &AppHandle) {
+    let Some(w) = app.get_webview_window(MAIN) else { return };
+    let count = app.state::<AppState>().engine.store.inbox_unread().unwrap_or(0);
+    #[cfg(windows)]
+    {
+        let icon = crate::badge::pixels(count).map(|px| Image::new_owned(px, crate::badge::SIZE, crate::badge::SIZE));
+        let _ = w.set_overlay_icon(icon);
+    }
+    #[cfg(not(windows))]
+    let _ = w.set_badge_count((count > 0).then_some(i64::from(count)));
 }
 
 pub fn quitting(_app: &AppHandle) -> bool {

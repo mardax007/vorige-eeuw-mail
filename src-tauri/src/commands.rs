@@ -35,6 +35,7 @@ fn notify_touched(app: &AppHandle, state: &AppState, touched: &actions::Touched)
         let _ = app.emit("mail:changed", serde_json::json!({ "accountId": a, "folderId": null }));
         state.engine.wake(Some(a));
     }
+    crate::shell::update_badge(app);
 }
 
 fn app_error(detail: impl Into<String>) -> VemError {

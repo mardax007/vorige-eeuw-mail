@@ -137,6 +137,19 @@ impl Store {
         ids.into_iter().map(|id| self.folder(id)).collect()
     }
 
+    /// Unread messages in the Postvak IN of every real mailbox: the number on the taskbar icon.
+    pub fn inbox_unread(&self) -> Result<u32> {
+        let n: i64 = self.db().query_row(
+            "SELECT COUNT(*) FROM messages m
+             JOIN folders f ON f.id = m.folder_id
+             JOIN accounts a ON a.id = f.account_id
+             WHERE f.role = 'inbox' AND a.kind != 'local' AND m.unread = 1 AND m.hidden = 0",
+            [],
+            |r| r.get(0),
+        )?;
+        Ok(n as u32)
+    }
+
     pub fn folder_by_role(&self, account_id: &str, role: FolderRole) -> Result<Option<i64>> {
         Ok(self
             .db()
@@ -200,6 +213,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use crate::model::{AccountKind, FolderRole};
+    use crate::store::NewMessage;
     use crate::store::testutil::store;
 
     #[test]
@@ -217,5 +231,34 @@ mod tests {
         assert_eq!(s.folder_by_role(&a.id, FolderRole::Inbox).unwrap(), Some(inbox));
         s.remove_folders_except(&a.id, &["INBOX".into()]).unwrap();
         assert!(s.folder(zz).is_err());
+    }
+
+    #[test]
+    fn inbox_unread_counts_only_real_inboxes() {
+        let (_d, s) = store();
+        let a = s.add_account("J", "j@x.nl", AccountKind::Imap, None).unwrap();
+        let inbox = s.upsert_folder(&a.id, "INBOX", Some("/"), Some(FolderRole::Inbox), true).unwrap();
+        let other = s.upsert_folder(&a.id, "Werk", Some("/"), None, true).unwrap();
+        let old = s.local_account("oud.pst").unwrap();
+        let old_inbox = s.ensure_local_folder(&old.id, &["Postvak IN".into()], Some(FolderRole::Inbox)).unwrap();
+        let add = |folder: i64, n: u32, unread: bool, account: &str| {
+            s.insert_message(&NewMessage {
+                account_id: account.to_string(),
+                folder_id: folder,
+                uid: Some(n),
+                raw: format!("Subject: m{n}\r\n\r\nx\r\n").into_bytes(),
+                has_body: true,
+                unread,
+                size: 10,
+                ..Default::default()
+            })
+            .unwrap();
+        };
+        add(inbox, 1, true, &a.id);
+        add(inbox, 2, true, &a.id);
+        add(inbox, 3, false, &a.id);
+        add(other, 4, true, &a.id);
+        add(old_inbox, 5, true, &old.id);
+        assert_eq!(s.inbox_unread().unwrap(), 2);
     }
 }
