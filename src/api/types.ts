@@ -239,3 +239,20 @@ export interface PairInfo {
   /** SVG markup of the QR code; shown only as an image, never as HTML. */
   qrSvg: string;
 }
+
+/** Screen texts the Rust shell shows itself (tray menu, notifications). Added by the screens. */
+export interface ShellTexts {
+  /** Tray menu item that opens the window. */
+  open: string;
+  /** Tray menu item that stops the app. */
+  quit: string;
+  /** Notification title for one new message. */
+  newMail: string;
+  /** Notification title for several; the shell replaces {count}. */
+  newMailMany: string;
+  /** Said once, the first time the window is closed. */
+  stillRunning: string;
+}
+
+/** How an account signs in (ServerSettings.signIn). Added by the screens. */
+export type SignIn = ServerSettings["signIn"];

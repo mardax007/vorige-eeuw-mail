@@ -6,6 +6,13 @@ export const locale = "nl-NL";
 export const nl = {
   "app.name": "Vorige Eeuw Mail",
 
+  // Texts the shell shows itself (tray menu, notifications); sent with set_shell_texts
+  "shell.open": "Vorige Eeuw Mail openen",
+  "shell.quit": "Afsluiten",
+  "shell.newMail": "Nieuwe e-mail",
+  "shell.newMailMany": "{count} nieuwe e-mails",
+  "shell.stillRunning": "Vorige Eeuw Mail blijft nieuwe mail ophalen. U vindt het rechtsonder bij de klok.",
+
   // Folders
   "folder.inbox": "Postvak IN",
   "folder.sent": "Verzonden items",
@@ -178,7 +185,7 @@ export const nl = {
   // Account setup
   "setup.title": "Postvak toevoegen",
   "setup.welcome": "Welkom bij Vorige Eeuw Mail",
-  "setup.welcomeText": "Vul hieronder uw naam, uw e-mailadres en uw wachtwoord in. De rest zoekt het programma zelf op.",
+  "setup.welcomeText": "Vul hieronder uw naam en uw e-mailadres in. De rest zoekt het programma zelf op.",
   "setup.name": "Uw naam",
   "setup.nameHint": "Zo ziet de ontvanger uw naam.",
   "setup.email": "Uw e-mailadres",
@@ -191,7 +198,16 @@ export const nl = {
   "setup.confirmYes": "Ja, doorgaan",
   "setup.confirmNo": "Nee, stoppen",
   "setup.cancel": "Annuleren",
-  "setup.missing": "Vul alle drie de vakjes in.",
+  "setup.missingNameEmail": "Vul uw naam en uw e-mailadres in.",
+  "setup.missingPassword": "Vul het wachtwoord in.",
+  "setup.add": "Postvak toevoegen",
+  "setup.back": "Ander adres",
+  "setup.signInGoogle": "Inloggen met Google",
+  "setup.signInMicrosoft": "Inloggen met Microsoft",
+  "setup.oauthWaiting": "Log in via het venster van uw internetprogramma. Kom daarna hier terug.",
+  "setup.oauthDonePage": "U bent ingelogd. U kunt dit venster sluiten en teruggaan naar Vorige Eeuw Mail.",
+  "setup.googleAppPassword": "Gebruik een app-wachtwoord van Google.",
+  "setup.microsoftNotYet": "Dit soort postvak kan het programma nog niet openen.",
 
   // Settings
   "settings.title": "Instellingen",

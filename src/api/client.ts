@@ -6,7 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { CommandArgs, CommandName, CommandResult } from "./commands";
 import { toVemError } from "./errors";
 import type { CoreEvents, Draft, ImportKind, ImportSource, ImportTarget } from "./types";
-import type { Contact, SearchScope, ServerSettings, Settings } from "./types";
+import type { Contact, SearchScope, ServerSettings, Settings, ShellTexts, SignIn } from "./types";
 
 export type Unlisten = () => void;
 export type CoreEventName = keyof CoreEvents;
@@ -54,10 +54,14 @@ export async function onEvent<E extends CoreEventName>(
 /** Every command, one function each. Components call these through this object. */
 export const api = {
   appInfo: () => call("app_info", undefined),
+  setShellTexts: (texts: ShellTexts) => call("set_shell_texts", { texts }),
   listAccounts: () => call("list_accounts", undefined),
   lookupSettings: (email: string) => call("lookup_settings", { email }),
   addAccount: (displayName: string, email: string, password: string, settings: ServerSettings) =>
     call("add_account", { displayName, email, password, settings }),
+  oauthAvailable: (signIn: SignIn) => call("oauth_available", { signIn }),
+  addAccountOAuth: (displayName: string, email: string, settings: ServerSettings, donePage: string) =>
+    call("add_account_oauth", { displayName, email, settings, donePage }),
   removeAccount: (accountId: string) => call("remove_account", { accountId }),
   setSignature: (accountId: string, signature: string) =>
     call("set_signature", { accountId, signature }),

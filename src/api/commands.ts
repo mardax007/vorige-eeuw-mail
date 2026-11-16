@@ -19,6 +19,8 @@ import type {
   SearchScope,
   ServerSettings,
   Settings,
+  ShellTexts,
+  SignIn,
   Tag,
   UndoToken,
 } from "./types";
@@ -30,10 +32,16 @@ type NoArgs = undefined;
 
 export interface CommandMap {
   app_info: { args: NoArgs; result: AppInfo };
+  set_shell_texts: { args: { texts: ShellTexts }; result: void };
   list_accounts: { args: NoArgs; result: Account[] };
   lookup_settings: { args: { email: string }; result: ServerSettings };
   add_account: {
     args: { displayName: string; email: string; password: string; settings: ServerSettings };
+    result: Account;
+  };
+  oauth_available: { args: { signIn: SignIn }; result: boolean };
+  add_account_oauth: {
+    args: { displayName: string; email: string; settings: ServerSettings; donePage: string };
     result: Account;
   };
   remove_account: { args: { accountId: string }; result: void };

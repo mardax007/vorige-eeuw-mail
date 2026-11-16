@@ -1,69 +1,86 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import { toVemError } from "../../api/errors";
-import type { ServerSettings, VemError } from "../../api/types";
+import type { Account, ServerSettings, VemError } from "../../api/types";
 import { t } from "../../i18n";
 import { ErrorBox } from "../common/ErrorBox";
 import { useApp } from "../state/AppContext";
+import { CredentialsStep, type SignInRoute } from "./CredentialsStep";
 
-type Step = "form" | "looking" | "confirm" | "adding";
+/** address → (confirm a guessed host) → credentials → adding or waiting for the browser. */
+type Step = "address" | "looking" | "confirm" | "credentials" | "adding" | "waiting";
 
 interface AccountSetupProps {
   isFirstRun: boolean;
 }
 
-/** "Postvak toevoegen": name, address, password. The rest is looked up. */
+/** "Postvak toevoegen": name and address, then a password or the Google/Microsoft sign-in. */
 export function AccountSetup({ isFirstRun }: AccountSetupProps) {
   const { reload, go, setLocation } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<Step>("address");
   const [found, setFound] = useState<ServerSettings | null>(null);
+  const [route, setRoute] = useState<SignInRoute>("password");
   const [problem, setProblem] = useState<string | null>(null);
   const [error, setError] = useState<VemError | null>(null);
 
-  const add = async (settings: ServerSettings) => {
-    setStep("adding");
+  const finish = async (account: Account) => {
+    await reload();
+    const folders = await api.listFolders(account.id);
+    const inbox = folders.find((f) => f.role === "inbox");
+    if (inbox) setLocation({ kind: "folder", folderId: inbox.id });
+    go({ kind: "mail" });
+  };
+
+  const run = async (busy: Step, add: () => Promise<Account>) => {
+    setError(null);
+    setStep(busy);
     try {
-      await api.addAccount(name.trim(), email.trim(), password, settings);
-      setPassword("");
-      await reload();
-      const folders = await api.listFolders(null);
-      const accounts = await api.listAccounts();
-      const mail = accounts.filter((a) => a.kind === "imap");
-      const inbox = folders.find((f) => f.role === "inbox" && f.accountId === mail[mail.length - 1]?.id);
-      if (inbox) setLocation({ kind: "folder", folderId: inbox.id });
-      go({ kind: "mail" });
+      await finish(await add());
     } catch (e: unknown) {
       setError(toVemError(e));
-      setStep("form");
+      setStep("credentials");
     }
   };
 
-  const handleSubmit = async () => {
+  /** Chooses the sign-in way for the settings that were found. */
+  const toCredentials = async (settings: ServerSettings) => {
+    let next: SignInRoute = "password";
+    if (settings.signIn !== "password") {
+      try {
+        next = (await api.oauthAvailable(settings.signIn)) ? "oauth" : "password";
+      } catch (e: unknown) {
+        setError(toVemError(e));
+      }
+    }
+    setRoute(next);
+    setStep("credentials");
+  };
+
+  const handleLookup = async () => {
     setProblem(null);
     setError(null);
-    if (name.trim() === "" || email.trim() === "" || password === "") {
-      setProblem(t("setup.missing"));
+    if (name.trim() === "" || email.trim() === "") {
+      setProblem(t("setup.missingNameEmail"));
       return;
     }
     setStep("looking");
     try {
       const settings = await api.lookupSettings(email.trim());
       setFound(settings);
-      if (settings.needsConfirmation) {
-        setStep("confirm");
-        return;
-      }
-      await add(settings);
+      if (settings.needsConfirmation) setStep("confirm");
+      else await toCredentials(settings);
     } catch (e: unknown) {
       setError(toVemError(e));
-      setStep("form");
+      setStep("address");
     }
   };
 
-  const isBusy = step === "looking" || step === "adding";
+  const back = () => {
+    setError(null);
+    setStep("address");
+  };
 
   return (
     <section className="page setup">
@@ -77,20 +94,12 @@ export function AccountSetup({ isFirstRun }: AccountSetupProps) {
       )}
       {error && <ErrorBox error={error} onClose={() => setError(null)} />}
       {problem && <p className="form-problem" role="alert">{problem}</p>}
-      {step === "confirm" && found ? (
-        <div className="confirm-host" role="alertdialog" aria-labelledby="confirm-host-title">
-          <h3 id="confirm-host-title">{t("setup.confirmTitle")}</h3>
-          <p>{t("setup.confirmText", { host: found.imapHost })}</p>
-          <div className="button-row">
-            <button type="button" className="primary" onClick={() => void add(found)}>{t("setup.confirmYes")}</button>
-            <button type="button" onClick={() => setStep("form")}>{t("setup.confirmNo")}</button>
-          </div>
-        </div>
-      ) : (
+
+      {(step === "address" || step === "looking") && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void handleSubmit();
+            void handleLookup();
           }}
         >
           <div className="form-row">
@@ -102,19 +111,48 @@ export function AccountSetup({ isFirstRun }: AccountSetupProps) {
             <label htmlFor="setup-email">{t("setup.email")}</label>
             <input id="setup-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
-          <div className="form-row">
-            <label htmlFor="setup-password">{t("setup.password")}</label>
-            <input id="setup-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
           <div className="button-row">
-            <button type="submit" className="primary" disabled={isBusy}>{t("setup.next")}</button>
+            <button type="submit" className="primary" disabled={step === "looking"}>{t("setup.next")}</button>
             {!isFirstRun && (
               <button type="button" onClick={() => go({ kind: "settings" })}>{t("setup.cancel")}</button>
             )}
           </div>
           {step === "looking" && <p role="status">{t("setup.looking")}</p>}
-          {step === "adding" && <p role="status">{t("setup.adding")}</p>}
         </form>
+      )}
+
+      {step === "confirm" && found && (
+        <div className="confirm-host" role="alertdialog" aria-labelledby="confirm-host-title">
+          <h3 id="confirm-host-title">{t("setup.confirmTitle")}</h3>
+          <p>{t("setup.confirmText", { host: found.imapHost })}</p>
+          <div className="button-row">
+            <button type="button" className="primary" onClick={() => void toCredentials(found)}>{t("setup.confirmYes")}</button>
+            <button type="button" onClick={back}>{t("setup.confirmNo")}</button>
+          </div>
+        </div>
+      )}
+
+      {(step === "credentials" || step === "adding" || step === "waiting") && found && (
+        <>
+          <p>
+            <strong>{name.trim()}</strong> &lt;{email.trim()}&gt;
+          </p>
+          <CredentialsStep
+            settings={found}
+            route={route}
+            isBusy={step !== "credentials"}
+            isWaitingForBrowser={step === "waiting"}
+            onBack={back}
+            onPassword={(password) =>
+              void run("adding", () => api.addAccount(name.trim(), email.trim(), password, found))
+            }
+            onOAuth={() =>
+              void run("waiting", () =>
+                api.addAccountOAuth(name.trim(), email.trim(), found, t("setup.oauthDonePage")),
+              )
+            }
+          />
+        </>
       )}
     </section>
   );

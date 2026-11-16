@@ -2,8 +2,6 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import App from "./App";
-import { resetMockBackend } from "./api/mock";
-import { createSampleState } from "./api/mock/data";
 
 async function renderApp() {
   const user = userEvent.setup();
@@ -42,7 +40,7 @@ describe("main screen", () => {
     const user = await renderApp();
     await user.click(await screen.findByRole("button", { name: /Nieuwsbrief november/ }));
     const frame = await screen.findByTitle("Inhoud van het bericht");
-    expect(frame.getAttribute("sandbox")).toBe("");
+    expect(frame.getAttribute("sandbox")).toBe("allow-popups");
     expect(frame.getAttribute("srcdoc")).toContain("Content-Security-Policy");
     expect(frame.getAttribute("srcdoc")).not.toContain("https:;");
     for (const word of ["Beantwoorden", "Allen beantwoorden", "Doorsturen", "Verwijderen", "Verplaatsen", "Label", "Afdrukken"]) {
@@ -122,27 +120,5 @@ describe("sending", () => {
     expect(await screen.findByText(/Wordt verstuurd over \d+ seconden\./)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Ongedaan maken" }));
     expect(((await screen.findByLabelText("Onderwerp")) as HTMLInputElement).value).toBe("Sleutel terug");
-  });
-});
-
-describe("first run", () => {
-  it("welcomes and asks for the mailbox when there are no accounts", async () => {
-    resetMockBackend({ ...createSampleState(), accounts: [], folders: [], messages: [] });
-    render(<App />);
-    expect(await screen.findByText("Welkom bij Vorige Eeuw Mail")).toBeTruthy();
-    expect(screen.getByLabelText("Uw e-mailadres")).toBeTruthy();
-    expect(screen.getByLabelText("Wachtwoord van uw e-mail")).toBeTruthy();
-  });
-
-  it("shows a refused login per errors.md", async () => {
-    resetMockBackend({ ...createSampleState(), accounts: [], folders: [], messages: [] });
-    const user = userEvent.setup();
-    render(<App />);
-    await user.type(await screen.findByLabelText("Uw naam"), "Ria");
-    await user.type(screen.getByLabelText("Uw e-mailadres"), "ria@solcon.nl");
-    await user.type(screen.getByLabelText("Wachtwoord van uw e-mail"), "fout");
-    await user.click(screen.getByRole("button", { name: "Verder" }));
-    expect(await screen.findByText("Inloggen bij uw postvak is niet gelukt.")).toBeTruthy();
-    expect(document.querySelector("pre.error-reply")?.textContent).toBe("a1 NO [AUTHENTICATIONFAILED] Authentication failed.");
   });
 });

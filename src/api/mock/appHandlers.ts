@@ -8,6 +8,9 @@ type AppCommands =
   | "list_accounts"
   | "lookup_settings"
   | "add_account"
+  | "set_shell_texts"
+  | "oauth_available"
+  | "add_account_oauth"
   | "remove_account"
   | "set_signature"
   | "sync_now"
@@ -33,12 +36,18 @@ const SAMPLE_QR =
   '<path fill="#fff" d="M1 1h5v5H1zM15 1h5v5h-5zM1 15h5v5H1z"/>' +
   '<path fill="#000" d="M2 2h3v3H2zM16 2h3v3h-3zM2 16h3v3H2z"/></svg>';
 
+const MICROSOFT_DOMAINS = ["outlook.com", "hotmail.com", "live.nl", "outlook.nl"];
+
+/** How long the mock pretends the user takes to sign in in the browser. */
+const OAUTH_WAIT_MS = 1000;
+
 function settingsFor(email: string): ServerSettings {
   const domain = email.split("@")[1]?.toLowerCase() ?? "";
   if (domain === "" || domain.startsWith("onbekend")) {
     throw mockError("VEM-LOOKUP-FIND-01", undefined, domain);
   }
-  const known = domain === "solcon.nl" || domain === "gmail.com";
+  const microsoft = MICROSOFT_DOMAINS.includes(domain);
+  const known = domain === "solcon.nl" || domain === "gmail.com" || microsoft;
   return {
     imapHost: known ? `imap.${domain}` : "mail.hosting-voorbeeld.example",
     imapPort: 993,
@@ -49,7 +58,7 @@ function settingsFor(email: string): ServerSettings {
     username: email,
     source: known ? "table" : "guess",
     needsConfirmation: !known,
-    signIn: domain === "gmail.com" ? "google" : "password",
+    signIn: domain === "gmail.com" ? "google" : microsoft ? "microsoft" : "password",
   };
 }
 
@@ -61,6 +70,24 @@ function standardFolders(accountId: string): MockFolder[] {
     ["Drafts", "drafts"],
   ] as const;
   return roles.map(([name, role]) => ({ id: `${accountId}-${role}`, accountId, name, role, path: [name] }));
+}
+
+function createAccount(store: MockStore, displayName: string, email: string): Account {
+  const account: Account = {
+    id: store.nextId("acc"),
+    displayName,
+    email,
+    kind: "imap",
+    quota: { usedKb: 120_000, limitKb: 1_000_000 },
+    signature: null,
+    lastError: null,
+  };
+  store.set((s) => ({
+    ...s,
+    accounts: [...s.accounts, account],
+    folders: [...s.folders, ...standardFolders(account.id)],
+  }));
+  return account;
 }
 
 function runImport(store: MockStore, jobId: string, label: string, size: number): void {
@@ -103,22 +130,14 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
       if (password === "fout") {
         throw mockError("VEM-IMAP-LOGIN-01", "a1 NO [AUTHENTICATIONFAILED] Authentication failed.");
       }
-      const account: Account = {
-        id: store.nextId("acc"),
-        displayName,
-        email,
-        kind: "imap",
-        quota: { usedKb: 120_000, limitKb: 1_000_000 },
-        signature: null,
-        lastError: null,
-      };
-      store.set((s) => ({
-        ...s,
-        accounts: [...s.accounts, account],
-        folders: [...s.folders, ...standardFolders(account.id)],
-      }));
-      return account;
+      return createAccount(store, displayName, email);
     },
+    set_shell_texts: () => undefined,
+    oauth_available: ({ signIn }) => signIn === "google",
+    add_account_oauth: ({ displayName, email }) =>
+      new Promise<Account>((resolve) => {
+        store.later(OAUTH_WAIT_MS, () => resolve(createAccount(store, displayName, email)));
+      }),
     remove_account: ({ accountId }) =>
       store.set((s) => ({
         ...s,

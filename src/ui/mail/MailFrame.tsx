@@ -27,6 +27,9 @@ export function buildSrcdoc(html: string, allowRemoteImages: boolean, textSize: 
   );
 }
 
+/** The only sandbox permission: links may ask for a new window, which the shell catches. */
+export const MAIL_SANDBOX = "allow-popups";
+
 interface MailFrameProps {
   html: string;
   allowRemoteImages: boolean;
@@ -34,15 +37,17 @@ interface MailFrameProps {
 }
 
 /**
- * HTML mail, only ever inside a sandboxed frame with an empty sandbox: no scripts, no same origin,
- * so the mail cannot reach the app or the Rust core. Links are caught by the shell's navigation handler.
+ * HTML mail, only ever inside a sandboxed frame. The sandbox allows popups and nothing else: no scripts,
+ * no same origin (so the mail cannot reach the app or the Rust core), and popups stay sandboxed too.
+ * The core gives every link target="_blank", so a click becomes a new-window request; the shell denies it
+ * and opens http(s) links in the system browser, or our own Write screen for mailto.
  */
 export function MailFrame({ html, allowRemoteImages, textSize }: MailFrameProps) {
   return (
     <iframe
       className="mail-frame"
       title={t("read.frameTitle")}
-      sandbox=""
+      sandbox={MAIL_SANDBOX}
       referrerPolicy="no-referrer"
       srcDoc={buildSrcdoc(html, allowRemoteImages, textSize)}
     />

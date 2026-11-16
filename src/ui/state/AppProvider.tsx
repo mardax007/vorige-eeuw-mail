@@ -12,6 +12,7 @@ import {
   type UndoNotice,
   type View,
 } from "./AppContext";
+import { sendShellTexts } from "./shellTexts";
 import { useCoreEvents } from "./useCoreEvents";
 
 /** How long the "Ongedaan maken" bar stays (docs/screens.md: about ten seconds). */
@@ -67,6 +68,10 @@ export function AppProvider({ children }: AppProviderProps) {
       showError(e);
     }
   }, [showError]);
+
+  useEffect(() => {
+    sendShellTexts();
+  }, []);
 
   useEffect(() => {
     let alive = true;
