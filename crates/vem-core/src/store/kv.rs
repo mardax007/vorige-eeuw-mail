@@ -113,6 +113,12 @@ impl Store {
         Ok(())
     }
 
+    /// Change a queued action in place (it keeps its place in the queue).
+    pub fn replace_op<T: Serialize>(&self, id: i64, op: &T) -> Result<()> {
+        self.db().execute("UPDATE pending_ops SET op_json = ?2 WHERE id = ?1", params![id, json(op)])?;
+        Ok(())
+    }
+
     pub fn op_failed(&self, id: i64) -> Result<()> {
         self.db().execute("UPDATE pending_ops SET attempts = attempts + 1 WHERE id = ?1", [id])?;
         Ok(())

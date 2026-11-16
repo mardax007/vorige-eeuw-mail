@@ -228,7 +228,9 @@ impl Sink<'_> {
                 return Ok(());
             }
         let size = raw.len() as u64;
-        if self.mailbox && self.append_limit.is_some_and(|max| size > max) {
+        // The server counts the message with CRLF line ends: a bare LF becomes two bytes.
+        let wire_size = size + bare_line_feeds(&raw);
+        if self.mailbox && self.append_limit.is_some_and(|max| wire_size > max) {
             self.report.skipped.push((path.join("/"), format!("the message is larger than the mailbox accepts ({size} bytes)")));
             return Ok(());
         }
@@ -335,6 +337,10 @@ fn open_sink<'a>(store: &'a Store, label: &str, size: u64, target: &ImportTarget
     Ok(Sink { store, account_id, mailbox, delimiter, folders: Default::default(), report: ImportReport::default(), append_limit })
 }
 
+fn bare_line_feeds(raw: &[u8]) -> u64 {
+    raw.iter().enumerate().filter(|(i, c)| **c == b'\n' && (*i == 0 || raw[i - 1] != b'\r')).count() as u64
+}
+
 /// `APPENDLIMIT=<bytes>` from the capabilities the mailbox announced at its last login.
 fn append_limit(caps: &[String]) -> Option<u64> {
     caps.iter().find_map(|c| c.to_ascii_uppercase().strip_prefix("APPENDLIMIT=").and_then(|n| n.parse().ok()))
@@ -414,8 +420,18 @@ pub fn wlm_tree(root: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped
     Ok(skipped)
 }
 
-/// A Windows Live Mail file of an IMAP folder that holds only the headers: nothing after them.
+/// A Windows Live Mail file of an IMAP folder that holds only the headers: nothing after them
+/// and no Content-Type (a real message without text still names its content type).
 fn headers_only(raw: &[u8]) -> bool {
+    let head_end = raw.windows(4).position(|w| w == b"\r\n\r\n").or_else(|| raw.windows(2).position(|w| w == b"\n\n"));
+    let head = String::from_utf8_lossy(&raw[..head_end.unwrap_or(raw.len())]).to_ascii_lowercase();
+    if head.contains("\ncontent-type:") || head.starts_with("content-type:") {
+        return false;
+    }
+    empty_body(raw)
+}
+
+fn empty_body(raw: &[u8]) -> bool {
     let body = raw
         .windows(4)
         .position(|w| w == b"\r\n\r\n")
@@ -500,11 +516,24 @@ pub fn import_vcards(store: &Store, path: &Path) -> Result<(u64, u64)> {
 fn add_contacts(store: &Store, contacts: &[pst_contact::OldContact]) -> Result<u64> {
     let mut added = 0;
     for c in contacts {
-        let mut known = false;
+        let mut known = None;
         for e in &c.emails {
-            known |= store.contact_by_email(e)?.is_some();
+            if known.is_none() {
+                known = store.contact_by_email(e)?;
+            }
         }
-        if known {
+        if let Some(existing) = known {
+            // Keep what was typed; only addresses nobody has yet are added to that person.
+            let mut missing = Vec::new();
+            for e in &c.emails {
+                if !existing.emails.contains(e) && store.contact_by_email(e)?.is_none() {
+                    missing.push(e.clone());
+                }
+            }
+            if !missing.is_empty() {
+                let emails = existing.emails.iter().cloned().chain(missing).collect();
+                store.save_contact(&crate::model::Contact { emails, ..existing })?;
+            }
             continue;
         }
         store.save_contact(&crate::model::Contact {
@@ -607,6 +636,8 @@ mod tests {
         assert_eq!(folder.unread, 0, "everything comes in as read");
         assert!(headers_only(b"Subject: x\n\n  \n"));
         assert!(!headers_only(b"Subject: x\r\n\r\nHallo"));
+        assert!(!headers_only(b"Subject: leeg\r\nContent-Type: text/plain\r\n\r\n"), "an empty mail is still a mail");
+        assert_eq!(bare_line_feeds(b"a\nb\r\nc\n"), 2);
     }
 
     #[test]
@@ -642,6 +673,15 @@ mod tests {
         let truus = s.contact_by_email("truus@voorbeeld.nl").unwrap().unwrap();
         assert_eq!(truus.phone.as_deref(), Some("06-12345678"));
         assert_eq!(add_contacts(&s, &from_pst).unwrap(), 0, "a second import adds nobody twice");
+        let more = vec![pst_contact::OldContact {
+            name: "Kees Jansen".into(),
+            emails: vec!["kees@voorbeeld.nl".into(), "kees.werk@voorbeeld.nl".into(), "truus@voorbeeld.nl".into()],
+            phone: None,
+        }];
+        assert_eq!(add_contacts(&s, &more).unwrap(), 0);
+        let kees = s.contact(&typed.id).unwrap();
+        assert_eq!(kees.name, "Kees (zelf getypt)");
+        assert_eq!(kees.emails, vec!["kees@voorbeeld.nl", "kees.werk@voorbeeld.nl"], "a new address joins; Truus's stays hers");
     }
 
     #[test]

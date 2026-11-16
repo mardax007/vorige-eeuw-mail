@@ -19,6 +19,9 @@ pub const MAX_ATTEMPTS: u32 = 5;
 pub const GMAIL_UPLOAD_PER_DAY: u64 = 500 * 1024 * 1024;
 
 const SECONDS_PER_DAY: i64 = 86_400;
+/// Google's quota day follows Pacific time, not UTC: count days from 08:00 UTC so a new day
+/// here never starts before Google's.
+const QUOTA_DAY_OFFSET: i64 = 8 * 3600;
 
 /// Bytes uploaded to one mailbox on one (UTC) day.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,16 +36,47 @@ fn upload_key(account_id: &str) -> String {
 
 /// What was uploaded to this mailbox today; a new day starts at 0.
 pub fn uploaded_today(store: &Store, account_id: &str, now: i64) -> Result<UploadDay> {
-    let today = now.div_euclid(SECONDS_PER_DAY);
+    let today = (now - QUOTA_DAY_OFFSET).div_euclid(SECONDS_PER_DAY);
     Ok(match store.kv_get::<UploadDay>(&upload_key(account_id))? {
         Some(d) if d.day == today => d,
         _ => UploadDay { day: today, bytes: 0 },
     })
 }
 
-/// Whether an upload of `size` bytes still fits in today's Gmail allowance.
+/// Whether an upload of `size` bytes still fits in today's Gmail allowance. The first upload of a
+/// day always goes, so one huge message cannot hold back the rest: the server then refuses it.
 pub fn fits_today(day: UploadDay, size: u64) -> bool {
-    day.bytes + size <= GMAIL_UPLOAD_PER_DAY
+    day.bytes == 0 || day.bytes + size <= GMAIL_UPLOAD_PER_DAY
+}
+
+/// Gmail says the daily allowance is used up: wait for tomorrow, it is not a failed attempt.
+fn over_quota(e: &crate::VemError) -> bool {
+    e.server_reply.as_deref().is_some_and(|r| {
+        let r = r.to_ascii_uppercase();
+        r.contains("OVERQUOTA") || r.contains("BANDWIDTH LIMIT")
+    })
+}
+
+/// A read or star change on a message that still waits for its upload has no server copy to
+/// change yet: put it into the upload itself, so it is not lost.
+fn fold_flags_into_uploads(store: &Store, account_id: &str) -> Result<()> {
+    let mut ops = store.ops::<Op>(account_id)?;
+    let flag_ops: Vec<(i64, Op)> = ops.iter().filter(|p| matches!(p.op, Op::Flags { .. })).map(|p| (p.id, p.op.clone())).collect();
+    for (flag_id, op) in flag_ops {
+        let Op::Flags { message_id, seen, flagged } = op else { continue };
+        if store.message(message_id).map(|m| m.uid.is_some()).unwrap_or(true) {
+            continue;
+        }
+        let Some(upload) = ops.iter_mut().find(|a| matches!(a.op, Op::Append { message_id: m, .. } if m == message_id)) else {
+            continue;
+        };
+        let Op::Append { folder, seen: s0, flagged: f0, .. } = upload.op.clone() else { continue };
+        let merged = Op::Append { message_id, folder, seen: seen.unwrap_or(s0), flagged: flagged.unwrap_or(f0) };
+        store.replace_op(upload.id, &merged)?;
+        upload.op = merged;
+        store.op_done(flag_id)?;
+    }
+    Ok(())
 }
 
 /// The server refused the message as too big (`[TOOBIG]`, RFC 4469): trying again cannot help.
@@ -101,6 +135,7 @@ pub async fn apply_pending(store: &Store, imap: &mut Imap, account_id: &str) -> 
     let gmail = imap.is_gmail();
     let mut today = uploaded_today(store, account_id, t)?;
     let mut paused = false;
+    fold_flags_into_uploads(store, account_id)?;
     for p in store.ops::<Op>(account_id)? {
         if !p.op.due(t) {
             continue;
@@ -125,6 +160,10 @@ pub async fn apply_pending(store: &Store, imap: &mut Imap, account_id: &str) -> 
                 }
             }
             Err(e) if e.code().is_some_and(|c| c == crate::Code::ImapCmd02) => return Err(e),
+            Err(e) if gmail && upload > 0 && over_quota(&e) => {
+                crate::log::event("upload.over_quota", &[("bytes_today", &today.bytes.to_string())]);
+                paused = true;
+            }
             Err(e) if too_big(&e) => {
                 crate::log::event("upload.too_big", &[("bytes", &upload.to_string())]);
                 store.op_done(p.id)?;
@@ -214,6 +253,41 @@ mod tests {
         assert!(!fits_today(d, 11));
         assert_eq!(uploaded_today(&s, "a", day1 + SECONDS_PER_DAY).unwrap().bytes, 0);
         assert_eq!(uploaded_today(&s, "b", day1).unwrap().bytes, 0, "per mailbox");
+    }
+
+    #[test]
+    fn first_upload_of_a_day_always_goes() {
+        assert!(fits_today(UploadDay { day: 1, bytes: 0 }, GMAIL_UPLOAD_PER_DAY + 1));
+        assert!(!fits_today(UploadDay { day: 1, bytes: 1 }, GMAIL_UPLOAD_PER_DAY));
+    }
+
+    #[test]
+    fn quota_day_starts_at_eight_utc() {
+        let (_d, s) = crate::store::testutil::store();
+        let midnight = 20_000 * SECONDS_PER_DAY;
+        let before = uploaded_today(&s, "a", midnight + 7 * 3600).unwrap().day;
+        let after = uploaded_today(&s, "a", midnight + 9 * 3600).unwrap().day;
+        assert_eq!(after, before + 1);
+        let e = crate::VemError::new(crate::Code::ImapCmd01).with_reply("a7 NO [OVERQUOTA] Account exceeded command or bandwidth limits.");
+        assert!(over_quota(&e));
+    }
+
+    #[test]
+    fn reading_a_message_that_waits_for_upload_changes_the_upload() {
+        let (_d, s) = crate::store::testutil::store();
+        let a = s.add_account("J", "j@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        let f = s.upsert_folder(&a.id, "INBOX", Some("/"), Some(crate::model::FolderRole::Inbox), true).unwrap();
+        let raw = b"Subject: x\r\n\r\ny\r\n".to_vec();
+        let m = s
+            .insert_message(&crate::store::NewMessage { account_id: a.id.clone(), folder_id: f, raw, has_body: true, unread: true, ..Default::default() })
+            .unwrap();
+        s.push_op(&a.id, &Op::Append { message_id: m, folder: f, seen: false, flagged: false }).unwrap();
+        s.push_op(&a.id, &Op::Flags { message_id: m, seen: Some(true), flagged: None }).unwrap();
+        s.push_op(&a.id, &Op::Flags { message_id: m, seen: None, flagged: Some(true) }).unwrap();
+        fold_flags_into_uploads(&s, &a.id).unwrap();
+        let ops = s.ops::<Op>(&a.id).unwrap();
+        assert_eq!(ops.len(), 1);
+        assert_eq!(ops[0].op, Op::Append { message_id: m, folder: f, seen: true, flagged: true });
     }
 
     #[test]

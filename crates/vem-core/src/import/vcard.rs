@@ -95,7 +95,9 @@ fn unfold(text: &str) -> Vec<String> {
     let mut soft_break = false;
     for raw in text.split('\n') {
         let line = raw.strip_suffix('\r').unwrap_or(raw);
-        if soft_break && let Some(last) = out.last_mut() {
+        let upper = line.to_ascii_uppercase();
+        let card_edge = upper.starts_with("BEGIN:") || upper.starts_with("END:");
+        if soft_break && !card_edge && let Some(last) = out.last_mut() {
             last.push_str(line);
         } else if (line.starts_with(' ') || line.starts_with('\t')) && let Some(last) = out.last_mut() {
             last.push_str(&line[1..]);
@@ -131,6 +133,8 @@ fn quoted_printable(value: &str) -> Vec<u8> {
     while i < b.len() {
         if b[i] == b'='
             && i + 2 < b.len()
+            && b[i + 1].is_ascii_hexdigit()
+            && b[i + 2].is_ascii_hexdigit()
             && let Some(v) = std::str::from_utf8(&b[i + 1..i + 3]).ok().and_then(|h| u8::from_str_radix(h, 16).ok())
         {
             out.push(v);
@@ -190,6 +194,9 @@ mod tests {
     fn quoted_printable_soft_line_breaks_and_windows_1252_files() {
         let text = "BEGIN:VCARD\r\nFN;ENCODING=QUOTED-PRINTABLE:Ren=C3=A9e van=\r\n der Berg\r\nEMAIL:renee@x.nl\r\nEND:VCARD\r\n";
         assert_eq!(parse(text.as_bytes())[0].name, "Renée van der Berg");
+        let cut = "BEGIN:VCARD\r\nFN;ENCODING=QUOTED-PRINTABLE:Half=\r\nEND:VCARD\r\nBEGIN:VCARD\r\nFN:Heel\r\nEMAIL:heel@x.nl\r\nEND:VCARD\r\n";
+        assert_eq!(parse(cut.as_bytes()).len(), 1, "a broken card does not swallow the next one");
+        assert_eq!(quoted_printable("=+1"), b"=+1");
         let latin = b"BEGIN:VCARD\r\nFN:Ren\xe9e\r\nEMAIL:renee@x.nl\r\nEND:VCARD\r\n";
         assert_eq!(parse(latin)[0].name, "Renée");
     }
