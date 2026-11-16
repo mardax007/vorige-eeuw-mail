@@ -1,0 +1,45 @@
+# Rust / Tauri
+target/
+
+# Node
+node_modules/
+dist/
+
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.jks
+*.keystore
+keystore.properties
+client_secret*.json
+*.pfx
+*.p12
+
+# Real mail and mail stores
+*.pst
+*.ost
+*.dbx
+*.MSMessageStore
+*.edb
+*.eml
+*.mbox
+*.vcf
+testdata/real/
+# Generated, made-up samples may be committed, only from here:
+!testdata/samples/**
+
+# Local app data
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Tool caches
+.ruff_cache/
