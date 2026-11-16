@@ -195,6 +195,27 @@ impl Engine {
         Ok(account)
     }
 
+    /// A new password or a fresh Google/Microsoft sign-in for an existing mailbox. It is tried
+    /// against both servers first; only then is it saved and the mailbox reconnected.
+    pub async fn update_secret(self: &Arc<Self>, account_id: &str, secret: Secret) -> Result<()> {
+        let account = self.store.account(account_id)?;
+        let settings = account.settings.clone().ok_or_else(|| VemError::new(Code::StoreSecret01).with_detail("settings"))?;
+        let auth = match &secret {
+            Secret::Password { password } => Auth::Password(password.clone()),
+            Secret::OAuth { access_token, .. } => Auth::OAuth(access_token.clone()),
+            Secret::SyncKey { .. } => return Err(VemError::new(Code::AppCmd01)),
+        };
+        let imap = Imap::connect(&Self::imap_config(&settings, auth.clone(), self.trust)).await?;
+        imap.logout().await;
+        smtp::check_login(&Self::smtp_config(&settings, auth, self.trust)).await?;
+        self.secrets.put(account_id, &secret)?;
+        log::event("account.secret_updated", &[("account", account_id)]);
+        self.stop_account(account_id);
+        self.start_account(account_id);
+        self.sink.sync_state(account_id, false, None);
+        Ok(())
+    }
+
     pub fn remove_account(&self, account_id: &str) -> Result<()> {
         self.stop_account(account_id);
         self.secrets.delete(account_id)?;

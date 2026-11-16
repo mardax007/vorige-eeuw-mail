@@ -93,10 +93,46 @@ async fn add_account(
 /// "Inloggen met Google / Microsoft": the browser opens, the user signs in there.
 #[tauri::command]
 async fn add_account_oauth(app: AppHandle, state: State<'_, AppState>, display_name: String, email: String, settings: ServerSettings, done_page: String) -> R<Account> {
-    let pending = vem_core::oauth::begin(settings.sign_in, &email).await?;
-    app.opener().open_url(&pending.url, None::<&str>).map_err(|e| app_error(e.to_string()))?;
-    let secret = pending.finish(std::time::Duration::from_secs(300), &done_page).await?;
+    let secret = oauth_secret(&app, &state, settings.sign_in, &email, &done_page).await?;
     state.engine.add_account(&display_name, &email, secret, settings).await
+}
+
+/// Opens the browser for Google or Microsoft and waits for the sign-in, at most five minutes,
+/// or until "Stoppen" (`cancel_sign_in`).
+async fn oauth_secret(app: &AppHandle, state: &AppState, sign_in: SignIn, email: &str, done_page: &str) -> R<vem_core::secrets::Secret> {
+    let pending = vem_core::oauth::begin(sign_in, email).await?;
+    let stop = Arc::new(tokio::sync::Notify::new());
+    *state.sign_in_cancel.lock().unwrap_or_else(|e| e.into_inner()) = Some(stop.clone());
+    app.opener().open_url(&pending.url, None::<&str>).map_err(|e| app_error(e.to_string()))?;
+    let result = tokio::select! {
+        r = pending.finish(std::time::Duration::from_secs(300), done_page) => r,
+        _ = stop.notified() => Err(VemError::new(Code::AuthLogin01).with_detail("stopped")),
+    };
+    *state.sign_in_cancel.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    result
+}
+
+/// "Stoppen" while the browser sign-in is open.
+#[tauri::command]
+fn cancel_sign_in(state: State<'_, AppState>) {
+    if let Some(stop) = state.sign_in_cancel.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        stop.notify_one();
+    }
+}
+
+/// A new password for an existing mailbox (after it was changed at the provider).
+#[tauri::command]
+async fn update_password(state: State<'_, AppState>, account_id: String, password: String) -> R<()> {
+    state.engine.update_secret(&account_id, vem_core::secrets::Secret::Password { password }).await
+}
+
+/// "Opnieuw inloggen" for a Google or Microsoft mailbox.
+#[tauri::command]
+async fn reauth_account(app: AppHandle, state: State<'_, AppState>, account_id: String, done_page: String) -> R<()> {
+    let account = state.engine.store.account(&account_id)?;
+    let sign_in = account.settings.as_ref().map(|s| s.sign_in).ok_or_else(|| VemError::new(Code::StoreSecret01).with_detail("settings"))?;
+    let secret = oauth_secret(&app, &state, sign_in, &account.email, &done_page).await?;
+    state.engine.update_secret(&account_id, secret).await
 }
 
 #[tauri::command]
@@ -597,6 +633,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         find_import_sources,
         pick_import_file,
         start_import,
+        cancel_sign_in,
+        update_password,
+        reauth_account,
         import_from_account,
         list_originals,
         delete_original,

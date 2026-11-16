@@ -236,3 +236,19 @@ async fn mailbox_import_copies_mail_with_state_into_another_mailbox() {
     assert!(!second.seen && !second.flagged, "unread stays unread");
     assert!(!String::from_utf8_lossy(&first.raw).contains("X-VEM-Import-Status"));
 }
+
+/// A new password is tried before it is saved: a wrong one changes nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn new_password_is_checked_before_it_is_saved() {
+    if !server_up() {
+        return;
+    }
+    let d = tempfile::tempdir().unwrap();
+    let (e, _) = engine(d.path());
+    let pw = |p: &str| Secret::Password { password: p.into() };
+    let a = e.add_account("Jan", "jan@example.test", pw("geheim"), settings("jan@example.test")).await.unwrap();
+    let err = e.update_secret(&a.id, pw("fout")).await.unwrap_err();
+    assert_eq!(err.code, "VEM-IMAP-LOGIN-01");
+    assert!(matches!(e.secrets.get(&a.id).unwrap(), Some(Secret::Password { password }) if password == "geheim"));
+    e.update_secret(&a.id, pw("geheim")).await.unwrap();
+}

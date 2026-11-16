@@ -24,6 +24,8 @@ pub struct AppState {
     /// When the Write screen last saved a draft: an update waits while someone is writing.
     pub last_draft_save: AtomicI64,
     pub texts: Mutex<shell::ShellTexts>,
+    /// Stops a browser sign-in that is waiting ("Stoppen").
+    pub sign_in_cancel: Mutex<Option<Arc<tokio::sync::Notify>>>,
 }
 
 /// Started by Windows at sign-in (autostart): stay next to the clock, no window.
@@ -53,6 +55,7 @@ pub fn run() {
                 imports: Mutex::new(HashMap::new()),
                 last_draft_save: AtomicI64::new(0),
                 texts: Mutex::new(shell::ShellTexts::default()),
+                sign_in_cancel: Mutex::new(None),
             });
             tauri::async_runtime::block_on(async { engine.start() }).map_err(|e| format!("{e:?}"))?;
             let hidden = std::env::args().any(|a| a == HIDDEN_ARG);
