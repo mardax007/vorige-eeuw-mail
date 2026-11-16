@@ -50,3 +50,6 @@ dist-ssr
 *.local
 *.log
 .serena/
+
+# No iPhone version: tauri icon makes these anyway
+src-tauri/icons/ios/
