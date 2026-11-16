@@ -120,8 +120,9 @@ export const api = {
   findImportSources: () => call("find_import_sources", undefined),
   pickImportFile: (kind: ImportKind) => call("pick_import_file", { kind }),
   importContactsFile: (folder: boolean) => call("import_contacts_file", { folder }),
-  startImport: (source: ImportSource, target: ImportTarget, password: string | null = null) =>
-    call("start_import", { source, target, password }),
+  startImport: (source: ImportSource, target: ImportTarget, password: string | null = null, rescue = false) =>
+    call("start_import", { source, target, password, rescue }),
+  rescueAvailable: () => call("rescue_available", undefined),
   importFromAccount: (sourceAccountId: string, target: ImportTarget) =>
     call("import_from_account", { sourceAccountId, target }),
   importStatus: () => call("import_status", undefined),

@@ -70,6 +70,8 @@ function AccountSources({ mail, choice, onChoose, onAddAccount }: AccountSources
 }
 
 const WRONG_PASSWORD = "VEM-IMPORT-READ-05";
+/** The normal reader could not read the file: the rescue tool may still. */
+const UNREADABLE = "VEM-IMPORT-READ-01";
 
 /** "Oude mail ophalen": choose a file, folder or old mailbox, choose where it goes, watch it come in. */
 export function ImportView() {
@@ -82,6 +84,8 @@ export function ImportView() {
   const [targetKind, setTargetKind] = useState<"local" | "mailbox">("local");
   const [accountId, setAccountId] = useState(mail[0]?.id ?? "");
   const [isStarting, setIsStarting] = useState(false);
+  const [canRescue, setCanRescue] = useState(false);
+  const [rescueTried, setRescueTried] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
   const job = useImportProgress(() => {
     setDoneCount((n) => n + 1);
@@ -92,11 +96,13 @@ export function ImportView() {
     setChoiceState(next);
     setPassword("");
     setPasswordProblem(null);
+    setRescueTried(false);
   };
   const needsPassword = choice?.kind === "file" && choice.source.protected === true;
 
   useEffect(() => {
     api.findImportSources().then(setSources).catch(showError);
+    api.rescueAvailable().then(setCanRescue).catch(() => setCanRescue(false));
   }, [showError]);
 
   // The old mailbox itself is never offered as the place to put its mail.
@@ -114,14 +120,15 @@ export function ImportView() {
     }
   };
 
-  const start = async () => {
+  const start = async (rescue = false) => {
     if (!choice || job.isRunning || isStarting) return;
     const target: ImportTarget = effectiveKind === "mailbox" ? { kind: "mailbox", accountId: targetId } : { kind: "local" };
     setIsStarting(true);
+    if (rescue) setRescueTried(true);
     try {
       const jobId =
         choice.kind === "file"
-          ? await api.startImport(choice.source, target, needsPassword ? password : null)
+          ? await api.startImport(choice.source, target, needsPassword ? password : null, rescue)
           : await api.importFromAccount(choice.accountId, target);
       setPasswordProblem(null);
       job.begin(jobId);
@@ -139,6 +146,15 @@ export function ImportView() {
       setIsStarting(false);
     }
   };
+
+  const offerRescue =
+    canRescue &&
+    !job.isRunning &&
+    choice?.kind === "file" &&
+    choice.source.kind === "pst" &&
+    job.progress?.finished === true &&
+    job.progress.error?.code === UNREADABLE &&
+    !rescueTried;
 
   return (
     <section className="page import">
@@ -213,13 +229,21 @@ export function ImportView() {
 
       <div className="button-row">
         <button type="button" className="primary" disabled={!choice || job.isRunning || isStarting || (needsPassword && password === "")}
-          onClick={start}
+          onClick={() => void start()}
         >
           {t("import.start")}
         </button>
       </div>
 
       {job.progress && <ImportProgressView progress={job.progress} />}
+      {offerRescue && (
+        <div className="button-row">
+          <p className="calm-line">{t("import.rescue.text")}</p>
+          <button type="button" disabled={isStarting} onClick={() => void start(true)}>
+            {t("import.rescue.button")}
+          </button>
+        </div>
+      )}
 
       <ContactsFromLiveMail />
 

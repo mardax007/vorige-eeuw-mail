@@ -1,5 +1,5 @@
 import type { CommandHandlers } from "../commands";
-import type { ImportProgress, ImportSkip } from "../types";
+import type { ImportProgress, ImportSkip, VemError } from "../types";
 import type { MockStore } from "./state";
 import { mockError } from "./state";
 
@@ -8,6 +8,7 @@ type ImportCommands =
   | "pick_import_file"
   | "import_contacts_file"
   | "start_import"
+  | "rescue_available"
   | "import_from_account"
   | "import_status"
   | "list_originals"
@@ -25,6 +26,9 @@ interface ImportRun {
   alreadyThere: number;
   contactsAdded?: number;
   allMarkedRead?: boolean;
+  rescued?: boolean;
+  /** The import stops at once with this error (a damaged file). */
+  error?: VemError;
   skipped: ImportSkip[];
   /** Set for a file import: the kept copy that shows under Originele bestanden. */
   original?: { label: string; size: number };
@@ -36,6 +40,13 @@ function report(store: MockStore, progress: ImportProgress): void {
 }
 
 function runImport(store: MockStore, jobId: string, run: ImportRun): void {
+  if (run.error) {
+    const error = run.error;
+    store.later(IMPORT_START_MS, () =>
+      report(store, { jobId, done: 0, total: null, currentFolder: null, finished: true, error, alreadyThere: 0, skipped: [] }),
+    );
+    return;
+  }
   const step = (done: number) => {
     const finished = done >= IMPORT_TOTAL;
     report(store, {
@@ -48,6 +59,7 @@ function runImport(store: MockStore, jobId: string, run: ImportRun): void {
       alreadyThere: finished ? run.alreadyThere : 0,
       contactsAdded: finished ? (run.contactsAdded ?? 0) : 0,
       allMarkedRead: finished && (run.allMarkedRead ?? false),
+      rescued: finished && (run.rescued ?? false),
       skipped: finished ? run.skipped : [],
     });
     if (finished) {
@@ -113,12 +125,17 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
       size: 52_428_800,
       label: `oud.${kind}`,
     }),
-    start_import: ({ source, password }) => {
+    rescue_available: () => true,
+    start_import: ({ source, password, rescue }) => {
       // The mock's protected file opens with "geheim" (made-up test value).
       if (source.protected && password !== "geheim") {
         throw mockError("VEM-IMPORT-READ-05", undefined, password ? "wrong" : "missing");
       }
+      // The mock's damaged file: the normal reader stops, the rescue tool reads it.
+      const damaged = source.label === "Kapot.pst" && !rescue;
       return startJob(store, {
+        error: damaged ? mockError("VEM-IMPORT-READ-01", undefined, "PST cannot be read: invalid block") : undefined,
+        rescued: rescue,
         folders: ["Postvak IN", "Verzonden items"],
         alreadyThere: 0,
         contactsAdded: source.kind === "pst" ? 3 : 0,

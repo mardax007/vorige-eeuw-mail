@@ -87,7 +87,7 @@ describe("an Outlook file with a password", () => {
     await user.type(field, "geheim");
     expect(field.getAttribute("aria-invalid")).toBeNull();
     await user.click(start);
-    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ label: "Archief 2012.pst" }), { kind: "local" }, "geheim");
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ label: "Archief 2012.pst" }), { kind: "local" }, "geheim", false);
     expect(await screen.findByText(/^Klaar\./, undefined, { timeout: 5000 })).toBeTruthy();
   });
 
@@ -96,6 +96,23 @@ describe("an Outlook file with a password", () => {
     await user.click(within(accountRow(/^Outlook\.pst/)).getByRole("button", { name: "Kiezen" }));
     expect(screen.queryByLabelText("Wachtwoord van het Outlook-bestand")).toBeNull();
     expect((screen.getByRole("button", { name: "Ophalen" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("a damaged Outlook file", () => {
+  it("offers the other way of reading once, and says read state may be lost", async () => {
+    vi.spyOn(api, "pickImportFile").mockResolvedValue({ kind: "pst", path: "C:\\oud\\Kapot.pst", size: 1000, label: "Kapot.pst" });
+    const spy = vi.spyOn(api, "startImport");
+    const user = await openImport();
+    await user.click(screen.getByRole("button", { name: "Outlook-bestand" }));
+    await user.click(screen.getByRole("button", { name: "Ophalen" }));
+    const again = await screen.findByRole("button", { name: "Op een andere manier proberen" }, { timeout: 5000 });
+    expect(screen.getByText(/Wat u al gelezen had, wordt daarbij misschien niet bewaard/)).toBeTruthy();
+    await user.click(again);
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ label: "Kapot.pst" }), { kind: "local" }, null, true);
+    expect(await screen.findByText(/^Klaar\./, undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByText(/Dit bestand is op een andere manier gelezen/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Op een andere manier proberen" })).toBeNull();
   });
 });
 

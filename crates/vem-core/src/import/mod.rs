@@ -19,6 +19,7 @@ pub mod meta;
 pub mod mbox;
 pub mod pst;
 mod pst_contact;
+pub mod rescue;
 pub mod vcard;
 mod rtf;
 
@@ -38,6 +39,8 @@ pub struct ImportReport {
     pub contacts: u64,
     /// The source keeps no read state we can read (Windows Live Mail): everything came in as read.
     pub all_marked_read: bool,
+    /// Read with the rescue tool: what was read and what not may be lost.
+    pub rescued: bool,
     pub skipped: Vec<(String, String)>,
 }
 
@@ -300,6 +303,35 @@ pub fn run(
     progress: &dyn Fn(ImportProgress),
     cancel: &AtomicBool,
 ) -> Result<ImportReport> {
+    run_inner(store, job_id, source, target, progress, cancel, None)
+}
+
+/// The same import of a PST, read with the rescue tool instead (phase 3 task 5). Messages that
+/// came in before are recognised by their Message-ID and not added twice.
+pub fn run_rescue(
+    store: &Store,
+    job_id: &str,
+    source: &ImportSource,
+    target: &ImportTarget,
+    progress: &dyn Fn(ImportProgress),
+    cancel: &AtomicBool,
+    tool: &Path,
+) -> Result<ImportReport> {
+    if source.kind != ImportKind::Pst {
+        return Err(VemError::new(Code::ImportRead03).with_detail("rescue is for PST files"));
+    }
+    run_inner(store, job_id, source, target, progress, cancel, Some(tool))
+}
+
+fn run_inner(
+    store: &Store,
+    job_id: &str,
+    source: &ImportSource,
+    target: &ImportTarget,
+    progress: &dyn Fn(ImportProgress),
+    cancel: &AtomicBool,
+    rescue_tool: Option<&Path>,
+) -> Result<ImportReport> {
     let src = PathBuf::from(&source.path);
     if !src.exists() {
         return Err(VemError::new(Code::ImportRead01).with_detail("missing"));
@@ -317,13 +349,25 @@ pub fn run(
             ImportKind::Eml => eml_tree(&copy, emit),
             ImportKind::Wlm => wlm_tree(&copy, emit),
             ImportKind::Mbox => mbox::read_path(&copy, emit),
-            ImportKind::Pst => read_pst(store, &copy, emit, &contacts),
+            ImportKind::Pst => match rescue_tool {
+                Some(tool) => read_rescued(store, tool, &copy, job_id, emit),
+                None => read_pst(store, &copy, emit, &contacts),
+            },
             ImportKind::Dbx => read_dbx_tree(&copy, emit),
         }))
         .unwrap_or_else(|_| Err("the file is damaged: the reader stopped".into()))
     })?;
     let all_marked_read = source.kind == ImportKind::Wlm && report.added > 0;
-    Ok(ImportReport { contacts: contacts.get(), all_marked_read, ..report })
+    Ok(ImportReport { contacts: contacts.get(), all_marked_read, rescued: rescue_tool.is_some(), ..report })
+}
+
+/// Rescue mode: the tool writes `.eml` files into our own scratch folder, which is read and
+/// then removed. The scratch folder is ours alone; the original and its copy stay as they are.
+fn read_rescued(store: &Store, tool: &Path, pst: &Path, job_id: &str, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    let out = store.root().join("rescue").join(job_id);
+    let result = rescue::convert(tool, pst, &out).and_then(|()| eml_tree(&out, emit));
+    let _ = std::fs::remove_dir_all(&out);
+    result
 }
 
 /// Enough room on this disk for the copy of the original and the converted mail.
@@ -590,6 +634,32 @@ mod tests {
         let e = source_for(Path::new("C:/Users/oma/outlook.OST")).unwrap_err();
         assert_eq!(e.code, "VEM-IMPORT-READ-04");
         assert!(source_for(Path::new("C:/oud/archief.pst")).is_ok());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rescue_mode_imports_what_the_tool_wrote_and_cleans_up() {
+        let (_d, s) = store();
+        let src = tempfile::tempdir().unwrap();
+        let pst = src.path().join("Kapot.pst");
+        std::fs::write(&pst, b"not really a pst").unwrap();
+        // A stand-in for readpst: the output folder is its 8th argument.
+        let tool = src.path().join("readpst.cmd");
+        std::fs::write(
+            &tool,
+            concat!(
+                "@echo off\r\n",
+                "mkdir \"%~8\\Postvak IN\"\r\n",
+                "(echo Subject: gered& echo Message-ID: ^<r1@x^>& echo.& echo hallo) > \"%~8\\Postvak IN\\1.eml\"\r\n",
+            ),
+        )
+        .unwrap();
+        let source = source_for(&pst).unwrap();
+        let r = run_rescue(&s, "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false), &tool).unwrap();
+        assert_eq!(r.added, 1);
+        assert!(r.rescued);
+        assert!(!s.root().join("rescue").join("j").exists(), "the scratch folder is removed");
+        assert_eq!(std::fs::read(&pst).unwrap(), b"not really a pst", "the original is not changed");
     }
 
     #[test]

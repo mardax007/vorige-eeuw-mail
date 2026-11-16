@@ -215,6 +215,8 @@ export interface ImportProgress {
   contactsAdded?: number;
   /** Windows Live Mail: its read state is not known, so every message came in as read. */
   allMarkedRead?: boolean;
+  /** Read with the rescue tool for damaged Outlook files: read state may be lost. */
+  rescued?: boolean;
   /** Filled only in the final event (finished = true). */
   skipped: ImportSkip[];
 }

@@ -335,6 +335,8 @@ pub struct ImportProgress {
     pub contacts_added: u64,
     /// Only in the last event: the source keeps no read state we can read, so all came in as read.
     pub all_marked_read: bool,
+    /// Only in the last event: read with the rescue tool, so read state may be lost.
+    pub rescued: bool,
     /// Only in the last event: what was left out, by folder, with a short technical reason
     /// (shown under "Details" and in the saved list, like a server reply).
     pub skipped: Vec<ImportSkip>,

@@ -476,12 +476,30 @@ async fn import_contacts_file(app: AppHandle, state: State<'_, AppState>, folder
 }
 
 #[tauri::command]
-fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource, target: ImportTarget, password: Option<String>) -> R<String> {
+fn start_import(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    source: ImportSource,
+    target: ImportTarget,
+    password: Option<String>,
+    rescue: Option<bool>,
+) -> R<String> {
     // Checked before the job starts, so a wrong password is answered at once on the same screen.
     import::check_password(&source, password.as_deref())?;
-    spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
-        import::run(&engine.store, job, &source, &target, emit, cancel)
+    let tool = match rescue {
+        Some(true) => Some(import::rescue::tool().ok_or_else(|| app_error("the rescue tool is not installed"))?),
+        _ => None,
+    };
+    spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| match &tool {
+        Some(tool) => import::run_rescue(&engine.store, job, &source, &target, emit, cancel, tool),
+        None => import::run(&engine.store, job, &source, &target, emit, cancel),
     })
+}
+
+/// Whether the rescue tool for damaged PST files was installed with the app.
+#[tauri::command]
+fn rescue_available() -> bool {
+    import::rescue::tool().is_some()
 }
 
 /// "Uit een ander postvak": download the old mailbox's mail (read-only), then copy it.
@@ -538,6 +556,7 @@ fn spawn_import(
             already_there: report.already_there,
             contacts_added: report.contacts,
             all_marked_read: report.all_marked_read,
+            rescued: report.rescued,
             skipped,
             ..Default::default()
         });
@@ -696,6 +715,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         pick_import_file,
         import_contacts_file,
         start_import,
+        rescue_available,
         phone_paired,
         import_status,
         cancel_sign_in,
