@@ -43,3 +43,9 @@ Thumbs.db
 
 # Tool caches
 .ruff_cache/
+
+# Tauri generated
+src-tauri/gen/schemas
+dist-ssr
+*.local
+*.log
