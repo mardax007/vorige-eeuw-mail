@@ -21,8 +21,8 @@ Claude Code updates this file at the end of every session.
 
 ## State of the folder
 
-- Code: `crates/vem-core` (mail logic, 125 unit tests plus GreenMail end-to-end tests),
-  `src-tauri` (the shell, 3 tests), `src` (screens, 121 tests), `.github/workflows` (tests, draft release).
+- Code: `crates/vem-core` (mail logic, 132 unit tests plus GreenMail end-to-end tests),
+  `src-tauri` (the shell, 3 tests), `src` (screens, 122 tests), `.github/workflows` (tests, draft release).
   Commands are in `CLAUDE.md`.
 - `npm run tauri build` makes `Vorige Eeuw Mail_0.1.0_x64-setup.exe` (5.8 MB, per user). The built
   app starts and shows the Dutch first-run screen.
@@ -45,7 +45,8 @@ original files, read state, star and tags, into a local account or the mailbox; 
 another added mailbox (read-only; skips Verwijderde items, Ongewenste e-mail, Concepten and
 Postvak UIT); Outlook contacts from a PST into the address book; uploads into a mailbox honour
 `APPENDLIMIT` and `[TOOBIG]`, and stop at 500 MB a day for Gmail; Windows Live Mail headers-only
-messages are listed and the screen says its mail came in as read; a new password or "Opnieuw inloggen" per mailbox in Instellingen; mbox export;
+messages are listed and the screen says its mail came in as read; Live Mail contacts through its
+business-card (.vcf) export, explained in four steps on the Import page; a new password or "Opnieuw inloggen" per mailbox in Instellingen; mbox export;
 contacts to the phone (QR pairing, encrypted message in the mailbox; the phone side is phase 5).
 
 ### Not built yet (open items)
@@ -54,7 +55,6 @@ contacts to the phone (QR pairing, encrypted message in the mailbox; the phone s
   `esent.dll` on a copy). Needs a real Live Mail store to build against; until then the import uses
   the folder names on disk and marks all mail read, as phase 3 task 6 allows.
 - PST: password-protected PST; rescue mode with `readpst` (licence check).
-- Live Mail contacts through its vCard export, with one screen that explains it.
 - The MX/SRV step of the settings lookup.
 - Help pages published through GitHub Pages (generated in `docs/help/`, `node scripts/help-pages.mjs`).
 
@@ -75,6 +75,7 @@ the updater with a signed release, notifications from an installed build, the re
 | 2026-11-16 | Phases 1–4 built: Rust core (IMAP, own SMTP client, sync, search, actions, import of PST/DBX/EML/WLM/mbox, reports, contact sync, OAuth), Tauri shell (tray, notifications, autostart, updates), screens in Dutch, CI and release workflows, icon, docs (release, install, help pages, error registry). Installer builds and the app starts | Folder lists needed `id` in their indexes (169 ms to 0.2 ms). `outlook-pst` opens files for writing and can panic, so we open read-only and unwind. GreenMail has no Sent folder. IDLE needs its stop handle kept alive | Martijn's items above; open build items; phase 5 |
 | 2026-11-16 | Mailbox-to-mailbox import (GreenMail test); new password and re-sign-in per mailbox; one import at a time, its status kept for the screens; the core sends each mailbox's sign-in type. UX review of all screens (ux-engine) with every finding fixed: the send bar follows the real outbox state, load and open errors no longer look like empty lists, Sluiten keeps a draft that did not save, no double send, sync errors on Alle postvakken, address problems under their field, copy feedback per button, import progress survives leaving the page, Quick Assist text corrected. Contactpersonen moved to the top bar, Afsluiten to the bottom of Instellingen. A code review of the screen changes followed | Quick Assist works the other way round from what the help said: the helper gives the code. A failed list load showed "no messages", which reads as lost mail | Martijn's items above; open build items; phase 5 |
 | 2026-11-16 | Unread count on the taskbar icon (drawn overlay, Windows has no badge for desktop apps); a notification about one message opens it. Import uploads honour APPENDLIMIT and TOOBIG and stop at 500 MB a day for Gmail. PST contacts into the address book without overwriting typed ones. Live Mail: headers-only messages listed, and the screen says all came in as read | `outlook-pst` 1.2.0 resolves named-property GUIDs at the wrong offset (it adds 3 twice), so contact e-mail fields are matched by their number only. Windows reports a notification click only while the toast is on screen | Martijn's items above; a real Live Mail store for the ESE reader; phase 5 |
+| 2026-11-16 | Live Mail contacts through its .vcf export (one screen, four steps). Code review of the upload limits and imports, all findings fixed: a read or star change on a message waiting for upload goes into the upload, the first upload of a day always goes, Gmail's quota day counted from 08:00 UTC, OVERQUOTA pauses uploads, APPENDLIMIT uses the CRLF size, an empty Live Mail message with a Content-Type is kept, a known contact gets new addresses, a broken vCard line cannot swallow the next card | Gmail's daily upload count follows Pacific time. A queued flag change on a not-yet-uploaded message had nowhere to go and was silently dropped | Martijn's items above; a real Live Mail store for the ESE reader; phase 5 |
 
 ## Ideas parked
 
