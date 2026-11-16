@@ -49,8 +49,11 @@ pub fn spawn(app: AppHandle) {
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
             check_log_requests(&app).await;
-            if let Err(e) = check_update(&app).await {
-                vem_core::log::event("update.failed", &[("detail", &e)]);
+            if let Err(detail) = check_update(&app).await {
+                // A failed update goes to Martijn like any other error (docs/errors.md).
+                let e = vem_core::VemError::new(vem_core::error::Code::UpdateCmd01).with_detail(detail);
+                vem_core::log::error("update.failed", &e);
+                app.state::<AppState>().engine.report(None, &e).await;
             }
             tokio::time::sleep(CHECK_EVERY).await;
         }

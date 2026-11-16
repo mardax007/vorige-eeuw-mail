@@ -400,7 +400,7 @@ impl Engine {
                     size: built.raw.len() as u64,
                     fallback_date: Some(now()),
                 })?;
-                self.store.push_op(&account.id, &Op::Append { message_id: id, folder: sent, seen: true })?;
+                self.store.push_op(&account.id, &Op::Append { message_id: id, folder: sent, seen: true, flagged: false })?;
                 self.sink.mail_changed(&account.id, Some(sent.to_string()));
                 self.wake(Some(&account.id));
             }

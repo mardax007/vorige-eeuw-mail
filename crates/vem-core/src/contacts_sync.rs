@@ -147,7 +147,7 @@ pub async fn sync(store: &Store, secrets: &Secrets, imap: &mut Imap, account_id:
         }
     }
     let sealed = seal(&k, store.contacts_for_sync()?)?;
-    imap.append(FOLDER, true, &message(&email, &sealed)?).await?;
+    imap.append(FOLDER, true, false, &message(&email, &sealed)?).await?;
     if !ours.is_empty() {
         imap.open(FOLDER, false).await?;
         imap.expunge_uids(&ours).await?;

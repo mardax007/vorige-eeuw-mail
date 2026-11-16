@@ -406,9 +406,14 @@ impl Imap {
         Ok(())
     }
 
-    pub async fn append(&mut self, folder: &str, seen: bool, raw: &[u8]) -> Result<()> {
+    pub async fn append(&mut self, folder: &str, seen: bool, flagged: bool, raw: &[u8]) -> Result<()> {
         let rec = self.rec.clone();
-        let flags = if seen { Some("(\\Seen)") } else { None };
+        let flags = match (seen, flagged) {
+            (true, true) => Some("(\\Seen \\Flagged)"),
+            (true, false) => Some("(\\Seen)"),
+            (false, true) => Some("(\\Flagged)"),
+            (false, false) => None,
+        };
         self.session.append(folder, flags, None, raw).await.map_err(|e| fail(&rec, Code::ImapCmd01, e))
     }
 

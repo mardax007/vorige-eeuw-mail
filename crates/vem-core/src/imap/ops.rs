@@ -26,7 +26,14 @@ pub enum Op {
     Move { message_id: i64, from_folder: i64, uid: u32, to_folder: Option<i64>, after: i64 },
     /// Put a local message (a sent copy, a draft, an import) into a server folder.
     #[serde(rename_all = "camelCase")]
-    Append { message_id: i64, folder: i64, seen: bool },
+    Append {
+        message_id: i64,
+        folder: i64,
+        seen: bool,
+        /// The star of an imported message; ops queued before this field have none.
+        #[serde(default)]
+        flagged: bool,
+    },
     /// Make a folder on the server (an import into the mailbox). One that exists already is fine.
     #[serde(rename_all = "camelCase")]
     Create { folder: i64 },
@@ -123,10 +130,10 @@ async fn apply_one(store: &Store, imap: &mut Imap, op: &Op) -> Result<()> {
                 _ => Ok(()),
             }
         }
-        Op::Append { message_id, folder, seen } => {
+        Op::Append { message_id, folder, seen, flagged } => {
             let Some(raw) = store.read_eml(*message_id)? else { return Ok(()) };
             let target = store.folder(*folder)?;
-            imap.append(&target.name, *seen, &raw).await
+            imap.append(&target.name, *seen, *flagged, &raw).await
         }
     }
 }

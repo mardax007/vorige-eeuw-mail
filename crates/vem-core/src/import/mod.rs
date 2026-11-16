@@ -14,6 +14,7 @@ use crate::store::{NewMessage, Store};
 
 pub mod dbx;
 pub mod export;
+pub mod meta;
 pub mod mbox;
 pub mod pst;
 mod rtf;
@@ -206,6 +207,7 @@ impl Sink<'_> {
 
     fn add(&mut self, path: &[String], raw: Vec<u8>) -> Result<()> {
         let folder = self.folder(path)?;
+        let (raw, meta) = meta::take(raw);
         let p = parse::parse(&raw);
         if let Some(mid) = p.message_id.as_deref()
             && self.store.has_message_id(folder, mid)? {
@@ -219,13 +221,19 @@ impl Sink<'_> {
             uid: None,
             raw,
             has_body: true,
-            unread: false,
-            important: false,
+            unread: meta.unread,
+            important: meta.important,
             size,
             fallback_date: None,
         })?;
+        for name in &meta.tags {
+            let tag = self.store.create_tag(name, "")?;
+            self.store.set_message_tag(id, &tag.id, true)?;
+        }
         if self.mailbox {
-            self.store.push_op(&self.account_id, &Op::Append { message_id: id, folder, seen: true })?;
+            // Tags stay in the index: a server that keeps no keywords would refuse the whole APPEND.
+            let op = Op::Append { message_id: id, folder, seen: !meta.unread, flagged: meta.important };
+            self.store.push_op(&self.account_id, &op)?;
         }
         self.report.added += 1;
         Ok(())

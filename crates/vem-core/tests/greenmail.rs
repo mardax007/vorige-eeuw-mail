@@ -195,7 +195,7 @@ async fn append_is_adopted_not_doubled() {
             fallback_date: None,
         })
         .unwrap();
-    store.push_op(&acc.id, &Op::Append { message_id: id, folder: inbox, seen: true }).unwrap();
+    store.push_op(&acc.id, &Op::Append { message_id: id, folder: inbox, seen: true, flagged: false }).unwrap();
     sync::sync_account(&store, &mut imap, &acc.id, false).await.unwrap();
     let same: Vec<_> =
         store.messages_in_folder(inbox, 0, 500).unwrap().into_iter().filter(|m| m.subject == subject).collect();

@@ -27,6 +27,9 @@ use outlook_pst::messaging::store::{AnsiStore, EntryId, Store, UnicodeStore};
 use outlook_pst::ndb::node_id::NodeId;
 use outlook_pst::{AnsiPstFile, UnicodePstFile};
 
+use outlook_pst::messaging::named_prop::{NamedPropertyGuid, NamedPropertyId};
+
+use super::meta::status_line;
 use super::rtf::{RtfBody, decompress_rtf, rtf_to_body};
 
 /// What `read` calls for every message: folder path and RFC 5322 bytes.
@@ -43,6 +46,12 @@ const FILETIME_TICKS_PER_SECOND: i64 = 10_000_000;
 /// Seconds from 1 January 1601 (the FILETIME epoch) to 1 January 1970.
 const FILETIME_TO_UNIX_SECONDS: i64 = 11_644_473_600;
 const DEFAULT_CODE_PAGE: u16 = 1252;
+/// PR_MESSAGE_FLAGS: the message was read.
+const MSGFLAG_READ: i32 = 0x0001;
+/// PR_FLAG_STATUS: flagged for follow-up (1 is "completed", not a star).
+const FOLLOWUP_FLAGGED: i32 = 2;
+/// Outlook keeps categories in the named property "Keywords" of PS_PUBLIC_STRINGS.
+const CATEGORIES_NAME: &str = "Keywords";
 const MAPI_TO: i32 = 1;
 const MAPI_CC: i32 = 2;
 const MAPI_BCC: i32 = 3;
@@ -61,6 +70,8 @@ const PR_RECIPIENT_TYPE: u16 = 0x0C15;
 const PR_SENDER_NAME: u16 = 0x0C1A;
 const PR_SENDER_EMAIL: u16 = 0x0C1F;
 const PR_DELIVERY_TIME: u16 = 0x0E06;
+const PR_MESSAGE_FLAGS: u16 = 0x0E07;
+const PR_FLAG_STATUS: u16 = 0x1090;
 const PR_BODY: u16 = 0x1000;
 const PR_RTF_COMPRESSED: u16 = 0x1009;
 const PR_HTML: u16 = 0x1013;
@@ -95,7 +106,8 @@ pub fn read(
     let root = dyn_store
         .open_folder(&root_id)
         .map_err(|e| format!("PST mail folder tree cannot be opened: {e}"))?;
-    let mut walker = Walker { store: &store, stats: &mut stats, emit };
+    let categories = categories_prop_id(dyn_store.as_ref());
+    let mut walker = Walker { store: &store, categories, stats: &mut stats, emit };
     walker.sub_folders(root.as_ref(), &mut Vec::new())?;
     Ok(stats)
 }
@@ -171,6 +183,8 @@ fn attachment_nodes(message: &dyn Message) -> impl Iterator<Item = NodeId> {
 
 struct Walker<'a> {
     store: &'a PstStore,
+    /// The property id that holds Outlook categories in this file, if it has any.
+    categories: Option<u16>,
     stats: &'a mut ReadStats,
     emit: &'a mut Emit<'a>,
 }
@@ -222,7 +236,7 @@ impl Walker<'_> {
                 continue;
             }
             let mut notes = Vec::new();
-            let item = read_item(opened.message.as_ref(), opened.attachments, &mut notes);
+            let item = read_item(opened.message.as_ref(), opened.attachments, self.categories, &mut notes);
             for note in notes {
                 self.skip(path, note);
             }
@@ -308,11 +322,15 @@ struct MailItem {
     text: Option<String>,
     html: Option<String>,
     attachments: Vec<Attached>,
+    unread: bool,
+    flagged: bool,
+    categories: Vec<String>,
 }
 
 fn read_item(
     message: &dyn Message,
     attachments: Vec<io::Result<Rc<dyn Attachment>>>,
+    categories: Option<u16>,
     notes: &mut Vec<String>,
 ) -> MailItem {
     let p = message.properties();
@@ -350,6 +368,9 @@ fn read_item(
         text,
         html,
         attachments: Vec::new(),
+        unread: matches!(p.prop(PR_MESSAGE_FLAGS), Some(PropertyValue::Integer32(f)) if f & MSGFLAG_READ == 0),
+        flagged: matches!(p.prop(PR_FLAG_STATUS), Some(PropertyValue::Integer32(FOLLOWUP_FLAGGED))),
+        categories: categories.map(|id| string_list(p.prop(id), cp)).unwrap_or_default(),
     };
     for (n, attachment) in attachments.into_iter().enumerate() {
         match attachment {
@@ -385,12 +406,13 @@ fn read_attachment(a: &dyn Attachment, n: usize, notes: &mut Vec<String>) -> Opt
             if m.attachment_table().is_some_and(|t| t.rows_matrix().next().is_some()) {
                 notes.push("attachments inside an attached message were left out".into());
             }
-            let inner = read_item(m.as_ref(), Vec::new(), notes);
+            // The attached message keeps no state or categories of its own: it is a file here.
+            let inner = read_item(m.as_ref(), Vec::new(), None, notes);
             let name = name
                 .or_else(|| inner.subject.clone())
                 .unwrap_or_else(|| format!("attachment-{n}"));
             let name = if name.to_ascii_lowercase().ends_with(".eml") { name } else { format!("{name}.eml") };
-            Some(Attached::Message { name, raw: build(&inner) })
+            Some(Attached::Message { name, raw: build_message(&inner) })
         }
         None => {
             notes.push("an attachment without data (a link) was left out".into());
@@ -526,6 +548,68 @@ fn filetime_to_unix(filetime: i64) -> i64 {
 // From the mail item to RFC 5322 bytes.
 
 fn build(item: &MailItem) -> Vec<u8> {
+    let mut out = meta_lines(item).into_bytes();
+    out.extend(build_message(item));
+    out
+}
+
+/// Read state, star and categories as header lines in front of the message (see import/meta.rs).
+fn meta_lines(item: &MailItem) -> String {
+    let mut lines = status_line(item.unread, item.flagged).unwrap_or_default();
+    let names: Vec<&str> = item
+        .categories
+        .iter()
+        .map(|c| c.trim())
+        .filter(|c| !c.is_empty() && !c.contains([',', '\r', '\n']))
+        .collect();
+    if !names.is_empty() {
+        let encoded: Vec<String> = names.iter().map(|n| encoded_word(n)).collect();
+        lines.push_str(&format!("Keywords: {}\r\n", encoded.join(", ")));
+    }
+    lines
+}
+
+/// An RFC 2047 encoded word when the text is not plain ASCII.
+fn encoded_word(text: &str) -> String {
+    use base64::Engine;
+    if text.is_ascii() {
+        text.to_string()
+    } else {
+        format!("=?utf-8?B?{}?=", base64::engine::general_purpose::STANDARD.encode(text))
+    }
+}
+
+/// A multi-valued string property (PtypMultipleString or PtypMultipleString8).
+fn string_list(value: Option<&PropertyValue>, code_page: u16) -> Vec<String> {
+    match value {
+        Some(PropertyValue::MultipleUnicode(list)) => {
+            list.iter().map(|v| String::from_utf16_lossy(v.buffer()).trim_end_matches('\0').to_string()).collect()
+        }
+        Some(PropertyValue::MultipleString8(list)) => list
+            .iter()
+            .map(|v| encoding_for(code_page).decode_without_bom_handling(v.buffer()).0.trim_end_matches('\0').to_string())
+            .collect(),
+        Some(single @ (PropertyValue::Unicode(_) | PropertyValue::String8(_))) => string(Some(single), code_page).into_iter().collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Which property id this PST uses for the named property "Keywords" (Outlook categories).
+fn categories_prop_id(store: &dyn Store) -> Option<u16> {
+    let map = store.named_property_map().ok()?;
+    let props = map.properties();
+    props.stream_entry().ok()?.into_iter().find_map(|entry| {
+        let NamedPropertyId::StringOffset(offset) = entry.id() else { return None };
+        if entry.guid() != NamedPropertyGuid::PublicStrings {
+            return None;
+        }
+        let name = props.lookup_string(offset).ok()?;
+        let units: Vec<u16> = name.buffer().as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes(*c)).collect();
+        (String::from_utf16_lossy(&units) == CATEGORIES_NAME).then(|| entry.prop_id())
+    })
+}
+
+fn build_message(item: &MailItem) -> Vec<u8> {
     let mut b = MessageBuilder::new();
     if let Some(text) = &item.text {
         b = b.text_body(text.as_str());
