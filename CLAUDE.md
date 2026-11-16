@@ -88,11 +88,12 @@ really uses), `docs/research.md` (the research pass, with sources), `docs/source
 - Where Dutch Outlook has a word the family knows ("Postvak IN", "Verwijderde items"), use that word.
   See `docs/screens.md`.
 
-## Stack (proposed; confirmed or dropped after the phase 1 spike)
+## Stack (confirmed by the build, 16 November 2026)
 
 - Tauri 2, at least 2.11.1 (security fix): screens in React + TypeScript + Vite (decision 2), a Rust core for IMAP, SMTP,
   sync, import and sign-in.
-- Rust crates: `async-imap` (tokio runtime), `lettre` (SMTP), `mail-parser`, `rusqlite` with FTS5,
+- Rust crates: `async-imap` (tokio runtime), an own small SMTP client in `vem-core/src/smtp.rs`
+  (instead of `lettre`, see `docs/DECISIONS.md`), `mail-parser`, `mail-builder`, `rusqlite` with FTS5,
   `ammonia`, `outlook-pst`. SQLite index, messages as `.eml` files, secrets through DPAPI (Android: the keystore).
   The full list with reasons is in `docs/PLAN.md` section 2.
 - TLS through rustls with `rustls-platform-verifier` (the operating system's certificate store),
@@ -103,7 +104,7 @@ really uses), `docs/research.md` (the research pass, with sources), `docs/source
 - App identifier `tech.mardax.vem` (Windows and Android; permanent). One public GitHub repository,
   licence GPL-3.0. Installed per user, no admin rights, so updates stay silent.
 
-Intended layout (created in phase 1; adjust if the Tauri scaffold needs it differently):
+Layout:
 
     crates/vem-core/   mail logic without any Tauri dependency: testable headless, reused on Android
     src-tauri/         thin Tauri shell: commands that call vem-core
@@ -113,7 +114,34 @@ Intended layout (created in phase 1; adjust if the Tauri scaffold needs it diffe
 ## Environment
 
 - Development is on Windows, in `F:\Projects\Mail`. Use commands that work in PowerShell.
-- There is no code yet and no git repository. Phase 1 starts with both.
-- Installed on 16 November 2026: Node 24, git, Docker with WSL 2, Java, GitHub CLI. Not installed:
-  Rust.
-- Commands (dev, build, test, lint): none yet. Add them here as soon as the scaffold exists.
+- Installed: Node 24, git, Docker with WSL 2, Java, GitHub CLI, Rust (stable, MSVC), Build Tools 2022.
+- Visual Studio 18 on this PC lacks the x64 libraries, so every cargo command runs through
+  `scripts\vcenv.cmd`, which loads the Build Tools 2022 x64 environment first. From Git Bash:
+  `cmd //c "scripts\vcenv.cmd cargo …"`.
+
+## Commands
+
+| What | Command |
+| --- | --- |
+| Screens in a browser, with the mock backend | `npm run dev` (http://localhost:1420) |
+| Screens: types, tests, build | `npm run typecheck`, `npm test`, `npm run build` |
+| Rust core unit tests | `scripts\vcenv.cmd cargo test -p vem-core --lib` |
+| Rust core with the local test mail server | start GreenMail (below), then `scripts\vcenv.cmd cargo test -p vem-core --features test-support` |
+| Lint | `scripts\vcenv.cmd cargo clippy -p vem-core -p vem --all-targets --features vem-core/test-support` |
+| Search speed on 100,000 messages | `scripts\vcenv.cmd cargo test -p vem-core --release --test search_perf -- --ignored --nocapture` |
+| The app with live reload | `scripts\vcenv.cmd npm run tauri dev` |
+| Installer (NSIS, per user) | `scripts\vcenv.cmd npm run tauri build` (output in `target\release\bundle\nsis`) |
+
+GreenMail is the local test mail server (IMAPS 3993, SMTPS 3465, users `jan@example.test` and
+`piet@example.test`, password `geheim`; made-up test accounts, not secrets). The jar lives outside the
+repository, in `F:\Projects\Mail-scratch\greenmail`:
+
+    java -Dgreenmail.setup.test.all -Dgreenmail.hostname=127.0.0.1 -Dgreenmail.users=jan:geheim@example.test,piet:geheim@example.test -Dgreenmail.users.login=email -jar greenmail-standalone-2.1.3.jar
+
+Without it the GreenMail tests print a note and pass. CI (`.github/workflows/ci.yml`) starts it itself.
+
+Build-time settings, read by `option_env!` and set only in the release workflow from GitHub Actions
+secrets: `VEM_SUPPORT_ADDRESS`, `VEM_UPDATER_PUBKEY`, `VEM_GOOGLE_CLIENT_ID`,
+`VEM_GOOGLE_CLIENT_SECRET`, `VEM_MICROSOFT_CLIENT_ID`, plus `VEM_UPDATE_URL` and
+`VEM_LOG_REQUESTS_URL`, which the workflow derives from the repository name. A local build without
+them has no reports, no updates and no Google or Microsoft sign-in.

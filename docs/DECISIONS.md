@@ -98,7 +98,37 @@ one by itself.
 
 ## Open
 
-None. Decision 6 is Claude Code's to make on the spike report.
+None. Decision 6 is made (Tauri stays; see "Build choices" below).
+
+## Build choices (16 November 2026, Claude Code; Martijn may overrule any of them)
+
+Made while building phases 1 to 4. None of them changes a hard rule; each is easy to reverse.
+
+- **Decision 6, stack:** Tauri 2 stays. The build proves it: IMAP, SMTP, sync, search, import and the
+  shell all run in Rust under Tauri 2.12, and the GreenMail tests pass end to end. The Electron
+  fallback is not needed.
+- **Own SMTP client instead of `lettre`.** About 400 lines in `vem-core/src/smtp.rs`. It keeps the
+  server's exact reply for the error box (`errors.md`), uses the same rustls connection with the
+  system certificate store as IMAP, stops when a required STARTTLS is missing, and speaks
+  XOAUTH2 for Google and Microsoft. Tested against a fake server and GreenMail.
+- **No MX or SRV lookup yet.** Settings come from the provider table, the domain's autoconfig file,
+  ISPDB, and a guess under the user's own domain. The MX/SRV step of `PLAN.md` is not built; a
+  host found that way would need the confirmation screen, which exists and is tested with guessed
+  hosts. Noted in `PROGRESS.md`.
+- **Drafts stay on this computer.** "Opslaan" keeps the draft in the local index (in the account's
+  Concepten folder, or "Op deze computer" when there is none) and does not append it to the server.
+  Fewer writes to the mailbox, and no half-written draft on the phone.
+- **Moves and deletes wait 125 seconds before they reach the server** (the undo time plus 5 s), so
+  "Ongedaan maken" never needs the server. Sync skips messages with a waiting move.
+- **Error reports wait in a local queue** when sending fails, and go out with the next working
+  connection. Still one report per code per day, at most ten a day.
+- **mbox import** is built next to PST, DBX, EML and Windows Live Mail, because it costs little and
+  covers exports from Gmail Takeout and other programs. It also reads a Thunderbird folder tree.
+  Thunderbird stays excluded as a *source we look for*; the app never searches for it.
+  **(Martijn: say if mbox should go.)**
+- **Release builds unwind on a panic instead of aborting**, so a damaged PST that trips the
+  `outlook-pst` crate ends that import with an error, not the whole app.
+- **The app icon** is a white envelope on dark blue (`assets/icon.svg`). Martijn may want another.
 
 ## Hard-rule changes P1–P3 (accepted 16 November 2026)
 
@@ -124,3 +154,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-16 | Consistency review: docs fixed; three hard-rule changes proposed (P1–P3) |
 | 2026-11-16 | P1–P3 accepted and applied to `CLAUDE.md` (Martijn) |
 | 2026-11-16 | Decisions 1, 3, 4, 6–12, 14–16, 19, 21, 22 answered (Martijn); phase 6 dropped |
+| 2026-11-16 | Build choices recorded: stack confirmed (decision 6), own SMTP client, no MX/SRV yet, local drafts, delayed server moves, report queue, mbox import, unwind on panic |
