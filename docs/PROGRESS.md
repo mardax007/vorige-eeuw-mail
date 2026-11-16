@@ -22,7 +22,7 @@ Claude Code updates this file at the end of every session.
 ## State of the folder
 
 - Code: `crates/vem-core` (mail logic, 115 unit tests plus GreenMail end-to-end tests),
-  `src-tauri` (the shell), `src` (screens, 112 tests), `.github/workflows` (tests, draft release).
+  `src-tauri` (the shell), `src` (screens, 119 tests), `.github/workflows` (tests, draft release).
   Commands are in `CLAUDE.md`.
 - `npm run tauri build` makes `Vorige Eeuw Mail_0.1.0_x64-setup.exe` (5.8 MB, per user). The built
   app starts and shows the Dutch first-run screen.
