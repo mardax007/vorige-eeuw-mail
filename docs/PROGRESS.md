@@ -21,8 +21,8 @@ Claude Code updates this file at the end of every session.
 
 ## State of the folder
 
-- Code: `crates/vem-core` (mail logic, 115 unit tests plus GreenMail end-to-end tests),
-  `src-tauri` (the shell), `src` (screens, 119 tests), `.github/workflows` (tests, draft release).
+- Code: `crates/vem-core` (mail logic, 125 unit tests plus GreenMail end-to-end tests),
+  `src-tauri` (the shell, 3 tests), `src` (screens, 121 tests), `.github/workflows` (tests, draft release).
   Commands are in `CLAUDE.md`.
 - `npm run tauri build` makes `Vorige Eeuw Mail_0.1.0_x64-setup.exe` (5.8 MB, per user). The built
   app starts and shows the Dutch first-run screen.
@@ -38,25 +38,30 @@ reading view in a sandboxed frame with link warnings and remote images on reques
 forward, attachments, smaller photos, signature, drafts, Postvak UIT with undo send, sent copies;
 contacts learned from mail; error box with exact server reply and `VEM-` code; error reports, wish
 button, help report, log requests; mailbox space; notifications, icon next to the clock, autostart,
-single instance; silent updates (download, wait until idle, install quietly, "Bijgewerkt" for a
+single instance; unread count of every Postvak IN on the taskbar icon; clicking a notification about
+one message opens it; silent updates (download, wait until idle, install quietly, "Bijgewerkt" for a
 day); import of PST, DBX, EML folders, Windows Live Mail folders and mbox, with copies of the
 original files, read state, star and tags, into a local account or the mailbox; import from
 another added mailbox (read-only; skips Verwijderde items, Ongewenste e-mail, Concepten and
-Postvak UIT); a new password or "Opnieuw inloggen" per mailbox in Instellingen; mbox export;
+Postvak UIT); Outlook contacts from a PST into the address book; uploads into a mailbox honour
+`APPENDLIMIT` and `[TOOBIG]`, and stop at 500 MB a day for Gmail; Windows Live Mail headers-only
+messages are listed and the screen says its mail came in as read; a new password or "Opnieuw inloggen" per mailbox in Instellingen; mbox export;
 contacts to the phone (QR pairing, encrypted message in the mailbox; the phone side is phase 5).
 
 ### Not built yet (open items)
 
-- Windows Live Mail: folder names and read state from `Mail.MSMessageStore` (esent); flags.
-- PST: contacts into the address book; password-protected PST; rescue mode with `readpst` (licence check).
-- Import into Gmail: the 500 MB a day limit; `APPENDLIMIT`.
-- Unread count on the taskbar icon; clicking a notification opens that message (it opens the app).
+- Windows Live Mail: folder names, read state and stars from `Mail.MSMessageStore` (ESE, through
+  `esent.dll` on a copy). Needs a real Live Mail store to build against; until then the import uses
+  the folder names on disk and marks all mail read, as phase 3 task 6 allows.
+- PST: password-protected PST; rescue mode with `readpst` (licence check).
+- Live Mail contacts through its vCard export, with one screen that explains it.
 - The MX/SRV step of the settings lookup.
 - Help pages published through GitHub Pages (generated in `docs/help/`, `node scripts/help-pages.mjs`).
 
 ### Never run against real systems yet
 
-Real IMAP/SMTP providers (only GreenMail), Google and Microsoft sign-in, a real PST or DBX file,
+Real IMAP/SMTP providers (only GreenMail), Google and Microsoft sign-in, a real PST or DBX file
+(also PST contacts), a real Live Mail store, the taskbar count and notification click on an installed build,
 the updater with a signed release, notifications from an installed build, the release workflow.
 
 ## Session log
@@ -69,6 +74,7 @@ the updater with a signed release, notifications from an installed build, the re
 | 2026-11-16 | Martijn answered every open question: support as many providers as possible, identifier `tech.mardax.vem`, public repository, GPL-3.0, per-user install, Google sign-in yes, full offline copy, DBX import yes, no import over the internet (phase 6 dropped), old mail kept locally with a copy of the original file and a menu to delete it, mailbox space shown, contacts on the phone through QR pairing and the user's own mailbox (Firebase considered, not chosen), report address set (kept out of the repository), Android "Bijwerken" button. Applied hard-rule changes P1–P3. Updated DECISIONS, PLAN, features, sync, errors, phases 1–6, CLAUDE.md | An admin install would break silent updates (UAC at every update). The report address must stay out of the public repository but is readable from the installer | Martijn's go for phase 1 |
 | 2026-11-16 | Phases 1–4 built: Rust core (IMAP, own SMTP client, sync, search, actions, import of PST/DBX/EML/WLM/mbox, reports, contact sync, OAuth), Tauri shell (tray, notifications, autostart, updates), screens in Dutch, CI and release workflows, icon, docs (release, install, help pages, error registry). Installer builds and the app starts | Folder lists needed `id` in their indexes (169 ms to 0.2 ms). `outlook-pst` opens files for writing and can panic, so we open read-only and unwind. GreenMail has no Sent folder. IDLE needs its stop handle kept alive | Martijn's items above; open build items; phase 5 |
 | 2026-11-16 | Mailbox-to-mailbox import (GreenMail test); new password and re-sign-in per mailbox; one import at a time, its status kept for the screens; the core sends each mailbox's sign-in type. UX review of all screens (ux-engine) with every finding fixed: the send bar follows the real outbox state, load and open errors no longer look like empty lists, Sluiten keeps a draft that did not save, no double send, sync errors on Alle postvakken, address problems under their field, copy feedback per button, import progress survives leaving the page, Quick Assist text corrected. Contactpersonen moved to the top bar, Afsluiten to the bottom of Instellingen. A code review of the screen changes followed | Quick Assist works the other way round from what the help said: the helper gives the code. A failed list load showed "no messages", which reads as lost mail | Martijn's items above; open build items; phase 5 |
+| 2026-11-16 | Unread count on the taskbar icon (drawn overlay, Windows has no badge for desktop apps); a notification about one message opens it. Import uploads honour APPENDLIMIT and TOOBIG and stop at 500 MB a day for Gmail. PST contacts into the address book without overwriting typed ones. Live Mail: headers-only messages listed, and the screen says all came in as read | `outlook-pst` 1.2.0 resolves named-property GUIDs at the wrong offset (it adds 3 twice), so contact e-mail fields are matched by their number only. Windows reports a notification click only while the toast is on screen | Martijn's items above; a real Live Mail store for the ESE reader; phase 5 |
 
 ## Ideas parked
 
