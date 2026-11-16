@@ -1,12 +1,15 @@
 //! Find the server settings for an email address (PLAN.md §3, Setup flow).
 //!
-//! Order: our own provider table, the domain's autoconfig file, Thunderbird's ISPDB, then a
-//! guess under the user's own domain. HTTPS only (CLAUDE.md, Network). Hosts from the table,
-//! autoconfig or ISPDB count as looked up; anything else outside the user's domain must be
-//! confirmed by the user before a password goes to it.
+//! Order: our own provider table, the domain's autoconfig file, Thunderbird's ISPDB, the provider
+//! behind the domain's MX host, SRV records, then a guess under the user's own domain. Web lookups
+//! are HTTPS only (CLAUDE.md, Network). Hosts from the table, autoconfig or ISPDB count as looked
+//! up; anything else outside the user's domain (from MX, SRV or a guess) must be confirmed by the
+//! user before a password goes to it.
 
 use std::time::Duration;
 
+use hickory_resolver::TokioResolver;
+use hickory_resolver::proto::rr::RData;
 use quick_xml::Reader;
 use quick_xml::events::Event;
 
@@ -259,7 +262,120 @@ pub async fn lookup(email: &str) -> Result<ServerSettings> {
                 return Ok(s);
             }
     }
+    // DNS answers are unsigned: hosts from them outside the user's domain need confirmation.
+    let resolver = TokioResolver::builder_tokio().ok().and_then(|b| b.build().ok());
+    if let Some(r) = &resolver {
+        if let Some(s) = from_mx(&client, r, email, &domain).await {
+            return Ok(confirm_if_foreign(email, s));
+        }
+        if let Some(s) = from_srv(r, email, &domain).await {
+            return Ok(confirm_if_foreign(email, s));
+        }
+    }
     guess(email, &domain).await
+}
+
+fn confirm_if_foreign(email: &str, s: ServerSettings) -> ServerSettings {
+    let needs = needs_confirmation(email, &s);
+    ServerSettings { needs_confirmation: needs, ..s }
+}
+
+const DNS_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// MX hosts of big providers whose own table entry has another domain (Google Workspace).
+const MX_ALIASES: &[(&str, &str)] = &[("google.com", "gmail.com"), ("googlemail.com", "gmail.com")];
+
+/// Second-level labels under which a country domain hands out names (`example.co.uk`).
+const SECOND_LEVEL: &[&str] = &["co", "com", "org", "net", "ac", "gov", "edu"];
+
+/// The domain an MX host belongs to, the way Thunderbird looks it up: `mx1.mail.transip.nl`
+/// gives `transip.nl`, `mx.example.co.uk` gives `example.co.uk`.
+fn mx_base_domain(host: &str) -> Option<String> {
+    let host = host.trim().trim_end_matches('.').to_ascii_lowercase();
+    let labels: Vec<&str> = host.split('.').filter(|l| !l.is_empty()).collect();
+    if labels.len() < 2 {
+        return None;
+    }
+    let tld = labels[labels.len() - 1];
+    let second = labels[labels.len() - 2];
+    let keep = if labels.len() >= 3 && tld.len() == 2 && SECOND_LEVEL.contains(&second) { 3 } else { 2 };
+    Some(labels[labels.len() - keep..].join("."))
+}
+
+/// Step 4: the provider behind the domain's mail servers, from our table or ISPDB.
+async fn from_mx(client: &reqwest::Client, r: &TokioResolver, email: &str, domain: &str) -> Option<ServerSettings> {
+    let found = tokio::time::timeout(DNS_TIMEOUT, r.mx_lookup(format!("{domain}."))).await.ok()?.ok()?;
+    let mut hosts: Vec<(u16, String)> = found
+        .answers()
+        .iter()
+        .filter_map(|rec| match &rec.data {
+            RData::MX(mx) => Some((mx.preference, mx.exchange.to_ascii())),
+            _ => None,
+        })
+        .collect();
+    hosts.sort();
+    let base = mx_base_domain(&hosts.first()?.1)?;
+    if base == domain {
+        return None; // The domain's own entries were tried already.
+    }
+    let table_domain = MX_ALIASES.iter().find(|(mx, _)| *mx == base).map_or(base.as_str(), |(_, d)| d);
+    let s = match from_table(email, table_domain) {
+        Some(s) => s,
+        None => {
+            let xml = fetch_xml(client, &format!("https://autoconfig.thunderbird.net/v1.1/{base}")).await?;
+            parse_autoconfig(&xml, email, "mx")?
+        }
+    };
+    Some(ServerSettings { source: "mx".into(), ..s })
+}
+
+/// The best SRV answer: lowest priority, then highest weight. A target of "." means the domain
+/// says it does not offer the service (RFC 2782).
+fn pick_srv(records: &[(u16, u16, u16, String)]) -> Option<(String, u16)> {
+    let (_, _, port, target) = records.iter().min_by_key(|(prio, weight, _, _)| (*prio, std::cmp::Reverse(*weight)))?;
+    let target = target.trim_end_matches('.').to_ascii_lowercase();
+    (!target.is_empty() && *port > 0).then_some((target, *port))
+}
+
+async fn srv(r: &TokioResolver, name: String) -> Option<(String, u16)> {
+    let found = tokio::time::timeout(DNS_TIMEOUT, r.srv_lookup(name)).await.ok()?.ok()?;
+    let records: Vec<(u16, u16, u16, String)> = found
+        .answers()
+        .iter()
+        .filter_map(|rec| match &rec.data {
+            RData::SRV(s) => Some((s.priority, s.weight, s.port, s.target.to_ascii())),
+            _ => None,
+        })
+        .collect();
+    pick_srv(&records)
+}
+
+/// Step 5: SRV records (RFC 6186, implicit TLS first per RFC 8314). Never a plain service.
+async fn from_srv(r: &TokioResolver, email: &str, domain: &str) -> Option<ServerSettings> {
+    let imap = match srv(r, format!("_imaps._tcp.{domain}.")).await {
+        Some((h, p)) => (h, p, Security::Tls),
+        None => srv(r, format!("_imap._tcp.{domain}.")).await.map(|(h, p)| (h, p, Security::Starttls))?,
+    };
+    let smtp = match srv(r, format!("_submissions._tcp.{domain}.")).await {
+        Some((h, p)) => (h, p, Security::Tls),
+        None => srv(r, format!("_submission._tcp.{domain}.")).await.map(|(h, p)| (h, p, Security::Starttls))?,
+    };
+    Some(srv_settings(email, imap, smtp))
+}
+
+fn srv_settings(email: &str, imap: (String, u16, Security), smtp: (String, u16, Security)) -> ServerSettings {
+    ServerSettings {
+        imap_host: imap.0,
+        imap_port: imap.1,
+        imap_tls: imap.2,
+        smtp_host: smtp.0,
+        smtp_port: smtp.1,
+        smtp_tls: smtp.2,
+        username: email.trim().to_string(),
+        source: "srv".into(),
+        needs_confirmation: false,
+        sign_in: SignIn::Password,
+    }
 }
 
 /// Last step: the usual names under the user's own domain. Being under that domain, they do
@@ -354,6 +470,48 @@ mod tests {
         assert_eq!(domain_of("jan@example.nl/evil"), None);
         assert_eq!(domain_of("@x.nl"), None);
         assert_eq!(domain_of("geen"), None);
+    }
+
+    #[test]
+    fn mx_hosts_map_to_their_provider_domain() {
+        assert_eq!(mx_base_domain("mx1.mail.transip.nl."), Some("transip.nl".into()));
+        assert_eq!(mx_base_domain("ASPMX.L.GOOGLE.COM"), Some("google.com".into()));
+        assert_eq!(mx_base_domain("mx.example.co.uk"), Some("example.co.uk".into()));
+        assert_eq!(mx_base_domain("familie-nl.mail.protection.outlook.com"), Some("outlook.com".into()));
+        assert_eq!(mx_base_domain("localhost"), None);
+    }
+
+    #[test]
+    fn settings_from_mx_or_srv_are_confirmed_when_foreign() {
+        let gmail = from_table("jan@familie.nl", "gmail.com").unwrap();
+        let s = confirm_if_foreign("jan@familie.nl", ServerSettings { source: "mx".into(), ..gmail });
+        assert!(s.needs_confirmation, "a Workspace domain found through MX shows Google's hosts first");
+        assert_eq!(s.username, "jan@familie.nl");
+        let own = srv_settings("jan@familie.nl", ("imap.familie.nl".into(), 993, Security::Tls), ("smtp.familie.nl".into(), 465, Security::Tls));
+        assert!(!confirm_if_foreign("jan@familie.nl", own).needs_confirmation);
+        let hosted = srv_settings("jan@familie.nl", ("mail.hoster.nl".into(), 993, Security::Tls), ("mail.hoster.nl".into(), 587, Security::Starttls));
+        assert!(confirm_if_foreign("jan@familie.nl", hosted).needs_confirmation);
+    }
+
+    #[test]
+    fn srv_picks_priority_then_weight_and_honours_dot() {
+        let r = vec![(10, 5, 993, "b.x.nl.".to_string()), (0, 1, 993, "a.x.nl.".into()), (0, 9, 993, "c.x.nl.".into())];
+        assert_eq!(pick_srv(&r), Some(("c.x.nl".into(), 993)));
+        assert_eq!(pick_srv(&[(0, 0, 0, ".".into())]), None, "a dot target: not offered");
+        assert_eq!(pick_srv(&[]), None);
+    }
+
+    /// Real DNS, read only: `cargo test -p vem-core --lib live_dns -- --ignored`.
+    #[tokio::test]
+    #[ignore]
+    async fn live_dns_mx_and_srv() {
+        let r = TokioResolver::builder_tokio().unwrap().build().unwrap();
+        let client = http().unwrap();
+        let mx = from_mx(&client, &r, "jan@googlemail.com", "googlemail.com").await.unwrap();
+        assert_eq!((mx.imap_host.as_str(), mx.source.as_str()), ("imap.gmail.com", "mx"));
+        let srv = from_srv(&r, "jan@gmail.com", "gmail.com").await.unwrap();
+        assert_eq!(srv.imap_host, "imap.gmail.com");
+        assert_eq!(srv.imap_tls, Security::Tls);
     }
 
     #[test]
