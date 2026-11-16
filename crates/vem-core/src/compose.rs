@@ -112,15 +112,14 @@ fn read_attachment(path: &Path, shrink: bool) -> Result<(Vec<u8>, String, String
         VemError::new(Code::StoreRead01).with_detail(format!("{name}: {}", e.kind()))
     })?;
     let mime = mime_for(&name).to_string();
-    if shrink {
-        if let Some(small) = shrink_photo(&bytes) {
+    if shrink
+        && let Some(small) = shrink_photo(&bytes) {
             let jpg_name = match name.rsplit_once('.') {
                 Some((stem, _)) => format!("{stem}.jpg"),
                 None => format!("{name}.jpg"),
             };
             return Ok((small, jpg_name, "image/jpeg".into()));
         }
-    }
     Ok((bytes, name, mime))
 }
 
@@ -179,7 +178,7 @@ mod tests {
     fn draft() -> Draft {
         Draft {
             account_id: "a".into(),
-            to: vec![Addr::new(Some("Oma Jansen".into()), "oma@example.nl")],
+            to: vec![Addr::new(Some("Oma Jansen"), "oma@example.nl")],
             cc: vec![Addr::new(None, "tante@example.nl")],
             bcc: vec![Addr::new(None, "geheim@example.nl"), Addr::new(None, "OMA@example.nl")],
             subject: "Foto's van zaterdag\r\nBcc: evil@x.nl".into(),
@@ -192,7 +191,7 @@ mod tests {
 
     #[test]
     fn builds_a_message_that_parses_back() {
-        let b = build(&draft(), &Addr::new(Some("Jan".into()), "jan@example.nl"), 1_790_000_000).unwrap();
+        let b = build(&draft(), &Addr::new(Some("Jan"), "jan@example.nl"), 1_790_000_000).unwrap();
         let p = parse::parse(&b.raw);
         assert_eq!(p.subject, "Foto's van zaterdagBcc: evil@x.nl");
         assert_eq!(p.from.email, "jan@example.nl");

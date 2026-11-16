@@ -13,6 +13,9 @@ chacha20poly1305 = "0.11.0"
 chrono = { version = "0.4.45", features = ["serde"] }
 futures = "0.3.34"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
+codepage = "0.1.3"
+compressed-rtf = "1.0.1"
+encoding_rs = "0.8.44"
 mail-builder = "2.0.1"
 mail-parser = { version = "1.0.1", features = ["full_encoding"] }
 outlook-pst = "1.2.0"

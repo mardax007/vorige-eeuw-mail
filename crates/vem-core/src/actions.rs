@@ -275,15 +275,14 @@ pub fn message_detail(store: &Store, key: &str, show_remote: bool) -> Result<Mes
     let from = &m.summary.from;
     let own = store.accounts()?.iter().any(|a| a.email.eq_ignore_ascii_case(&from.email));
     if !own {
-        if let Some(name) = from.name.as_deref() {
-            if let Some(c) = store.contact_with_name_other_address(name, &from.email)? {
+        if let Some(name) = from.name.as_deref()
+            && let Some(c) = store.contact_with_name_other_address(name, &from.email)? {
                 warnings.push(MailWarning {
                     kind: WarningKind::LookalikeContact,
                     shown: Some(c.name),
                     actual: Some(from.email.clone()),
                 });
             }
-        }
         let text = p.text.clone().or_else(|| p.html.as_deref().map(mail_parser::html_to_text)).unwrap_or_default();
         let known = store.contact_by_email(&from.email)?.is_some();
         if !known && (sanitize::mentions_money(&text) || sanitize::mentions_money(&p.subject)) {

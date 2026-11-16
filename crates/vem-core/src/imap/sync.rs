@@ -139,13 +139,12 @@ async fn sync_known(
 /// there without a UID; it is adopted by its Message-ID instead of shown twice.
 fn store_remote(store: &Store, f: &FolderInfo, m: &RemoteMessage) -> Result<i64> {
     let parsed_id = crate::parse::parse(&m.raw).message_id;
-    if let Some(mid) = parsed_id.as_deref() {
-        if let Some(id) = store.adopt_by_message_id(f.id, mid, m.uid)? {
+    if let Some(mid) = parsed_id.as_deref()
+        && let Some(id) = store.adopt_by_message_id(f.id, mid, m.uid)? {
             store.set_flags(id, Some(!m.seen), Some(m.flagged))?;
             apply_keywords(store, id, m)?;
             return Ok(id);
         }
-    }
     let id = store.insert_message(&NewMessage {
         account_id: f.account_id.clone(),
         folder_id: f.id,

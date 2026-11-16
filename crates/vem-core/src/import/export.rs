@@ -43,7 +43,7 @@ pub fn export_folder(store: &Store, folder_id: i64, out_path: &Path) -> Result<u
             let date = chrono::DateTime::parse_from_rfc3339(&s.date)
                 .map(|d| d.format("%a %b %e %H:%M:%S %Y").to_string())
                 .unwrap_or_else(|_| "Thu Jan  1 00:00:00 1970".into());
-            let res = write!(w, "From MAILER-DAEMON {date}\n").and_then(|_| quote_from_lines(&raw, &mut w)).and_then(|_| w.write_all(b"\n"));
+            let res = writeln!(w, "From MAILER-DAEMON {date}").and_then(|_| quote_from_lines(&raw, &mut w)).and_then(|_| w.write_all(b"\n"));
             res.map_err(|e| VemError::new(Code::StoreWrite01).with_detail(e.kind().to_string()))?;
             n += 1;
         }

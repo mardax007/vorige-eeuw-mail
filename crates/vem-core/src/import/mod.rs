@@ -12,8 +12,11 @@ use crate::model::{FolderRole, ImportKind, ImportProgress, ImportSource, ImportT
 use crate::parse;
 use crate::store::{NewMessage, Store};
 
+pub mod dbx;
 pub mod export;
 pub mod mbox;
+pub mod pst;
+mod rtf;
 
 /// Leave this much free on the disk after the copy and the converted mail.
 const SPARE_BYTES: u64 = 500 * 1024 * 1024;
@@ -108,11 +111,10 @@ pub fn find_sources() -> Vec<ImportSource> {
     for dir in pst_dirs {
         for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
             let path = e.path();
-            if path.extension().is_some_and(|x| x.eq_ignore_ascii_case("pst")) {
-                if let Ok(s) = source_for(&path) {
+            if path.extension().is_some_and(|x| x.eq_ignore_ascii_case("pst"))
+                && let Ok(s) = source_for(&path) {
                     out.push(s);
                 }
-            }
         }
     }
     if let Some(l) = &local {
@@ -205,12 +207,11 @@ impl Sink<'_> {
     fn add(&mut self, path: &[String], raw: Vec<u8>) -> Result<()> {
         let folder = self.folder(path)?;
         let p = parse::parse(&raw);
-        if let Some(mid) = p.message_id.as_deref() {
-            if self.store.has_message_id(folder, mid)? {
+        if let Some(mid) = p.message_id.as_deref()
+            && self.store.has_message_id(folder, mid)? {
                 self.report.already_there += 1;
                 return Ok(());
             }
-        }
         let size = raw.len() as u64;
         let id = self.store.insert_message(&NewMessage {
             account_id: self.account_id.clone(),
@@ -264,13 +265,11 @@ pub fn run(
         ImportTarget::Local => (store.local_account(&source.label)?.id, false),
         ImportTarget::Mailbox { account_id } => {
             let a = store.account(account_id)?;
-            if let Some(q) = a.quota.as_ref() {
-                if let Some(limit) = q.limit_kb {
-                    if q.used_kb + size / 1024 > limit {
+            if let Some(q) = a.quota.as_ref()
+                && let Some(limit) = q.limit_kb
+                    && q.used_kb + size / 1024 > limit {
                         return Err(VemError::new(Code::ImportSpace02));
                     }
-                }
-            }
             (a.id, true)
         }
     };
@@ -297,7 +296,7 @@ pub fn run(
                 return Err("store".into());
             }
             done += 1;
-            if done % PROGRESS_EVERY == 0 {
+            if done.is_multiple_of(PROGRESS_EVERY) {
                 progress(ImportProgress {
                     job_id: job_id.to_string(),
                     done,
@@ -309,12 +308,14 @@ pub fn run(
             }
             Ok(())
         };
-        match source.kind {
+        // A damaged old file can make a reader crate panic; that ends this import, not the app.
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match source.kind {
             ImportKind::Eml | ImportKind::Wlm => eml_tree(&copy, &mut emit),
             ImportKind::Mbox => mbox::read_path(&copy, &mut emit),
             ImportKind::Pst => read_pst(&copy, &mut emit),
             ImportKind::Dbx => read_dbx_tree(&copy, &mut emit),
-        }
+        }))
+        .unwrap_or_else(|_| Err("the file is damaged: the reader stopped".into()))
     };
     if let Some(e) = failure {
         return Err(e);
@@ -378,13 +379,13 @@ fn read_dbx_tree(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skippe
     Ok(skipped)
 }
 
-// The PST and DBX readers come in their own modules; until then they say so plainly.
-fn read_pst(_path: &Path, _emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
-    Err("pst reader missing".into())
+// The PST and DBX readers live in their own modules.
+fn read_pst(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    Ok(pst::read(path, emit)?.skipped)
 }
 
-fn read_dbx(_path: &Path, _emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
-    Err("dbx reader missing".into())
+fn read_dbx(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    Ok(dbx::read(path, emit)?.skipped)
 }
 
 #[cfg(test)]

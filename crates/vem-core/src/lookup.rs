@@ -167,11 +167,10 @@ pub fn parse_autoconfig(xml: &str, email: &str, source: &str) -> Option<ServerSe
             }
             Event::End(e) => {
                 let name = e.local_name().as_ref().to_string();
-                if name == "incomingServer" || name == "outgoingServer" {
-                    if let Some(s) = current.take() {
+                if (name == "incomingServer" || name == "outgoingServer")
+                    && let Some(s) = current.take() {
                         servers.push(s);
                     }
-                }
                 field.clear();
             }
             Event::Eof => break,
@@ -255,11 +254,10 @@ pub async fn lookup(email: &str) -> Result<ServerSettings> {
         (format!("https://autoconfig.thunderbird.net/v1.1/{domain}"), "ispdb"),
     ];
     for (url, source) in &urls {
-        if let Some(xml) = fetch_xml(&client, url).await {
-            if let Some(s) = parse_autoconfig(&xml, email, source) {
+        if let Some(xml) = fetch_xml(&client, url).await
+            && let Some(s) = parse_autoconfig(&xml, email, source) {
                 return Ok(s);
             }
-        }
     }
     guess(email, &domain).await
 }

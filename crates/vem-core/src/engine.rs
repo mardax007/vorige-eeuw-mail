@@ -316,12 +316,11 @@ impl Engine {
         compose::build(&draft, &from, now())?;
         let delay = i64::from(self.store.settings()?.undo_send_seconds);
         let item = self.store.queue_send(&draft, now() + delay)?;
-        if let Some(draft_id) = draft.id.as_deref().and_then(|d| d.parse::<i64>().ok()) {
-            if self.store.message(draft_id).map(|m| m.is_draft).unwrap_or(false) {
+        if let Some(draft_id) = draft.id.as_deref().and_then(|d| d.parse::<i64>().ok())
+            && self.store.message(draft_id).map(|m| m.is_draft).unwrap_or(false) {
                 self.store.delete_message(draft_id)?;
                 self.sink.mail_changed(&draft.account_id, None);
             }
-        }
         self.outbox_changed();
         self.outbox_wake.notify_one();
         Ok(item)

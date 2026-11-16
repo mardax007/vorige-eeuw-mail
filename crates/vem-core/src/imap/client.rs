@@ -256,10 +256,10 @@ impl Imap {
         let caps = self.session.capabilities().await.map_err(|e| fail(&rec, Code::ImapCmd01, e))?;
         self.caps = caps
             .iter()
-            .filter_map(|c| match c {
-                async_imap::types::Capability::Atom(a) => Some(a.to_ascii_uppercase()),
-                async_imap::types::Capability::Imap4rev1 => Some("IMAP4REV1".into()),
-                async_imap::types::Capability::Auth(a) => Some(format!("AUTH={}", a.to_ascii_uppercase())),
+            .map(|c| match c {
+                async_imap::types::Capability::Atom(a) => a.to_ascii_uppercase(),
+                async_imap::types::Capability::Imap4rev1 => "IMAP4REV1".into(),
+                async_imap::types::Capability::Auth(a) => format!("AUTH={}", a.to_ascii_uppercase()),
             })
             .collect();
         Ok(())
