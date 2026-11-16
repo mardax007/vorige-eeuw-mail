@@ -75,7 +75,9 @@ pub async fn sync_folder(store: &Store, imap: &mut Imap, f: &FolderInfo, first_r
         if !unchanged_next {
             let new = imap.fetch(&format!("{}:*", max_known + 1), false).await?;
             // "n:*" always returns the last message, even when its UID is below n.
-            let new: Vec<RemoteMessage> = new.into_iter().filter(|m| m.uid > max_known).collect();
+            let waiting = ops::pending_move_uids(store, &f.account_id, f.id)?;
+            let new: Vec<RemoteMessage> =
+                new.into_iter().filter(|m| m.uid > max_known && !waiting.contains(&m.uid)).collect();
             for chunk in new.chunks(FETCH_CHUNK) {
                 for m in chunk {
                     let id = store_remote(store, f, m)?;

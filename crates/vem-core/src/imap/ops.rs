@@ -38,6 +38,18 @@ impl Op {
     }
 }
 
+/// UIDs in a folder that wait for a delayed move or delete: sync must not show them again.
+pub fn pending_move_uids(store: &Store, account_id: &str, folder_id: i64) -> Result<std::collections::HashSet<u32>> {
+    Ok(store
+        .ops::<Op>(account_id)?
+        .into_iter()
+        .filter_map(|p| match p.op {
+            Op::Move { from_folder, uid, .. } if from_folder == folder_id => Some(uid),
+            _ => None,
+        })
+        .collect())
+}
+
 pub async fn apply_pending(store: &Store, imap: &mut Imap, account_id: &str) -> Result<()> {
     let t = now();
     for p in store.ops::<Op>(account_id)? {
