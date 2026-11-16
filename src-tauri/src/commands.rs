@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
+use vem_core::engine::Engine;
 use vem_core::error::{Code, VemError};
 use vem_core::model::*;
 use vem_core::store::folders::parse_folder_key;
@@ -415,6 +416,28 @@ async fn pick_import_file(app: AppHandle, kind: ImportKind) -> R<Option<ImportSo
 
 #[tauri::command]
 fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource, target: ImportTarget) -> R<String> {
+    Ok(spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
+        import::run(&engine.store, job, &source, &target, emit, cancel)
+    }))
+}
+
+/// "Uit een ander postvak": download the old mailbox's mail (read-only), then copy it.
+#[tauri::command]
+fn import_from_account(app: AppHandle, state: State<'_, AppState>, source_account_id: String, target: ImportTarget) -> R<String> {
+    Ok(spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
+        emit(ImportProgress { job_id: job.to_string(), done: 0, total: None, current_folder: None, finished: false, error: None });
+        tauri::async_runtime::block_on(engine.download_bodies(&source_account_id, cancel))?;
+        import::account::run(&engine.store, job, &source_account_id, &target, emit, cancel)
+    }))
+}
+
+/// Run an import in the background with progress events, a stop switch and a final event.
+fn spawn_import(
+    app: AppHandle,
+    state: &AppState,
+    target: ImportTarget,
+    work: impl FnOnce(&Engine, &str, &dyn Fn(ImportProgress), &AtomicBool) -> vem_core::Result<import::ImportReport> + Send + 'static,
+) -> String {
     let job = uuid::Uuid::new_v4().simple().to_string();
     let cancel = Arc::new(AtomicBool::new(false));
     state.imports.lock().unwrap_or_else(|e| e.into_inner()).insert(job.clone(), cancel.clone());
@@ -424,7 +447,7 @@ fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource
         let emit = |p: ImportProgress| {
             let _ = app.emit("import:progress", p);
         };
-        let result = import::run(&engine.store, &job2, &source, &target, &emit, &cancel);
+        let result = work(&engine, &job2, &emit, &cancel);
         let (done, error) = match result {
             Ok(r) => (r.added, None),
             Err(e) => {
@@ -447,7 +470,7 @@ fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource
             state.imports.lock().unwrap_or_else(|e| e.into_inner()).remove(&job2);
         }
     });
-    Ok(job)
+    job
 }
 
 #[tauri::command]
@@ -574,6 +597,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         find_import_sources,
         pick_import_file,
         start_import,
+        import_from_account,
         list_originals,
         delete_original,
         export_folder,

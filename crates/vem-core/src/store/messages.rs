@@ -426,6 +426,16 @@ impl Store {
         Ok(rows)
     }
 
+    /// How many bytes of mail an account holds (visible messages), for the space check of an import.
+    pub fn account_bytes(&self, account_id: &str) -> Result<u64> {
+        let n: i64 = self.db().query_row(
+            "SELECT COALESCE(SUM(size), 0) FROM messages WHERE hidden = 0 AND account_id = ?1",
+            [account_id],
+            |r| r.get(0),
+        )?;
+        Ok(n.max(0) as u64)
+    }
+
     pub fn count_without_body(&self, account_id: &str) -> Result<u64> {
         let n: i64 = self.db().query_row(
             "SELECT COUNT(*) FROM messages WHERE has_body = 0 AND uid IS NOT NULL AND account_id = ?1",

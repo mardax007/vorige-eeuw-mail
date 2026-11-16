@@ -29,7 +29,7 @@ use outlook_pst::{AnsiPstFile, UnicodePstFile};
 
 use outlook_pst::messaging::named_prop::{NamedPropertyGuid, NamedPropertyId};
 
-use super::meta::status_line;
+use super::meta::{keywords_line, status_line};
 use super::rtf::{RtfBody, decompress_rtf, rtf_to_body};
 
 /// What `read` calls for every message: folder path and RFC 5322 bytes.
@@ -556,27 +556,8 @@ fn build(item: &MailItem) -> Vec<u8> {
 /// Read state, star and categories as header lines in front of the message (see import/meta.rs).
 fn meta_lines(item: &MailItem) -> String {
     let mut lines = status_line(item.unread, item.flagged).unwrap_or_default();
-    let names: Vec<&str> = item
-        .categories
-        .iter()
-        .map(|c| c.trim())
-        .filter(|c| !c.is_empty() && !c.contains([',', '\r', '\n']))
-        .collect();
-    if !names.is_empty() {
-        let encoded: Vec<String> = names.iter().map(|n| encoded_word(n)).collect();
-        lines.push_str(&format!("Keywords: {}\r\n", encoded.join(", ")));
-    }
+    lines.push_str(&keywords_line(item.categories.iter().map(String::as_str)).unwrap_or_default());
     lines
-}
-
-/// An RFC 2047 encoded word when the text is not plain ASCII.
-fn encoded_word(text: &str) -> String {
-    use base64::Engine;
-    if text.is_ascii() {
-        text.to_string()
-    } else {
-        format!("=?utf-8?B?{}?=", base64::engine::general_purpose::STANDARD.encode(text))
-    }
 }
 
 /// A multi-valued string property (PtypMultipleString or PtypMultipleString8).

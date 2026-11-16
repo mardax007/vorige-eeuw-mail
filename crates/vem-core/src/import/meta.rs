@@ -51,6 +51,25 @@ pub fn status_line(unread: bool, flagged: bool) -> Option<String> {
     (!words.is_empty()).then(|| format!("{STATUS_HEADER}: {}\r\n", words.join(", ")))
 }
 
+/// A `Keywords:` line for tags or Outlook categories (encoded words where not ASCII), or None.
+/// Names holding a comma or a line break are left out: they cannot be told apart again.
+pub fn keywords_line<'a>(names: impl IntoIterator<Item = &'a str>) -> Option<String> {
+    use base64::Engine;
+    let encoded: Vec<String> = names
+        .into_iter()
+        .map(str::trim)
+        .filter(|n| !n.is_empty() && !n.contains([',', '\r', '\n']))
+        .map(|n| {
+            if n.is_ascii() {
+                n.to_string()
+            } else {
+                format!("=?utf-8?B?{}?=", base64::engine::general_purpose::STANDARD.encode(n))
+            }
+        })
+        .collect();
+    (!encoded.is_empty()).then(|| format!("Keywords: {}\r\n", encoded.join(", ")))
+}
+
 /// The message without our status line, and what its headers say about it.
 pub fn take(raw: Vec<u8>) -> (Vec<u8>, Meta) {
     let head_end = header_end(&raw);

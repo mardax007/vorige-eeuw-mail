@@ -306,6 +306,24 @@ impl Engine {
         Ok(())
     }
 
+    /// Download the text of every message of an account (read-only, BODY.PEEK), before its mail
+    /// is copied to another mailbox. Stops between batches when `cancel` is set.
+    pub async fn download_bodies(&self, account_id: &str, cancel: &std::sync::atomic::AtomicBool) -> Result<()> {
+        let mut imap = self.connect(account_id).await?;
+        let result = loop {
+            if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                break Ok(());
+            }
+            match sync::fetch_bodies(&self.store, &mut imap, account_id, BODIES_PER_ROUND).await {
+                Ok(0) => break Ok(()),
+                Ok(_) => self.sink.mail_changed(account_id, None),
+                Err(e) => break Err(e),
+            }
+        };
+        imap.logout().await;
+        result
+    }
+
     // ---- sending -----------------------------------------------------------------------
 
     /// "Verzenden": into Postvak UIT; it goes after the undo delay.

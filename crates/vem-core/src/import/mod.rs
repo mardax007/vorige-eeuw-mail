@@ -12,6 +12,7 @@ use crate::model::{FolderRole, ImportKind, ImportProgress, ImportSource, ImportT
 use crate::parse;
 use crate::store::{NewMessage, Store};
 
+pub mod account;
 pub mod dbx;
 pub mod export;
 pub mod meta;
@@ -267,14 +268,38 @@ pub fn run(
         return Err(VemError::new(Code::ImportRead01).with_detail("missing"));
     }
     let size = size_of(&src);
+    check_disk(store, size)?;
+    let sink = open_sink(store, &source.label, size, target)?;
+    log::event("import.start", &[("job", job_id), ("kind", &format!("{:?}", source.kind)), ("bytes", &size.to_string())]);
+    let copy = keep_original(store, &src)?;
+    store.add_original(&source.label, &copy, size)?;
+    pump(sink, job_id, progress, cancel, |emit| {
+        // A damaged old file can make a reader crate panic; that ends this import, not the app.
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match source.kind {
+            ImportKind::Eml | ImportKind::Wlm => eml_tree(&copy, emit),
+            ImportKind::Mbox => mbox::read_path(&copy, emit),
+            ImportKind::Pst => read_pst(&copy, emit),
+            ImportKind::Dbx => read_dbx_tree(&copy, emit),
+        }))
+        .unwrap_or_else(|_| Err("the file is damaged: the reader stopped".into()))
+    })
+}
+
+/// Enough room on this disk for the copy of the original and the converted mail.
+fn check_disk(store: &Store, size: u64) -> Result<()> {
     if let Some(free) = free_space(&store.originals_dir()) {
         let need = size + size * GROWTH_PERCENT / 100 + SPARE_BYTES;
         if free < need {
             return Err(VemError::new(Code::ImportSpace01).with_detail(format!("{} MB", need / 1024 / 1024)));
         }
     }
+    Ok(())
+}
+
+/// Where the mail goes: a local account named after the source, or a mailbox with room for it.
+fn open_sink<'a>(store: &'a Store, label: &str, size: u64, target: &ImportTarget) -> Result<Sink<'a>> {
     let (account_id, mailbox) = match target {
-        ImportTarget::Local => (store.local_account(&source.label)?.id, false),
+        ImportTarget::Local => (store.local_account(label)?.id, false),
         ImportTarget::Mailbox { account_id } => {
             let a = store.account(account_id)?;
             if let Some(q) = a.quota.as_ref()
@@ -290,12 +315,17 @@ pub fn run(
         .into_iter()
         .find_map(|f| f.delimiter.filter(|d| !d.is_empty()))
         .unwrap_or_else(|| "/".into());
+    Ok(Sink { store, account_id, mailbox, delimiter, folders: Default::default(), report: ImportReport::default() })
+}
 
-    log::event("import.start", &[("job", job_id), ("kind", &format!("{:?}", source.kind)), ("bytes", &size.to_string())]);
-    let copy = keep_original(store, &src)?;
-    store.add_original(&source.label, &copy, size)?;
-
-    let mut sink = Sink { store, account_id, mailbox, delimiter, folders: Default::default(), report: ImportReport::default() };
+/// Feed every message `read` hands over into the sink, with progress and the stop switch.
+fn pump(
+    mut sink: Sink<'_>,
+    job_id: &str,
+    progress: &dyn Fn(ImportProgress),
+    cancel: &AtomicBool,
+    read: impl FnOnce(&mut Emit<'_>) -> std::result::Result<Skipped, String>,
+) -> Result<ImportReport> {
     let mut done: u64 = 0;
     let mut failure: Option<VemError> = None;
     let read = {
@@ -320,14 +350,7 @@ pub fn run(
             }
             Ok(())
         };
-        // A damaged old file can make a reader crate panic; that ends this import, not the app.
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match source.kind {
-            ImportKind::Eml | ImportKind::Wlm => eml_tree(&copy, &mut emit),
-            ImportKind::Mbox => mbox::read_path(&copy, &mut emit),
-            ImportKind::Pst => read_pst(&copy, &mut emit),
-            ImportKind::Dbx => read_dbx_tree(&copy, &mut emit),
-        }))
-        .unwrap_or_else(|_| Err("the file is damaged: the reader stopped".into()))
+        read(&mut emit)
     };
     if let Some(e) = failure {
         return Err(e);
