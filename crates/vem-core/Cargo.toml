@@ -18,6 +18,7 @@ lettre = { version = "0.11.23", default-features = false, features = ["builder",
 mail-builder = "2.0.1"
 mail-parser = { version = "1.0.1", features = ["full_encoding"] }
 outlook-pst = "1.2.0"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 quick-xml = "0.42.0"
 rand = "0.10.4"
 regex = "1.13.1"
