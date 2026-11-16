@@ -98,7 +98,28 @@ pub fn source_for(path: &Path) -> Result<ImportSource> {
         path: path.to_string_lossy().into_owned(),
         size: Some(size_of(path)),
         label: path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Oude mail".into()),
+        protected: kind == ImportKind::Pst && pst_password(path).is_some(),
     })
+}
+
+/// The password check of a PST, read without changing the file. A file that cannot be read
+/// counts as unprotected here; the import itself then reports what is wrong.
+fn pst_password(path: &Path) -> Option<u32> {
+    std::panic::catch_unwind(|| pst::password_crc(path)).ok()?.ok()?
+}
+
+/// Before an import: a PST with a password is only read with the right one (phase 3 task 3).
+/// The password is not kept, logged or put in the error.
+pub fn check_password(source: &ImportSource, password: Option<&str>) -> Result<()> {
+    if source.kind != ImportKind::Pst {
+        return Ok(());
+    }
+    let Some(crc) = pst_password(Path::new(&source.path)) else { return Ok(()) };
+    match password {
+        Some(p) if pst::password_matches(crc, p) => Ok(()),
+        Some(_) => Err(VemError::new(Code::ImportRead05).with_detail("wrong")),
+        None => Err(VemError::new(Code::ImportRead05).with_detail("missing")),
+    }
 }
 
 fn ext_detail(path: &Path) -> String {
@@ -137,6 +158,7 @@ pub fn find_sources() -> Vec<ImportSource> {
                 path: wlm.to_string_lossy().into_owned(),
                 size: Some(size_of(&wlm)),
                 label: "Windows Live Mail".into(),
+                protected: false,
             });
         }
         let ids = l.join("Identities");
@@ -148,6 +170,7 @@ pub fn find_sources() -> Vec<ImportSource> {
                     path: oe.to_string_lossy().into_owned(),
                     size: Some(size_of(&oe)),
                     label: "Outlook Express".into(),
+                    protected: false,
                 });
             }
         }
@@ -570,6 +593,15 @@ mod tests {
     }
 
     #[test]
+    fn only_a_protected_pst_needs_its_password() {
+        let mbox = ImportSource { kind: ImportKind::Mbox, path: "x.mbox".into(), size: None, label: "x".into(), protected: false };
+        assert!(check_password(&mbox, None).is_ok());
+        let missing = ImportSource { kind: ImportKind::Pst, path: "C:/bestaat/niet.pst".into(), ..mbox };
+        assert!(!source_for(Path::new(&missing.path)).unwrap().protected);
+        assert!(check_password(&missing, None).is_ok(), "an unreadable file is reported by the import itself");
+    }
+
+    #[test]
     fn import_keeps_read_state_star_and_tags() {
         let (_d, s) = store();
         let src = tempfile::tempdir().unwrap();
@@ -600,7 +632,7 @@ mod tests {
         std::fs::write(src.path().join("Familie/Kerst/b.eml"), eml("Kerstdiner", "2")).unwrap();
         let before = std::fs::read(src.path().join("Postvak IN/a.eml")).unwrap();
 
-        let source = ImportSource { kind: ImportKind::Wlm, path: src.path().to_string_lossy().into(), size: None, label: "Live Mail".into() };
+        let source = ImportSource { kind: ImportKind::Wlm, path: src.path().to_string_lossy().into(), size: None, label: "Live Mail".into(), protected: false };
         let seen = Mutex::new(0);
         let r = run(&s, "j1", &source, &ImportTarget::Local, &|_| *seen.lock().unwrap() += 1, &AtomicBool::new(false)).unwrap();
         assert_eq!(r.added, 2);
@@ -625,7 +657,7 @@ mod tests {
         std::fs::create_dir_all(src.path().join("Gmail/Inbox")).unwrap();
         std::fs::write(src.path().join("Gmail/Inbox/a.eml"), eml("Compleet", "tekst")).unwrap();
         std::fs::write(src.path().join("Gmail/Inbox/b.eml"), "Subject: Alleen kop\r\nMessage-ID: <kop@x>\r\n\r\n").unwrap();
-        let source = ImportSource { kind: ImportKind::Wlm, path: src.path().to_string_lossy().into(), size: None, label: "Live Mail".into() };
+        let source = ImportSource { kind: ImportKind::Wlm, path: src.path().to_string_lossy().into(), size: None, label: "Live Mail".into(), protected: false };
         let r = run(&s, "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!(r.added, 1);
         assert!(r.skipped.iter().any(|(f, why)| f == "Gmail/Inbox" && why.contains("only the headers")));

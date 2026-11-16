@@ -103,6 +103,10 @@ export const nlErrors = {
     sentence: "Dit bestand is een kopie die Outlook van een postvak bijhoudt. Die kan het programma niet lezen.",
     next: "Voeg dat postvak hier toe met uw e-mailadres. Dan komt de mail vanzelf binnen.",
   },
+  "VEM-IMPORT-READ-05": {
+    sentence: "Dit Outlook-bestand heeft een wachtwoord, en dat wachtwoord klopt niet.",
+    next: "Typ het wachtwoord van het bestand opnieuw. Weet u het niet meer, vraag het dan aan Martijn.",
+  },
   "VEM-IMPORT-SPACE-01": {
     sentence: "Er is niet genoeg ruimte op deze computer om de oude mail op te halen.",
     next: "Maak ruimte vrij, bijvoorbeeld bij Originele bestanden, en probeer het opnieuw.",

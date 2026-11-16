@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { toVemError } from "../../api/errors";
 import type { Account, ImportKind, ImportSource, ImportTarget } from "../../api/types";
-import { t, type MessageKey } from "../../i18n";
+import { errorText, t, type MessageKey } from "../../i18n";
 import { formatBytes } from "../format";
 import { mailAccounts } from "../folders";
 import { useApp } from "../state/AppContext";
 import { ContactsFromLiveMail } from "./ContactsFromLiveMail";
 import { ImportProgressView } from "./ImportProgressView";
 import { OriginalsList } from "./OriginalsList";
+import { PstPassword } from "./PstPassword";
 import { useImportProgress } from "./useImportProgress";
 
 const KINDS: readonly { kind: ImportKind; label: MessageKey }[] = [
@@ -67,12 +69,16 @@ function AccountSources({ mail, choice, onChoose, onAddAccount }: AccountSources
   );
 }
 
+const WRONG_PASSWORD = "VEM-IMPORT-READ-05";
+
 /** "Oude mail ophalen": choose a file, folder or old mailbox, choose where it goes, watch it come in. */
 export function ImportView() {
   const { accounts, showError, reload, go } = useApp();
   const mail = mailAccounts(accounts);
   const [sources, setSources] = useState<ImportSource[]>([]);
-  const [choice, setChoice] = useState<ImportChoice | null>(null);
+  const [choice, setChoiceState] = useState<ImportChoice | null>(null);
+  const [password, setPassword] = useState("");
+  const [passwordProblem, setPasswordProblem] = useState<string | null>(null);
   const [targetKind, setTargetKind] = useState<"local" | "mailbox">("local");
   const [accountId, setAccountId] = useState(mail[0]?.id ?? "");
   const [isStarting, setIsStarting] = useState(false);
@@ -81,6 +87,13 @@ export function ImportView() {
     setDoneCount((n) => n + 1);
     void reload();
   }, showError);
+
+  const setChoice = (next: ImportChoice) => {
+    setChoiceState(next);
+    setPassword("");
+    setPasswordProblem(null);
+  };
+  const needsPassword = choice?.kind === "file" && choice.source.protected === true;
 
   useEffect(() => {
     api.findImportSources().then(setSources).catch(showError);
@@ -108,10 +121,17 @@ export function ImportView() {
     try {
       const jobId =
         choice.kind === "file"
-          ? await api.startImport(choice.source, target)
+          ? await api.startImport(choice.source, target, needsPassword ? password : null)
           : await api.importFromAccount(choice.accountId, target);
+      setPasswordProblem(null);
       job.begin(jobId);
     } catch (e: unknown) {
+      const error = toVemError(e);
+      if (error.code === WRONG_PASSWORD) {
+        const text = errorText(error.code);
+        setPasswordProblem(`${text.sentence} ${text.next} (${error.code})`);
+        return;
+      }
       showError(e);
       // Perhaps an import is already running (started elsewhere): show it.
       job.refresh();
@@ -156,6 +176,16 @@ export function ImportView() {
       />
 
       {choice && <p className="calm-line"><strong>{chosenText(choice, accounts)}</strong></p>}
+      {needsPassword && (
+        <PstPassword
+          value={password}
+          onChange={(v) => {
+            setPassword(v);
+            setPasswordProblem(null);
+          }}
+          problem={passwordProblem}
+        />
+      )}
 
       <fieldset>
         <legend>{t("import.where")}</legend>
@@ -182,7 +212,9 @@ export function ImportView() {
       </fieldset>
 
       <div className="button-row">
-        <button type="button" className="primary" disabled={!choice || job.isRunning || isStarting} onClick={start}>
+        <button type="button" className="primary" disabled={!choice || job.isRunning || isStarting || (needsPassword && password === "")}
+          onClick={start}
+        >
           {t("import.start")}
         </button>
       </div>

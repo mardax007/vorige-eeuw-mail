@@ -476,7 +476,9 @@ async fn import_contacts_file(app: AppHandle, state: State<'_, AppState>, folder
 }
 
 #[tauri::command]
-fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource, target: ImportTarget) -> R<String> {
+fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource, target: ImportTarget, password: Option<String>) -> R<String> {
+    // Checked before the job starts, so a wrong password is answered at once on the same screen.
+    import::check_password(&source, password.as_deref())?;
     spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
         import::run(&engine.store, job, &source, &target, emit, cancel)
     })

@@ -87,6 +87,13 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
         size: 1_288_490_188,
         label: "Outlook.pst",
       },
+      {
+        kind: "pst",
+        path: "C:\Users\Ria\Documents\Outlook-bestanden\Archief 2012.pst",
+        size: 734_003_200,
+        label: "Archief 2012.pst",
+        protected: true,
+      },
       { kind: "wlm", path: "C:\\Users\\Ria\\AppData\\Local\\Microsoft\\Windows Live Mail", size: null, label: "Windows Live Mail" },
     ],
     import_contacts_file: () => {
@@ -106,15 +113,20 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
       size: 52_428_800,
       label: `oud.${kind}`,
     }),
-    start_import: ({ source }) =>
-      startJob(store, {
+    start_import: ({ source, password }) => {
+      // The mock's protected file opens with "geheim" (made-up test value).
+      if (source.protected && password !== "geheim") {
+        throw mockError("VEM-IMPORT-READ-05", undefined, password ? "wrong" : "missing");
+      }
+      return startJob(store, {
         folders: ["Postvak IN", "Verzonden items"],
         alreadyThere: 0,
         contactsAdded: source.kind === "pst" ? 3 : 0,
         allMarkedRead: source.kind === "wlm",
         skipped: [{ folder: "Agenda", reason: "not a mail folder (IPF.Appointment)" }],
         original: { label: source.label, size: source.size ?? 0 },
-      }),
+      });
+    },
     import_from_account: ({ sourceAccountId, target }) => {
       const accounts = store.get().accounts;
       if (!accounts.some((a) => a.id === sourceAccountId)) {

@@ -28,6 +28,7 @@ Elke melding in het programma heeft een code die begint met VEM. Klik op de code
 | [VEM-IMPORT-READ-02](VEM-IMPORT-READ-02.md) | Het bestand met oude mail is nog in gebruik. |
 | [VEM-IMPORT-READ-03](VEM-IMPORT-READ-03.md) | Dit soort bestand kent het programma niet. |
 | [VEM-IMPORT-READ-04](VEM-IMPORT-READ-04.md) | Dit bestand is een kopie die Outlook van een postvak bijhoudt. Die kan het programma niet lezen. |
+| [VEM-IMPORT-READ-05](VEM-IMPORT-READ-05.md) | Dit Outlook-bestand heeft een wachtwoord, en dat wachtwoord klopt niet. |
 | [VEM-IMPORT-SPACE-01](VEM-IMPORT-SPACE-01.md) | Er is niet genoeg ruimte op deze computer om de oude mail op te halen. |
 | [VEM-IMPORT-SPACE-02](VEM-IMPORT-SPACE-02.md) | Er is niet genoeg ruimte in uw postvak voor de oude mail. |
 | [VEM-STORE-WRITE-01](VEM-STORE-WRITE-01.md) | Het programma kon niets opslaan op deze computer. |

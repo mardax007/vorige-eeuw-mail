@@ -71,6 +71,34 @@ describe("a running import", () => {
   });
 });
 
+describe("an Outlook file with a password", () => {
+  it("asks for the password and says under the field when it is wrong", async () => {
+    const spy = vi.spyOn(api, "startImport");
+    const user = await openImport();
+    await user.click(within(accountRow(/^Archief 2012\.pst/)).getByRole("button", { name: "Kiezen" }));
+    const start = screen.getByRole("button", { name: "Ophalen" }) as HTMLButtonElement;
+    expect(start.disabled).toBe(true);
+    const field = screen.getByLabelText("Wachtwoord van het Outlook-bestand");
+    await user.type(field, "fout");
+    await user.click(start);
+    expect(await screen.findByText(/en dat wachtwoord klopt niet\..*\(VEM-IMPORT-READ-05\)/)).toBeTruthy();
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    await user.clear(field);
+    await user.type(field, "geheim");
+    expect(field.getAttribute("aria-invalid")).toBeNull();
+    await user.click(start);
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ label: "Archief 2012.pst" }), { kind: "local" }, "geheim");
+    expect(await screen.findByText(/^Klaar\./, undefined, { timeout: 5000 })).toBeTruthy();
+  });
+
+  it("asks nothing for a file without one", async () => {
+    const user = await openImport();
+    await user.click(within(accountRow(/^Outlook\.pst/)).getByRole("button", { name: "Kiezen" }));
+    expect(screen.queryByLabelText("Wachtwoord van het Outlook-bestand")).toBeNull();
+    expect((screen.getByRole("button", { name: "Ophalen" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
 describe("Contactpersonen uit Windows Live Mail", () => {
   it("explains the export, reads the cards and opens Contactpersonen", async () => {
     const spy = vi.spyOn(api, "importContactsFile");

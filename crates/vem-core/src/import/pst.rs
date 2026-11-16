@@ -116,6 +116,40 @@ pub fn read(
     Ok(stats)
 }
 
+/// PidTagPstPassword: the CRC-32 of the password Outlook protects the file with; 0 when none.
+const PR_PST_PASSWORD: u16 = 0x67FF;
+
+/// The stored password check of a protected PST, or None when it has no password. Only the
+/// store's properties are read.
+pub fn password_crc(path: &Path) -> Result<Option<u32>, String> {
+    let store = PstStore::open(path)?;
+    Ok(match store.as_dyn().properties().get(PR_PST_PASSWORD) {
+        Some(PropertyValue::Integer32(v)) if *v != 0 => Some(*v as u32),
+        _ => None,
+    })
+}
+
+/// Whether a typed password matches the stored check. The file's content is not encrypted by it;
+/// this only respects that its owner put a password on it. Outlook keeps the CRC-32 of the
+/// password in the Windows code page; the variant without inversion ([MS-PST] 5.3) and the usual
+/// one are both accepted, as tools differ on which Outlook wrote.
+pub fn password_matches(crc: u32, password: &str) -> bool {
+    let (bytes, _, _) = WINDOWS_1252.encode(password);
+    let plain = crc32(0, &bytes);
+    let usual = !crc32(!0, &bytes);
+    crc == plain || crc == usual
+}
+
+fn crc32(mut crc: u32, bytes: &[u8]) -> u32 {
+    for b in bytes {
+        crc ^= u32::from(*b);
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
+        }
+    }
+    crc
+}
+
 /// The two PST flavours have different concrete types; attachments need the concrete message.
 enum PstStore {
     Unicode(Rc<UnicodeStore>),
@@ -714,6 +748,15 @@ fn has_field(head: &str, name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pst_password_check() {
+        assert_eq!(!crc32(!0, b"123456789"), 0xCBF4_3926, "the usual CRC-32 check value");
+        assert!(password_matches(0xCBF4_3926, "123456789"));
+        assert!(password_matches(crc32(0, &[b'g', b'e', b'h', b'e', b'i', b'm', 0x80]), "geheim€"), "the Windows code page: € is 0x80");
+        assert!(!password_matches(0xCBF4_3926, "12345678"));
+        assert_eq!(password_crc(&empty_pst()).unwrap(), None, "Outlook's empty example file has no password");
+    }
 
     fn empty_pst() -> std::path::PathBuf {
         let home = std::env::var_os("CARGO_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| {

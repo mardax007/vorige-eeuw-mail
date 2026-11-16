@@ -161,7 +161,7 @@ export interface ServerSettings {
   smtpPort: number;
   smtpTls: "tls" | "starttls";
   username: string;
-  /** Where the settings came from: "table", "autoconfig", "ispdb", "guess". */
+  /** Where the settings came from: "table", "autoconfig", "ispdb", "mx", "srv", "guess", "manual". */
   source: string;
   /** True when the host is a guess outside the user's domain and the user must confirm it. */
   needsConfirmation: boolean;
@@ -192,6 +192,8 @@ export interface ImportSource {
   size?: number | null;
   /** Shown name, for example the PST file name. */
   label: string;
+  /** An Outlook file with a password: ask for it before the import starts. */
+  protected?: boolean;
 }
 
 /** A folder an import left out, with the core's short technical reason (English; shown only as details). */

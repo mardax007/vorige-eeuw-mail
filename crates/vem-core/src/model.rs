@@ -307,6 +307,9 @@ pub struct ImportSource {
     pub path: String,
     pub size: Option<u64>,
     pub label: String,
+    /// An Outlook file with a password: the screen asks for it before the import starts.
+    #[serde(default)]
+    pub protected: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
