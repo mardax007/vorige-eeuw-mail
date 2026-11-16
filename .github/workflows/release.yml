@@ -1,0 +1,58 @@
+# Builds the Windows installer, signs the update and makes a *draft* release with the installer
+# and latest.json. Martijn installs the draft on his own PC first and publishes it by hand
+# (docs/release.md). Run it from the Actions tab: "Release" > "Run workflow".
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - run: npm ci
+
+      - name: Tests first
+        run: |
+          npm test
+          cargo test -p vem-core --lib
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update; the key lives only here and in Martijn's offline backup.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Read at compile time by option_env!; never written in the repository.
+          VEM_SUPPORT_ADDRESS: ${{ secrets.VEM_SUPPORT_ADDRESS }}
+          VEM_UPDATER_PUBKEY: ${{ secrets.VEM_UPDATER_PUBKEY }}
+          VEM_GOOGLE_CLIENT_ID: ${{ secrets.VEM_GOOGLE_CLIENT_ID }}
+          VEM_GOOGLE_CLIENT_SECRET: ${{ secrets.VEM_GOOGLE_CLIENT_SECRET }}
+          VEM_MICROSOFT_CLIENT_ID: ${{ secrets.VEM_MICROSOFT_CLIENT_ID }}
+          VEM_UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+          VEM_LOG_REQUESTS_URL: https://raw.githubusercontent.com/${{ github.repository }}/main/log-requests.json
+        with:
+          tagName: v__VERSION__
+          releaseName: Vorige Eeuw Mail __VERSION__
+          releaseBody: |
+            - Schrijf hier twee of drie zinnen over wat er nieuw is. Ze verschijnen achter "Wat is er nieuw?".
+          releaseDraft: true
+          prerelease: false
+          updaterJsonPreferNsis: true
+          args: --config {"bundle":{"createUpdaterArtifacts":true}}

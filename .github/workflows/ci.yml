@@ -1,0 +1,62 @@
+# Tests on every push and pull request: the Rust core (with the local GreenMail test server,
+# never a real mailbox) and the screens.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Screens
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Start the local test mail server (GreenMail)
+        shell: pwsh
+        run: |
+          $jar = "$env:RUNNER_TEMP\greenmail.jar"
+          Invoke-WebRequest https://repo1.maven.org/maven2/com/icegreen/greenmail-standalone/2.1.3/greenmail-standalone-2.1.3.jar -OutFile $jar
+          Start-Process java -ArgumentList @(
+            '-Dgreenmail.setup.test.all', '-Dgreenmail.hostname=127.0.0.1',
+            '-Dgreenmail.users=jan:geheim@example.test,piet:geheim@example.test',
+            '-Dgreenmail.users.login=email', '-jar', $jar) -WindowStyle Hidden
+          for ($i = 0; $i -lt 30; $i++) {
+            if ((Test-NetConnection 127.0.0.1 -Port 3993 -WarningAction SilentlyContinue).TcpTestSucceeded) { exit 0 }
+            Start-Sleep 2
+          }
+          throw 'GreenMail did not start'
+
+      - name: Rust core
+        run: cargo test -p vem-core --features test-support
+
+      - name: Tauri shell compiles
+        run: cargo check -p vem
