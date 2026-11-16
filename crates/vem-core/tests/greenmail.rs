@@ -135,10 +135,11 @@ async fn send_sync_search_flag_move_delete() {
     let flags = imap.fetch_flags(&uid.to_string()).await.unwrap();
     assert!(flags[0].seen && flags[0].flagged, "server has \\Seen and \\Flagged");
 
-    imap.create_folder("Familie").await.unwrap();
+    let familie_name = unique("Familie");
+    imap.create_folder(&familie_name).await.unwrap();
     sync::sync_folders(&store, &mut imap, &acc.id).await.unwrap();
     let familie =
-        store.folder_infos(&acc.id).unwrap().into_iter().find(|f| f.name == "Familie").expect("new folder listed").id;
+        store.folder_infos(&acc.id).unwrap().into_iter().find(|f| f.name == familie_name).expect("new folder listed").id;
     let inbox = store.folder_by_role(&acc.id, FolderRole::Inbox).unwrap().unwrap();
     store.move_local(id, familie).unwrap();
     store
@@ -161,7 +162,7 @@ async fn send_sync_search_flag_move_delete() {
         )
         .unwrap();
     sync::sync_account(&store, &mut imap, &acc.id, false).await.expect("sync after delete");
-    imap.open("Familie", true).await.unwrap();
+    imap.open(&familie_name, true).await.unwrap();
     assert!(!imap.uids().await.unwrap().contains(&moved_uid), "gone on the server");
     assert!(store.messages_in_folder(familie, 0, 50).unwrap().iter().all(|m| m.subject != subject));
     imap.logout().await;
