@@ -18,6 +18,7 @@ pub mod export;
 pub mod meta;
 pub mod mbox;
 pub mod pst;
+mod pst_contact;
 mod rtf;
 
 /// Leave this much free on the disk after the copy and the converted mail.
@@ -32,6 +33,8 @@ pub const MAILBOX_FOLDER: &str = "Oude mail";
 pub struct ImportReport {
     pub added: u64,
     pub already_there: u64,
+    /// Contacts from the file that went into the address book (PST only).
+    pub contacts: u64,
     pub skipped: Vec<(String, String)>,
 }
 
@@ -279,16 +282,18 @@ pub fn run(
     log::event("import.start", &[("job", job_id), ("kind", &format!("{:?}", source.kind)), ("bytes", &size.to_string())]);
     let copy = keep_original(store, &src)?;
     store.add_original(&source.label, &copy, size)?;
-    pump(sink, job_id, progress, cancel, |emit| {
+    let contacts = std::cell::Cell::new(0u64);
+    let report = pump(sink, job_id, progress, cancel, |emit| {
         // A damaged old file can make a reader crate panic; that ends this import, not the app.
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match source.kind {
             ImportKind::Eml | ImportKind::Wlm => eml_tree(&copy, emit),
             ImportKind::Mbox => mbox::read_path(&copy, emit),
-            ImportKind::Pst => read_pst(&copy, emit),
+            ImportKind::Pst => read_pst(store, &copy, emit, &contacts),
             ImportKind::Dbx => read_dbx_tree(&copy, emit),
         }))
         .unwrap_or_else(|_| Err("the file is damaged: the reader stopped".into()))
-    })
+    })?;
+    Ok(ImportReport { contacts: contacts.get(), ..report })
 }
 
 /// Enough room on this disk for the copy of the original and the converted mail.
@@ -428,8 +433,34 @@ fn read_dbx_tree(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skippe
 }
 
 // The PST and DBX readers live in their own modules.
-fn read_pst(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
-    Ok(pst::read(path, emit)?.skipped)
+fn read_pst(store: &Store, path: &Path, emit: &mut Emit<'_>, contacts: &std::cell::Cell<u64>) -> std::result::Result<Skipped, String> {
+    let stats = pst::read(path, emit)?;
+    contacts.set(add_contacts(store, &stats.contacts).map_err(|e| e.code)?);
+    Ok(stats.skipped)
+}
+
+/// Put contacts from an old file into the address book. Someone already there under one of the
+/// addresses is left as it is, so an import never overwrites what the user typed.
+fn add_contacts(store: &Store, contacts: &[pst_contact::PstContact]) -> Result<u64> {
+    let mut added = 0;
+    for c in contacts {
+        let mut known = false;
+        for e in &c.emails {
+            known |= store.contact_by_email(e)?.is_some();
+        }
+        if known {
+            continue;
+        }
+        store.save_contact(&crate::model::Contact {
+            id: String::new(),
+            name: c.name.clone(),
+            emails: c.emails.clone(),
+            phone: c.phone.clone(),
+            note: None,
+        })?;
+        added += 1;
+    }
+    Ok(added)
 }
 
 fn read_dbx(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
@@ -518,6 +549,23 @@ mod tests {
         assert!(matches!(ops[0].op, Op::Create { .. }));
         assert_eq!(ops.iter().filter(|o| matches!(o.op, Op::Append { .. })).count(), 2);
         assert!(s.folder_infos(&a.id).unwrap().iter().any(|f| f.name == "Oude mail.oud"));
+    }
+
+    #[test]
+    fn outlook_contacts_join_the_address_book_without_overwriting() {
+        let (_d, s) = store();
+        let typed = s
+            .save_contact(&crate::model::Contact { id: String::new(), name: "Kees (zelf getypt)".into(), emails: vec!["kees@voorbeeld.nl".into()], phone: None, note: None })
+            .unwrap();
+        let from_pst = vec![
+            pst_contact::PstContact { name: "Kees Jansen".into(), emails: vec!["kees@voorbeeld.nl".into()], phone: None },
+            pst_contact::PstContact { name: "Tante Truus".into(), emails: vec!["truus@voorbeeld.nl".into()], phone: Some("06-12345678".into()) },
+        ];
+        assert_eq!(add_contacts(&s, &from_pst).unwrap(), 1);
+        assert_eq!(s.contact(&typed.id).unwrap().name, "Kees (zelf getypt)");
+        let truus = s.contact_by_email("truus@voorbeeld.nl").unwrap().unwrap();
+        assert_eq!(truus.phone.as_deref(), Some("06-12345678"));
+        assert_eq!(add_contacts(&s, &from_pst).unwrap(), 0, "a second import adds nobody twice");
     }
 
     #[test]

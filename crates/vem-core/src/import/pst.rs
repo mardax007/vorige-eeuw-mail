@@ -30,6 +30,7 @@ use outlook_pst::{AnsiPstFile, UnicodePstFile};
 use outlook_pst::messaging::named_prop::{NamedPropertyGuid, NamedPropertyId};
 
 use super::meta::{keywords_line, status_line};
+use super::pst_contact::{self, PstContact};
 use super::rtf::{RtfBody, decompress_rtf, rtf_to_body};
 
 /// What `read` calls for every message: folder path and RFC 5322 bytes.
@@ -39,6 +40,8 @@ pub struct ReadStats {
     pub messages: u64,
     /// (folder path joined with "/", short reason without mail content)
     pub skipped: Vec<(String, String)>,
+    /// Outlook contacts with an e-mail address, for the address book.
+    pub contacts: Vec<PstContact>,
 }
 
 const MAX_FOLDER_DEPTH: usize = 64;
@@ -97,7 +100,7 @@ pub fn read(
     emit: &mut Emit<'_>,
 ) -> Result<ReadStats, String> {
     let store = PstStore::open(path)?;
-    let mut stats = ReadStats { messages: 0, skipped: Vec::new() };
+    let mut stats = ReadStats { messages: 0, skipped: Vec::new(), contacts: Vec::new() };
     let dyn_store = store.as_dyn();
     let root_id = dyn_store
         .properties()
@@ -107,7 +110,8 @@ pub fn read(
         .open_folder(&root_id)
         .map_err(|e| format!("PST mail folder tree cannot be opened: {e}"))?;
     let categories = categories_prop_id(dyn_store.as_ref());
-    let mut walker = Walker { store: &store, categories, stats: &mut stats, emit };
+    let contact_emails = pst_contact::email_prop_ids(dyn_store.as_ref());
+    let mut walker = Walker { store: &store, categories, contact_emails, stats: &mut stats, emit };
     walker.sub_folders(root.as_ref(), &mut Vec::new())?;
     Ok(stats)
 }
@@ -185,6 +189,8 @@ struct Walker<'a> {
     store: &'a PstStore,
     /// The property id that holds Outlook categories in this file, if it has any.
     categories: Option<u16>,
+    /// The property ids of the contact e-mail fields in this file.
+    contact_emails: Vec<u16>,
     stats: &'a mut ReadStats,
     emit: &'a mut Emit<'a>,
 }
@@ -232,7 +238,18 @@ impl Walker<'_> {
                     continue;
                 }
             };
-            if !is_mail_class(opened.message.properties()) {
+            let props = opened.message.properties();
+            let class = string(props.prop(PR_MESSAGE_CLASS), DEFAULT_CODE_PAGE);
+            if class.as_deref().is_some_and(pst_contact::is_contact_class) {
+                let cp = code_page(props);
+                let decode8 = |b: &[u8]| encoding_for(cp).decode_without_bom_handling(b).0.into_owned();
+                let text = |id: u16| pst_contact::text_of(props.prop(id), &decode8);
+                if let Some(c) = pst_contact::contact(&text, &self.contact_emails) {
+                    self.stats.contacts.push(c);
+                }
+                continue;
+            }
+            if !is_mail_class(props) {
                 continue;
             }
             let mut notes = Vec::new();

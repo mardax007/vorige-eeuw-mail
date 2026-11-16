@@ -328,6 +328,8 @@ pub struct ImportProgress {
     pub error: Option<VemError>,
     /// Only in the last event: messages that were there already (same Message-ID).
     pub already_there: u64,
+    /// Only in the last event: contacts from the file that went into the address book.
+    pub contacts_added: u64,
     /// Only in the last event: what was left out, by folder, with a short technical reason
     /// (shown under "Details" and in the saved list, like a server reply).
     pub skipped: Vec<ImportSkip>,

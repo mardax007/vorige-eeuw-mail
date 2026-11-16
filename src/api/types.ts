@@ -209,6 +209,8 @@ export interface ImportProgress {
   error?: VemError | null;
   /** Messages that were already in the target and were not copied again. */
   alreadyThere: number;
+  /** Contacts from an Outlook file that went into the address book (final event only). */
+  contactsAdded?: number;
   /** Filled only in the final event (finished = true). */
   skipped: ImportSkip[];
 }

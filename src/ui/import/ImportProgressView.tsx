@@ -63,6 +63,7 @@ export function ImportProgressView({ progress }: ImportProgressViewProps) {
         </p>
       )}
       {progress.alreadyThere > 0 && <p>{t("import.alreadyThere", { count: progress.alreadyThere })}</p>}
+      {(progress.contactsAdded ?? 0) > 0 && <p>{t("import.contactsAdded", { count: progress.contactsAdded ?? 0 })}</p>}
       {progress.skipped.length > 0 && <SkippedDetails skipped={progress.skipped} />}
     </div>
   );

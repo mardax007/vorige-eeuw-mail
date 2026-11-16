@@ -307,6 +307,7 @@ export const nl = {
   "import.done": "Klaar. {done} berichten opgehaald.",
   "import.doneSkipped": "Klaar. {done} berichten opgehaald, {skipped} overgeslagen.",
   "import.alreadyThere": "{count} berichten stonden er al en zijn niet nog eens neergezet.",
+  "import.contactsAdded": "{count} contactpersonen uit Outlook staan nu bij Contactpersonen.",
   "import.skippedTitle": "Overgeslagen",
   "import.copyList": "Lijst kopiëren",
   "import.listCopied": "De lijst staat klaar om te plakken (Ctrl+V), bijvoorbeeld in een bericht aan Martijn.",

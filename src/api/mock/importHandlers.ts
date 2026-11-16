@@ -22,6 +22,7 @@ interface ImportRun {
   /** Folders the mock pretends to pass through. */
   folders: readonly [string, string];
   alreadyThere: number;
+  contactsAdded?: number;
   skipped: ImportSkip[];
   /** Set for a file import: the kept copy that shows under Originele bestanden. */
   original?: { label: string; size: number };
@@ -43,6 +44,7 @@ function runImport(store: MockStore, jobId: string, run: ImportRun): void {
       finished,
       error: null,
       alreadyThere: finished ? run.alreadyThere : 0,
+      contactsAdded: finished ? (run.contactsAdded ?? 0) : 0,
       skipped: finished ? run.skipped : [],
     });
     if (finished) {
@@ -94,6 +96,7 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
       startJob(store, {
         folders: ["Postvak IN", "Verzonden items"],
         alreadyThere: 0,
+        contactsAdded: source.kind === "pst" ? 3 : 0,
         skipped: [{ folder: "Agenda", reason: "not a mail folder (IPF.Appointment)" }],
         original: { label: source.label, size: source.size ?? 0 },
       }),
