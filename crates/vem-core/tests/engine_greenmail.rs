@@ -170,3 +170,69 @@ async fn send_with_undo_delay_arrives_by_idle_and_keeps_a_sent_copy() {
     assert!(ok, "one sent copy, adopted from the server");
     assert!(jan.store.contact_by_email("piet@example.test").unwrap().is_some(), "recipient learned");
 }
+
+/// "Uit een ander postvak": Jan's old mailbox is copied into Piet's, with read state and star.
+/// Only GreenMail's test accounts are written to.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn mailbox_import_copies_mail_with_state_into_another_mailbox() {
+    if !server_up() {
+        return;
+    }
+    let run = uuid::Uuid::new_v4().simple().to_string();
+    let config = |user: &str| vem_core::imap::ImapConfig {
+        host: "127.0.0.1".into(),
+        port: 3993,
+        security: Security::Tls,
+        username: user.into(),
+        auth: vem_core::imap::Auth::Password("geheim".into()),
+        trust: Trust::AcceptAnyLocalTestServer,
+    };
+    let mut raw = vem_core::imap::Imap::connect(&config("jan@example.test")).await.unwrap();
+    for (n, seen, flagged) in [(1, true, true), (2, false, false)] {
+        let msg = format!("From: Oma <oma@example.test>\r\nSubject: Oud {run} {n}\r\nMessage-ID: <oud{n}.{run}@x>\r\nDate: Tue, 3 Feb 2004 10:00:00 +0100\r\n\r\nOude mail {n}\r\n");
+        raw.append("INBOX", seen, flagged, msg.as_bytes()).await.unwrap();
+    }
+    raw.logout().await;
+
+    let d = tempfile::tempdir().unwrap();
+    let (e, sink) = engine(d.path());
+    e.start().unwrap();
+    let pw = || Secret::Password { password: "geheim".into() };
+    let jan = e.add_account("Jan", "jan@example.test", pw(), settings("jan@example.test")).await.unwrap();
+    let piet = e.add_account("Piet", "piet@example.test", pw(), settings("piet@example.test")).await.unwrap();
+    let synced = until(30, || {
+        let Some(inbox) = e.store.folder_by_role(&jan.id, FolderRole::Inbox).unwrap() else { return false };
+        e.store.messages_in_folder(inbox, 0, 500).unwrap().iter().filter(|m| m.subject.contains(&run)).count() == 2
+    })
+    .await;
+    assert!(synced, "Jan's two old messages are synced; errors: {:?}", sink.errors.lock().unwrap());
+
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    e.download_bodies(&jan.id, &cancel).await.unwrap();
+    let target = vem_core::model::ImportTarget::Mailbox { account_id: piet.id.clone() };
+    let report = vem_core::import::account::run(&e.store, "job", &jan.id, &target, &|_| {}, &cancel).unwrap();
+    assert!(report.added >= 2, "at least this run's two messages: {report:?}");
+    e.wake(Some(&piet.id));
+
+    // Piet's mailbox now has them under "Oude mail", with Jan's read state and star.
+    let mut found = Vec::new();
+    for _ in 0..60 {
+        let mut p = vem_core::imap::Imap::connect(&config("piet@example.test")).await.unwrap();
+        let folders = p.list_folders().await.unwrap();
+        if let Some(f) = folders.iter().find(|f| f.name.starts_with("Oude mail") && f.name.ends_with("INBOX")) {
+            p.open(&f.name, true).await.unwrap();
+            found = p.fetch("1:*", false).await.unwrap_or_default().into_iter().filter(|m| String::from_utf8_lossy(&m.raw).contains(&run)).collect();
+        }
+        p.logout().await;
+        if found.len() == 2 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    assert_eq!(found.len(), 2, "both copied into Piet's mailbox; errors: {:?}", sink.errors.lock().unwrap());
+    let first = found.iter().find(|m| String::from_utf8_lossy(&m.raw).contains(&format!("Oud {run} 1"))).unwrap();
+    let second = found.iter().find(|m| String::from_utf8_lossy(&m.raw).contains(&format!("Oud {run} 2"))).unwrap();
+    assert!(first.seen && first.flagged, "read and starred stays so");
+    assert!(!second.seen && !second.flagged, "unread stays unread");
+    assert!(!String::from_utf8_lossy(&first.raw).contains("X-VEM-Import-Status"));
+}
