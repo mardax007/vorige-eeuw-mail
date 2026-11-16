@@ -217,7 +217,7 @@ pub fn parse_autoconfig(xml: &str, email: &str, source: &str) -> Option<ServerSe
     })
 }
 
-fn http() -> Result<reqwest::Client> {
+pub fn http() -> Result<reqwest::Client> {
     let tls = net::tls_config(Trust::Platform)?;
     reqwest::Client::builder()
         .use_preconfigured_tls((*tls).clone())

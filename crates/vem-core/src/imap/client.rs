@@ -438,20 +438,40 @@ impl Imap {
         self.session.noop().await.map_err(|e| fail(&rec, Code::ImapCmd02, e))
     }
 
-    /// Wait for new mail with IDLE (or a NOOP after the timeout without it). `true` when the
-    /// server reported a change.
-    pub async fn wait_for_change(self, timeout: std::time::Duration) -> Result<(Imap, bool)> {
+    /// Wait for new mail on the selected folder with IDLE (or sleep, then NOOP, without it).
+    /// `wake` ends the wait early and cleanly, so the connection stays usable. Returns `true`
+    /// when the server reported a change.
+    pub async fn wait_for_change(self, timeout: std::time::Duration, wake: &tokio::sync::Notify) -> Result<(Imap, bool)> {
         let Imap { session, rec, caps } = self;
         if !caps.contains("IDLE") {
-            tokio::time::sleep(timeout).await;
+            tokio::select! {
+                _ = tokio::time::sleep(timeout) => {}
+                _ = wake.notified() => {}
+            }
             let mut me = Imap { session, rec, caps };
             me.noop().await?;
             return Ok((me, true));
         }
         let mut idle = session.idle();
         idle.init().await.map_err(|e| VemError::new(Code::ImapCmd02).with_detail(e.to_string()))?;
-        let (wait, _stop) = idle.wait_with_timeout(timeout);
-        let changed = matches!(wait.await, Ok(async_imap::extensions::idle::IdleResponse::NewData(_)));
+        let changed = {
+            let (wait, stop) = idle.wait_with_timeout(timeout);
+            tokio::pin!(wait);
+            let mut stop = Some(stop);
+            let first = tokio::select! {
+                r = &mut wait => Some(r),
+                _ = wake.notified() => None,
+            };
+            let r = match first {
+                Some(r) => r,
+                None => {
+                    drop(stop.take());
+                    (&mut wait).await
+                }
+            };
+            drop(stop);
+            matches!(r, Ok(async_imap::extensions::idle::IdleResponse::NewData(_)))
+        };
         let session = idle.done().await.map_err(|e| VemError::new(Code::ImapCmd02).with_detail(e.to_string()))?;
         Ok((Imap { session, rec, caps }, changed))
     }

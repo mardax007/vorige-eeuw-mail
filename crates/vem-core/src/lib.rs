@@ -3,12 +3,14 @@
 pub mod actions;
 pub mod compose;
 pub mod contacts_sync;
+pub mod engine;
 pub mod error;
 pub mod imap;
 pub mod log;
 pub mod lookup;
 pub mod net;
 pub mod model;
+pub mod oauth;
 pub mod parse;
 pub mod report;
 pub mod sanitize;
