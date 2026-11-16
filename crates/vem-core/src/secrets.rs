@@ -1,0 +1,193 @@
+//! Passwords and sign-in tokens, encrypted for the current Windows user with DPAPI
+//! (`CryptProtectData`), one file per account in `<data>/secrets/` (CLAUDE.md, Secrets).
+//!
+//! Nothing here is ever logged; `Secret`'s Debug output hides the values.
+
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+use crate::error::{Code, Result, VemError};
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Secret {
+    Password { password: String },
+    #[serde(rename_all = "camelCase")]
+    OAuth { access_token: String, refresh_token: Option<String>, expires_at: i64 },
+    /// The key for the contact sync message (docs/PLAN.md, C10); random, made on pairing.
+    #[serde(rename_all = "camelCase")]
+    SyncKey { key: Vec<u8> },
+}
+
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kind = match self {
+            Secret::Password { .. } => "Password",
+            Secret::OAuth { .. } => "OAuth",
+            Secret::SyncKey { .. } => "SyncKey",
+        };
+        write!(f, "Secret::{kind}(<hidden>)")
+    }
+}
+
+/// Mixed into DPAPI so another program of the same user cannot decrypt our files by accident.
+const ENTROPY: &[u8] = b"tech.mardax.vem/secrets/v1";
+
+pub struct Secrets {
+    dir: PathBuf,
+}
+
+impl Secrets {
+    pub fn new(data_dir: &Path) -> Secrets {
+        Secrets { dir: data_dir.join("secrets") }
+    }
+
+    fn path(&self, name: &str) -> Result<PathBuf> {
+        if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+            return Err(VemError::new(Code::StoreSecret01).with_detail("name"));
+        }
+        Ok(self.dir.join(format!("{name}.bin")))
+    }
+
+    pub fn put(&self, name: &str, secret: &Secret) -> Result<()> {
+        let path = self.path(name)?;
+        std::fs::create_dir_all(&self.dir).map_err(secret_io)?;
+        let plain = serde_json::to_vec(secret).map_err(|_| VemError::new(Code::StoreSecret01))?;
+        let sealed = protect(&plain)?;
+        let tmp = path.with_extension("tmp");
+        std::fs::write(&tmp, sealed).map_err(secret_io)?;
+        std::fs::rename(&tmp, &path).map_err(secret_io)?;
+        Ok(())
+    }
+
+    pub fn get(&self, name: &str) -> Result<Option<Secret>> {
+        let path = self.path(name)?;
+        let sealed = match std::fs::read(&path) {
+            Ok(b) => b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(secret_io(e)),
+        };
+        let plain = unprotect(&sealed)?;
+        serde_json::from_slice(&plain).map(Some).map_err(|_| VemError::new(Code::StoreSecret01).with_detail("format"))
+    }
+
+    pub fn delete(&self, name: &str) -> Result<()> {
+        match std::fs::remove_file(self.path(name)?) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(secret_io(e)),
+            _ => Ok(()),
+        }
+    }
+}
+
+fn secret_io(e: std::io::Error) -> VemError {
+    VemError::new(Code::StoreSecret01).with_detail(e.kind().to_string())
+}
+
+#[cfg(windows)]
+fn protect(plain: &[u8]) -> Result<Vec<u8>> {
+    dpapi::call(plain, true)
+}
+
+#[cfg(windows)]
+fn unprotect(sealed: &[u8]) -> Result<Vec<u8>> {
+    dpapi::call(sealed, false)
+}
+
+#[cfg(not(windows))]
+fn protect(_plain: &[u8]) -> Result<Vec<u8>> {
+    // Android keeps secrets in the keystore through the shell; the core has no fallback.
+    Err(VemError::new(Code::StoreSecret01).with_detail("unsupported"))
+}
+
+#[cfg(not(windows))]
+fn unprotect(_sealed: &[u8]) -> Result<Vec<u8>> {
+    Err(VemError::new(Code::StoreSecret01).with_detail("unsupported"))
+}
+
+#[cfg(windows)]
+mod dpapi {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::Security::Cryptography::{
+        CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData, CryptUnprotectData,
+    };
+
+    use super::ENTROPY;
+    use crate::error::{Code, Result, VemError};
+
+    pub fn call(input: &[u8], encrypt: bool) -> Result<Vec<u8>> {
+        let len = u32::try_from(input.len()).map_err(|_| VemError::new(Code::StoreSecret01).with_detail("size"))?;
+        let data_in = CRYPT_INTEGER_BLOB { cbData: len, pbData: input.as_ptr() as *mut u8 };
+        let entropy = CRYPT_INTEGER_BLOB { cbData: ENTROPY.len() as u32, pbData: ENTROPY.as_ptr() as *mut u8 };
+        let mut out = CRYPT_INTEGER_BLOB { cbData: 0, pbData: std::ptr::null_mut() };
+        // SAFETY: every pointer refers to a live buffer of the stated length for the whole call;
+        // DPAPI only reads the inputs and allocates `out`, which we free with LocalFree below.
+        let ok = unsafe {
+            if encrypt {
+                CryptProtectData(
+                    &data_in,
+                    std::ptr::null(),
+                    &entropy,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    CRYPTPROTECT_UI_FORBIDDEN,
+                    &mut out,
+                )
+            } else {
+                CryptUnprotectData(
+                    &data_in,
+                    std::ptr::null_mut(),
+                    &entropy,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    CRYPTPROTECT_UI_FORBIDDEN,
+                    &mut out,
+                )
+            }
+        };
+        if ok == 0 || out.pbData.is_null() {
+            return Err(VemError::new(Code::StoreSecret01).with_detail(if encrypt { "protect" } else { "unprotect" }));
+        }
+        // SAFETY: DPAPI returned a buffer of `cbData` bytes at `pbData`.
+        let bytes = unsafe { std::slice::from_raw_parts(out.pbData, out.cbData as usize) }.to_vec();
+        // SAFETY: the buffer was allocated by DPAPI with LocalAlloc and is not used after this.
+        unsafe {
+            LocalFree(out.pbData as _);
+        }
+        Ok(bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_trip_and_not_plain_on_disk() {
+        let d = tempfile::tempdir().unwrap();
+        let s = Secrets::new(d.path());
+        assert_eq!(s.get("acc1").unwrap(), None);
+        let secret = Secret::Password { password: "Zomer2026!geheim".into() };
+        s.put("acc1", &secret).unwrap();
+        let disk = std::fs::read(d.path().join("secrets/acc1.bin")).unwrap();
+        assert!(!disk.windows(6).any(|w| w == b"geheim"), "password must not be readable on disk");
+        assert_eq!(s.get("acc1").unwrap(), Some(secret));
+        s.delete("acc1").unwrap();
+        assert_eq!(s.get("acc1").unwrap(), None);
+        s.delete("acc1").unwrap();
+    }
+
+    #[test]
+    fn debug_hides_values() {
+        let s = Secret::OAuth { access_token: "ya29.abc".into(), refresh_token: Some("1//r".into()), expires_at: 0 };
+        let shown = format!("{s:?}");
+        assert!(!shown.contains("ya29") && !shown.contains("1//r"));
+    }
+
+    #[test]
+    fn rejects_path_tricks() {
+        let d = tempfile::tempdir().unwrap();
+        let s = Secrets::new(d.path());
+        assert!(s.put("../x", &Secret::Password { password: "p".into() }).is_err());
+    }
+}
