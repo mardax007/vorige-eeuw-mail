@@ -80,9 +80,9 @@ CREATE TABLE IF NOT EXISTS messages (
     remote_images_ok INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_folder_uid ON messages(folder_id, uid) WHERE uid IS NOT NULL;
-CREATE INDEX IF NOT EXISTS messages_folder_date ON messages(folder_id, hidden, date DESC);
-CREATE INDEX IF NOT EXISTS messages_account_date ON messages(account_id, hidden, date DESC);
-CREATE INDEX IF NOT EXISTS messages_date ON messages(hidden, date DESC);
+CREATE INDEX IF NOT EXISTS messages_folder_date ON messages(folder_id, hidden, date DESC, id DESC);
+CREATE INDEX IF NOT EXISTS messages_account_date ON messages(account_id, hidden, date DESC, id DESC);
+CREATE INDEX IF NOT EXISTS messages_date ON messages(hidden, date DESC, id DESC);
 CREATE INDEX IF NOT EXISTS messages_from ON messages(from_email);
 CREATE INDEX IF NOT EXISTS messages_nobody ON messages(has_body, date DESC) WHERE has_body = 0;
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
