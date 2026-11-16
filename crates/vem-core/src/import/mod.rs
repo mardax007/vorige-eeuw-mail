@@ -188,6 +188,8 @@ struct Sink<'a> {
     delimiter: String,
     folders: std::collections::HashMap<Vec<String>, i64>,
     report: ImportReport,
+    /// The largest message the target mailbox accepts (`APPENDLIMIT`, RFC 7889), if it says.
+    append_limit: Option<u64>,
 }
 
 impl Sink<'_> {
@@ -220,6 +222,10 @@ impl Sink<'_> {
                 return Ok(());
             }
         let size = raw.len() as u64;
+        if self.mailbox && self.append_limit.is_some_and(|max| size > max) {
+            self.report.skipped.push((path.join("/"), format!("the message is larger than the mailbox accepts ({size} bytes)")));
+            return Ok(());
+        }
         let id = self.store.insert_message(&NewMessage {
             account_id: self.account_id.clone(),
             folder_id: folder,
@@ -315,7 +321,13 @@ fn open_sink<'a>(store: &'a Store, label: &str, size: u64, target: &ImportTarget
         .into_iter()
         .find_map(|f| f.delimiter.filter(|d| !d.is_empty()))
         .unwrap_or_else(|| "/".into());
-    Ok(Sink { store, account_id, mailbox, delimiter, folders: Default::default(), report: ImportReport::default() })
+    let append_limit = if mailbox { append_limit(&store.capabilities(&account_id)?) } else { None };
+    Ok(Sink { store, account_id, mailbox, delimiter, folders: Default::default(), report: ImportReport::default(), append_limit })
+}
+
+/// `APPENDLIMIT=<bytes>` from the capabilities the mailbox announced at its last login.
+fn append_limit(caps: &[String]) -> Option<u64> {
+    caps.iter().find_map(|c| c.to_ascii_uppercase().strip_prefix("APPENDLIMIT=").and_then(|n| n.parse().ok()))
 }
 
 /// Feed every message `read` hands over into the sink, with progress and the stop switch.
@@ -362,7 +374,7 @@ fn pump(
         Err(e) => return Err(VemError::new(Code::ImportRead01).with_detail(e)),
     };
     let mut report = sink.report;
-    report.skipped = skipped;
+    report.skipped.extend(skipped);
     log::event(
         "import.done",
         &[("job", job_id), ("added", &report.added.to_string()), ("skipped", &report.skipped.len().to_string())],
@@ -506,6 +518,25 @@ mod tests {
         assert!(matches!(ops[0].op, Op::Create { .. }));
         assert_eq!(ops.iter().filter(|o| matches!(o.op, Op::Append { .. })).count(), 2);
         assert!(s.folder_infos(&a.id).unwrap().iter().any(|f| f.name == "Oude mail.oud"));
+    }
+
+    #[test]
+    fn message_over_appendlimit_is_skipped_with_a_reason() {
+        let (_d, s) = store();
+        let a = s.add_account("Jan", "jan@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        s.upsert_folder(&a.id, "INBOX", Some("."), Some(FolderRole::Inbox), true).unwrap();
+        s.set_capabilities(&a.id, &["IMAP4REV1".into(), "APPENDLIMIT=200".into()]).unwrap();
+        let src = tempfile::tempdir().unwrap();
+        let file = src.path().join("oud.mbox");
+        let big = eml("Groot", &"x".repeat(400));
+        std::fs::write(&file, format!("From x Tue Feb  3 10:00:00 2004\n{}\nFrom y Tue Feb  3 11:00:00 2004\n{}", eml("A", "a"), big)).unwrap();
+        let source = source_for(&file).unwrap();
+        let r = run(&s, "j", &source, &ImportTarget::Mailbox { account_id: a.id.clone() }, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(r.added, 1);
+        assert_eq!(r.skipped.len(), 1);
+        assert!(r.skipped[0].1.contains("larger than the mailbox accepts"));
+        assert_eq!(append_limit(&["APPENDLIMIT=1000".into()]), Some(1000));
+        assert_eq!(append_limit(&["APPENDLIMIT".into()]), None, "no number: no limit known");
     }
 
     #[test]

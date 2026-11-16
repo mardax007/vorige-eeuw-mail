@@ -14,6 +14,42 @@ use crate::store::Store;
 /// Give up on an action after this many failed tries; the next full sync corrects the screen.
 pub const MAX_ATTEMPTS: u32 = 5;
 
+/// Gmail accepts about 500 MB of IMAP uploads a day (Google documents it for Workspace; consumer
+/// accounts are treated the same). An import into Gmail stops below it and goes on the next day.
+pub const GMAIL_UPLOAD_PER_DAY: u64 = 500 * 1024 * 1024;
+
+const SECONDS_PER_DAY: i64 = 86_400;
+
+/// Bytes uploaded to one mailbox on one (UTC) day.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UploadDay {
+    pub day: i64,
+    pub bytes: u64,
+}
+
+fn upload_key(account_id: &str) -> String {
+    format!("upload_day:{account_id}")
+}
+
+/// What was uploaded to this mailbox today; a new day starts at 0.
+pub fn uploaded_today(store: &Store, account_id: &str, now: i64) -> Result<UploadDay> {
+    let today = now.div_euclid(SECONDS_PER_DAY);
+    Ok(match store.kv_get::<UploadDay>(&upload_key(account_id))? {
+        Some(d) if d.day == today => d,
+        _ => UploadDay { day: today, bytes: 0 },
+    })
+}
+
+/// Whether an upload of `size` bytes still fits in today's Gmail allowance.
+pub fn fits_today(day: UploadDay, size: u64) -> bool {
+    day.bytes + size <= GMAIL_UPLOAD_PER_DAY
+}
+
+/// The server refused the message as too big (`[TOOBIG]`, RFC 4469): trying again cannot help.
+fn too_big(e: &crate::VemError) -> bool {
+    e.server_reply.as_deref().is_some_and(|r| r.to_ascii_uppercase().contains("TOOBIG"))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum Op {
@@ -62,13 +98,37 @@ pub fn pending_move_uids(store: &Store, account_id: &str, folder_id: i64) -> Res
 
 pub async fn apply_pending(store: &Store, imap: &mut Imap, account_id: &str) -> Result<()> {
     let t = now();
+    let gmail = imap.is_gmail();
+    let mut today = uploaded_today(store, account_id, t)?;
+    let mut paused = false;
     for p in store.ops::<Op>(account_id)? {
         if !p.op.due(t) {
             continue;
         }
+        let upload = match &p.op {
+            Op::Append { message_id, .. } => store.message(*message_id).map(|m| m.size).unwrap_or(0),
+            _ => 0,
+        };
+        if gmail && upload > 0 && (paused || !fits_today(today, upload)) {
+            if !paused {
+                crate::log::event("upload.paused", &[("bytes_today", &today.bytes.to_string())]);
+            }
+            paused = true; // The rest of the uploads wait for tomorrow; other actions go on.
+            continue;
+        }
         match apply_one(store, imap, &p.op).await {
-            Ok(()) => store.op_done(p.id)?,
+            Ok(()) => {
+                store.op_done(p.id)?;
+                if upload > 0 {
+                    today.bytes += upload;
+                    store.kv_set(&upload_key(account_id), &today)?;
+                }
+            }
             Err(e) if e.code().is_some_and(|c| c == crate::Code::ImapCmd02) => return Err(e),
+            Err(e) if too_big(&e) => {
+                crate::log::event("upload.too_big", &[("bytes", &upload.to_string())]);
+                store.op_done(p.id)?;
+            }
             Err(_) if p.attempts + 1 >= MAX_ATTEMPTS => store.op_done(p.id)?,
             Err(_) => store.op_failed(p.id)?,
         }
@@ -141,6 +201,27 @@ async fn apply_one(store: &Store, imap: &mut Imap, op: &Op) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gmail_allowance_starts_again_each_day() {
+        let (_d, s) = crate::store::testutil::store();
+        let day1 = 20_000 * SECONDS_PER_DAY + 5;
+        let d = uploaded_today(&s, "a", day1).unwrap();
+        assert_eq!(d.bytes, 0);
+        s.kv_set(&upload_key("a"), &UploadDay { day: d.day, bytes: GMAIL_UPLOAD_PER_DAY - 10 }).unwrap();
+        let d = uploaded_today(&s, "a", day1 + 60).unwrap();
+        assert!(fits_today(d, 10));
+        assert!(!fits_today(d, 11));
+        assert_eq!(uploaded_today(&s, "a", day1 + SECONDS_PER_DAY).unwrap().bytes, 0);
+        assert_eq!(uploaded_today(&s, "b", day1).unwrap().bytes, 0, "per mailbox");
+    }
+
+    #[test]
+    fn toobig_reply_is_final() {
+        let e = crate::VemError::new(crate::Code::ImapCmd01).with_reply("a4 NO [TOOBIG] Message too large");
+        assert!(too_big(&e));
+        assert!(!too_big(&crate::VemError::new(crate::Code::ImapCmd01).with_reply("a4 NO [TRYCREATE]")));
+    }
 
     #[test]
     fn op_json_round_trip_and_due() {
