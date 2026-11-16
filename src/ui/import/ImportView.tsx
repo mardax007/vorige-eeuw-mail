@@ -5,6 +5,7 @@ import { t, type MessageKey } from "../../i18n";
 import { formatBytes } from "../format";
 import { mailAccounts } from "../folders";
 import { useApp } from "../state/AppContext";
+import { ContactsFromLiveMail } from "./ContactsFromLiveMail";
 import { ImportProgressView } from "./ImportProgressView";
 import { OriginalsList } from "./OriginalsList";
 import { useImportProgress } from "./useImportProgress";
@@ -187,6 +188,8 @@ export function ImportView() {
       </div>
 
       {job.progress && <ImportProgressView progress={job.progress} />}
+
+      <ContactsFromLiveMail />
 
       <OriginalsList refreshKey={doneCount} />
     </section>

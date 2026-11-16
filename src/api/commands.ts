@@ -5,6 +5,7 @@ import type {
   Account,
   AppInfo,
   Contact,
+  ContactsImported,
   Draft,
   Folder,
   ImportKind,
@@ -97,6 +98,8 @@ export interface CommandMap {
 
   find_import_sources: { args: NoArgs; result: ImportSource[] };
   pick_import_file: { args: { kind: ImportKind }; result: ImportSource | null };
+  /** Reads vCard files (a folder of them, or one file) into the address book; null when cancelled. */
+  import_contacts_file: { args: { folder: boolean }; result: ContactsImported | null };
   start_import: { args: { source: ImportSource; target: ImportTarget }; result: string };
   /** Copies the mail of an added mailbox into the target; the source mailbox is only read. */
   import_from_account: { args: { sourceAccountId: string; target: ImportTarget }; result: string };

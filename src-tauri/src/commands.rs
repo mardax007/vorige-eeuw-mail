@@ -451,6 +451,30 @@ async fn pick_import_file(app: AppHandle, kind: ImportKind) -> R<Option<ImportSo
     Ok(Some(source))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactsImported {
+    /// Cards with an e-mail address in the chosen files.
+    pub found: u64,
+    /// Of those, the ones that were not in the address book yet.
+    pub added: u64,
+}
+
+/// Contacts from vCard files: a folder of them (Windows Live Mail's export) or one file.
+/// None when the user closed the dialog.
+#[tauri::command]
+async fn import_contacts_file(app: AppHandle, state: State<'_, AppState>, folder: bool) -> R<Option<ContactsImported>> {
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        let d = app.dialog().file();
+        if folder { d.blocking_pick_folder() } else { d.add_filter("vCard", &["vcf"]).blocking_pick_file() }
+    })
+    .await
+    .map_err(|e| app_error(e.to_string()))?;
+    let Some(path) = picked.and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    let (found, added) = import::import_vcards(&state.engine.store, &path)?;
+    Ok(Some(ContactsImported { found, added }))
+}
+
 #[tauri::command]
 fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource, target: ImportTarget) -> R<String> {
     spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
@@ -668,6 +692,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         save_settings,
         find_import_sources,
         pick_import_file,
+        import_contacts_file,
         start_import,
         phone_paired,
         import_status,

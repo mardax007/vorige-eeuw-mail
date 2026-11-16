@@ -6,6 +6,7 @@ import { mockError } from "./state";
 type ImportCommands =
   | "find_import_sources"
   | "pick_import_file"
+  | "import_contacts_file"
   | "start_import"
   | "import_from_account"
   | "import_status"
@@ -88,6 +89,17 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
       },
       { kind: "wlm", path: "C:\\Users\\Ria\\AppData\\Local\\Microsoft\\Windows Live Mail", size: null, label: "Windows Live Mail" },
     ],
+    import_contacts_file: () => {
+      const known = store.get().contacts.some((c) => c.emails.includes("kees.jansen@voorbeeld.nl"));
+      store.set((s) => ({
+        ...s,
+        contacts: [
+          ...s.contacts,
+          { id: store.nextId("c"), name: "Truus de Wit", emails: ["truus.dewit@voorbeeld.nl"], phone: "06-12345678", note: null },
+        ],
+      }));
+      return { found: 2, added: known ? 1 : 2 };
+    },
     pick_import_file: ({ kind }) => ({
       kind,
       path: `C:\\Users\\Ria\\Documents\\oud.${kind}`,

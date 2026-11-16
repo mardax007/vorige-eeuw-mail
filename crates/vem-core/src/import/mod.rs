@@ -19,6 +19,7 @@ pub mod meta;
 pub mod mbox;
 pub mod pst;
 mod pst_contact;
+pub mod vcard;
 mod rtf;
 
 /// Leave this much free on the disk after the copy and the converted mail.
@@ -469,9 +470,34 @@ fn read_pst(store: &Store, path: &Path, emit: &mut Emit<'_>, contacts: &std::cel
     Ok(stats.skipped)
 }
 
+/// Contacts from vCard files: one `.vcf` file, or a folder of them (Windows Live Mail's export).
+/// The files are only read. Returns (cards with an address found, contacts added).
+pub fn import_vcards(store: &Store, path: &Path) -> Result<(u64, u64)> {
+    let files: Vec<PathBuf> = if path.is_dir() {
+        let mut f: Vec<PathBuf> = std::fs::read_dir(path)
+            .map_err(|e| VemError::new(Code::ImportRead01).with_detail(e.kind().to_string()))?
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("vcf")))
+            .collect();
+        f.sort();
+        f
+    } else {
+        vec![path.to_path_buf()]
+    };
+    let mut found = Vec::new();
+    for f in &files {
+        let bytes = std::fs::read(f).map_err(|e| VemError::new(Code::ImportRead01).with_detail(e.kind().to_string()))?;
+        found.extend(vcard::parse(&bytes));
+    }
+    let added = add_contacts(store, &found)?;
+    log::event("import.vcards", &[("files", &files.len().to_string()), ("found", &found.len().to_string()), ("added", &added.to_string())]);
+    Ok((found.len() as u64, added))
+}
+
 /// Put contacts from an old file into the address book. Someone already there under one of the
 /// addresses is left as it is, so an import never overwrites what the user typed.
-fn add_contacts(store: &Store, contacts: &[pst_contact::PstContact]) -> Result<u64> {
+fn add_contacts(store: &Store, contacts: &[pst_contact::OldContact]) -> Result<u64> {
     let mut added = 0;
     for c in contacts {
         let mut known = false;
@@ -608,14 +634,29 @@ mod tests {
             .save_contact(&crate::model::Contact { id: String::new(), name: "Kees (zelf getypt)".into(), emails: vec!["kees@voorbeeld.nl".into()], phone: None, note: None })
             .unwrap();
         let from_pst = vec![
-            pst_contact::PstContact { name: "Kees Jansen".into(), emails: vec!["kees@voorbeeld.nl".into()], phone: None },
-            pst_contact::PstContact { name: "Tante Truus".into(), emails: vec!["truus@voorbeeld.nl".into()], phone: Some("06-12345678".into()) },
+            pst_contact::OldContact { name: "Kees Jansen".into(), emails: vec!["kees@voorbeeld.nl".into()], phone: None },
+            pst_contact::OldContact { name: "Tante Truus".into(), emails: vec!["truus@voorbeeld.nl".into()], phone: Some("06-12345678".into()) },
         ];
         assert_eq!(add_contacts(&s, &from_pst).unwrap(), 1);
         assert_eq!(s.contact(&typed.id).unwrap().name, "Kees (zelf getypt)");
         let truus = s.contact_by_email("truus@voorbeeld.nl").unwrap().unwrap();
         assert_eq!(truus.phone.as_deref(), Some("06-12345678"));
         assert_eq!(add_contacts(&s, &from_pst).unwrap(), 0, "a second import adds nobody twice");
+    }
+
+    #[test]
+    fn live_mail_vcard_folder_fills_the_address_book_and_stays_unchanged() {
+        let (_d, s) = store();
+        let src = tempfile::tempdir().unwrap();
+        let a = "BEGIN:VCARD\r\nVERSION:2.1\r\nFN:Kees Jansen\r\nEMAIL;INTERNET:kees@voorbeeld.nl\r\nEND:VCARD\r\n";
+        let b = "BEGIN:VCARD\r\nVERSION:2.1\r\nFN:Bep Mulder\r\nEMAIL;INTERNET:bep@voorbeeld.nl\r\nTEL;CELL:06-1\r\nEND:VCARD\r\n";
+        std::fs::write(src.path().join("Kees Jansen.vcf"), a).unwrap();
+        std::fs::write(src.path().join("Bep Mulder.vcf"), b).unwrap();
+        std::fs::write(src.path().join("leesmij.txt"), "geen kaart").unwrap();
+        assert_eq!(import_vcards(&s, src.path()).unwrap(), (2, 2));
+        assert_eq!(s.contact_by_email("bep@voorbeeld.nl").unwrap().unwrap().phone.as_deref(), Some("06-1"));
+        assert_eq!(import_vcards(&s, &src.path().join("Kees Jansen.vcf")).unwrap(), (1, 0), "already there");
+        assert_eq!(std::fs::read_to_string(src.path().join("Kees Jansen.vcf")).unwrap(), a, "source unchanged");
     }
 
     #[test]

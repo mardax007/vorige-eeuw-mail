@@ -30,7 +30,7 @@ use outlook_pst::{AnsiPstFile, UnicodePstFile};
 use outlook_pst::messaging::named_prop::{NamedPropertyGuid, NamedPropertyId};
 
 use super::meta::{keywords_line, status_line};
-use super::pst_contact::{self, PstContact};
+use super::pst_contact::{self, OldContact};
 use super::rtf::{RtfBody, decompress_rtf, rtf_to_body};
 
 /// What `read` calls for every message: folder path and RFC 5322 bytes.
@@ -41,7 +41,7 @@ pub struct ReadStats {
     /// (folder path joined with "/", short reason without mail content)
     pub skipped: Vec<(String, String)>,
     /// Outlook contacts with an e-mail address, for the address book.
-    pub contacts: Vec<PstContact>,
+    pub contacts: Vec<OldContact>,
 }
 
 const MAX_FOLDER_DEPTH: usize = 64;

@@ -217,6 +217,14 @@ export interface ImportProgress {
   skipped: ImportSkip[];
 }
 
+/** Contacts read from vCard files (Windows Live Mail's export). */
+export interface ContactsImported {
+  /** Cards with an e-mail address in the chosen files. */
+  found: number;
+  /** Of those, the ones that were not in the address book yet. */
+  added: number;
+}
+
 export interface OriginalCopy {
   id: string;
   label: string;

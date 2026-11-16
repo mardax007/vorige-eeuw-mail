@@ -7,7 +7,7 @@ use outlook_pst::messaging::store::Store;
 
 /// A contact read from the PST, before it goes into the address book.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PstContact {
+pub struct OldContact {
     pub name: String,
     pub emails: Vec<String>,
     pub phone: Option<String>,
@@ -52,7 +52,7 @@ pub fn email_prop_ids(store: &dyn Store) -> Vec<u16> {
 
 /// Build the contact from its properties. `text` reads a string property. None when it has
 /// neither a name nor an address.
-pub fn contact(text: &dyn Fn(u16) -> Option<String>, email_ids: &[u16]) -> Option<PstContact> {
+pub fn contact(text: &dyn Fn(u16) -> Option<String>, email_ids: &[u16]) -> Option<OldContact> {
     let mut emails: Vec<String> = Vec::new();
     for id in email_ids {
         if let Some(e) = text(*id).and_then(|v| smtp_address(&v))
@@ -78,7 +78,7 @@ pub fn contact(text: &dyn Fn(u16) -> Option<String>, email_ids: &[u16]) -> Optio
         return None; // The address book is for mail: a name without an address is not kept.
     }
     let name = if name.is_empty() { emails[0].clone() } else { name };
-    Some(PstContact { name, emails, phone })
+    Some(OldContact { name, emails, phone })
 }
 
 /// An e-mail address out of a field that may hold "Name (adres@x.nl)" or an Exchange path.

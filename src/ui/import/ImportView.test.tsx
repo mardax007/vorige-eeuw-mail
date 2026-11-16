@@ -71,12 +71,25 @@ describe("a running import", () => {
   });
 });
 
+describe("Contactpersonen uit Windows Live Mail", () => {
+  it("explains the export, reads the cards and opens Contactpersonen", async () => {
+    const spy = vi.spyOn(api, "importContactsFile");
+    const user = await openImport();
+    expect(screen.getByText("Klik bovenaan op Exporteren en kies Visitekaartje (.VCF).")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Map met visitekaartjes kiezen" }));
+    expect(await screen.findByText(/Toegevoegd aan Contactpersonen: 1\. Stonden er al \(en zijn niet veranderd\): 1\./)).toBeTruthy();
+    expect(spy).toHaveBeenCalledWith(true);
+    await user.click(screen.getByRole("button", { name: "Contactpersonen openen" }));
+    expect(await screen.findByText("Truus de Wit")).toBeTruthy();
+  });
+});
+
 describe("what the import says at the end", () => {
   it("names the contacts from Outlook", async () => {
     const user = await openImport();
     await user.click(within(accountRow(/^Outlook.pst/)).getByRole("button", { name: "Kiezen" }));
     await user.click(screen.getByRole("button", { name: "Ophalen" }));
-    expect(await screen.findByText("3 contactpersonen uit Outlook staan nu bij Contactpersonen.", undefined, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText("Uit Outlook toegevoegd aan Contactpersonen: 3.", undefined, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByText(/staan alle opgehaalde berichten op gelezen/)).toBeNull();
   });
 

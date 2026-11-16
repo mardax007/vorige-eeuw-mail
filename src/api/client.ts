@@ -119,6 +119,7 @@ export const api = {
 
   findImportSources: () => call("find_import_sources", undefined),
   pickImportFile: (kind: ImportKind) => call("pick_import_file", { kind }),
+  importContactsFile: (folder: boolean) => call("import_contacts_file", { folder }),
   startImport: (source: ImportSource, target: ImportTarget) =>
     call("start_import", { source, target }),
   importFromAccount: (sourceAccountId: string, target: ImportTarget) =>
