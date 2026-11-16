@@ -395,6 +395,19 @@ impl Store {
         Ok(id)
     }
 
+    /// Whether a folder already holds a message with this Message-ID (a second import of the same file).
+    pub fn has_message_id(&self, folder_id: i64, message_id_hdr: &str) -> Result<bool> {
+        Ok(self
+            .db()
+            .query_row(
+                "SELECT 1 FROM messages WHERE folder_id = ?1 AND message_id_hdr = ?2 LIMIT 1",
+                params![folder_id, message_id_hdr],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
+    }
+
     pub fn set_uid(&self, id: i64, uid: Option<u32>) -> Result<()> {
         self.db().execute("UPDATE messages SET uid = ?2 WHERE id = ?1", params![id, uid])?;
         Ok(())

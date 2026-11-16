@@ -27,6 +27,9 @@ pub enum Op {
     /// Put a local message (a sent copy, a draft, an import) into a server folder.
     #[serde(rename_all = "camelCase")]
     Append { message_id: i64, folder: i64, seen: bool },
+    /// Make a folder on the server (an import into the mailbox). One that exists already is fine.
+    #[serde(rename_all = "camelCase")]
+    Create { folder: i64 },
 }
 
 impl Op {
@@ -112,6 +115,13 @@ async fn apply_one(store: &Store, imap: &mut Imap, op: &Op) -> Result<()> {
                 }
             }
             Ok(())
+        }
+        Op::Create { folder } => {
+            let f = store.folder(*folder)?;
+            match imap.create_folder(&f.name).await {
+                Err(e) if e.code().is_some_and(|c| c == crate::Code::ImapCmd02) => Err(e),
+                _ => Ok(()),
+            }
         }
         Op::Append { message_id, folder, seen } => {
             let Some(raw) = store.read_eml(*message_id)? else { return Ok(()) };

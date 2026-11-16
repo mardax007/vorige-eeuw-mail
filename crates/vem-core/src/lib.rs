@@ -6,6 +6,7 @@ pub mod contacts_sync;
 pub mod engine;
 pub mod error;
 pub mod imap;
+pub mod import;
 pub mod log;
 pub mod lookup;
 pub mod net;

@@ -1,0 +1,453 @@
+//! Bringing in old mail (docs/PLAN.md section 4): PST, Windows Live Mail, Outlook Express, EML
+//! folders and mbox. Sources are opened read-only and never changed; a copy of the original
+//! goes into the app's data folder first (decision 15), and the messages are read from that copy.
+
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::error::{Code, Result, VemError};
+use crate::imap::ops::Op;
+use crate::log;
+use crate::model::{FolderRole, ImportKind, ImportProgress, ImportSource, ImportTarget};
+use crate::parse;
+use crate::store::{NewMessage, Store};
+
+pub mod export;
+pub mod mbox;
+
+/// Leave this much free on the disk after the copy and the converted mail.
+const SPARE_BYTES: u64 = 500 * 1024 * 1024;
+/// Converted mail takes about this much more than the source (index, one file per message).
+const GROWTH_PERCENT: u64 = 120;
+const PROGRESS_EVERY: u64 = 50;
+/// Where imported mail goes inside a mailbox.
+pub const MAILBOX_FOLDER: &str = "Oude mail";
+
+#[derive(Debug, Default, Clone)]
+pub struct ImportReport {
+    pub added: u64,
+    pub already_there: u64,
+    pub skipped: Vec<(String, String)>,
+}
+
+/// Size of a file, or of every file below a folder.
+pub fn size_of(path: &Path) -> u64 {
+    match std::fs::metadata(path) {
+        Ok(m) if m.is_file() => m.len(),
+        Ok(m) if m.is_dir() => std::fs::read_dir(path)
+            .map(|rd| rd.flatten().map(|e| size_of(&e.path())).sum())
+            .unwrap_or(0),
+        _ => 0,
+    }
+}
+
+#[cfg(windows)]
+pub fn free_space(path: &Path) -> Option<u64> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+    let mut dir = path.to_path_buf();
+    while !dir.exists() {
+        dir = dir.parent()?.to_path_buf();
+    }
+    let wide: Vec<u16> = dir.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+    let mut free: u64 = 0;
+    // SAFETY: `wide` is a NUL-terminated UTF-16 path; the out pointer is a valid u64.
+    let ok = unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut free, std::ptr::null_mut(), std::ptr::null_mut()) };
+    (ok != 0).then_some(free)
+}
+
+#[cfg(not(windows))]
+pub fn free_space(_path: &Path) -> Option<u64> {
+    None
+}
+
+/// The kind of a file or folder chosen by hand, from its name.
+pub fn kind_of(path: &Path) -> Option<ImportKind> {
+    if path.is_dir() {
+        return Some(ImportKind::Eml);
+    }
+    let ext = path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+    match ext.as_str() {
+        "pst" | "ost" => Some(ImportKind::Pst),
+        "dbx" => Some(ImportKind::Dbx),
+        "eml" => Some(ImportKind::Eml),
+        "mbox" | "mbx" | "" => Some(ImportKind::Mbox),
+        _ => None,
+    }
+}
+
+pub fn source_for(path: &Path) -> Result<ImportSource> {
+    let kind = kind_of(path).ok_or_else(|| VemError::new(Code::ImportRead03).with_detail(ext_detail(path)))?;
+    Ok(ImportSource {
+        kind,
+        path: path.to_string_lossy().into_owned(),
+        size: Some(size_of(path)),
+        label: path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Oude mail".into()),
+    })
+}
+
+fn ext_detail(path: &Path) -> String {
+    path.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
+/// Old mail programs' usual places on this PC (docs/family-inventory.md).
+pub fn find_sources() -> Vec<ImportSource> {
+    let mut out = Vec::new();
+    let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+    let profile = std::env::var_os("USERPROFILE").map(PathBuf::from);
+    let mut pst_dirs = Vec::new();
+    if let Some(l) = &local {
+        pst_dirs.push(l.join("Microsoft").join("Outlook"));
+    }
+    if let Some(p) = &profile {
+        for docs in ["Documents", "Documenten"] {
+            pst_dirs.push(p.join(docs).join("Outlook Files"));
+            pst_dirs.push(p.join(docs).join("Outlook-bestanden"));
+        }
+    }
+    for dir in pst_dirs {
+        for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = e.path();
+            if path.extension().is_some_and(|x| x.eq_ignore_ascii_case("pst")) {
+                if let Ok(s) = source_for(&path) {
+                    out.push(s);
+                }
+            }
+        }
+    }
+    if let Some(l) = &local {
+        let wlm = l.join("Microsoft").join("Windows Live Mail");
+        if wlm.is_dir() {
+            out.push(ImportSource {
+                kind: ImportKind::Wlm,
+                path: wlm.to_string_lossy().into_owned(),
+                size: Some(size_of(&wlm)),
+                label: "Windows Live Mail".into(),
+            });
+        }
+        let ids = l.join("Identities");
+        for id in std::fs::read_dir(&ids).into_iter().flatten().flatten() {
+            let oe = id.path().join("Microsoft").join("Outlook Express");
+            if oe.is_dir() {
+                out.push(ImportSource {
+                    kind: ImportKind::Dbx,
+                    path: oe.to_string_lossy().into_owned(),
+                    size: Some(size_of(&oe)),
+                    label: "Outlook Express".into(),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// Copy the original into `<data>/originals/<id>/`, read-only from the source.
+fn keep_original(store: &Store, src: &Path) -> Result<PathBuf> {
+    let dest_root = store.originals_dir().join(uuid::Uuid::new_v4().simple().to_string());
+    std::fs::create_dir_all(&dest_root)?;
+    let name = src.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "bron".into());
+    let dest = dest_root.join(name);
+    copy_tree(src, &dest)?;
+    Ok(dest)
+}
+
+fn copy_tree(src: &Path, dest: &Path) -> Result<()> {
+    let meta = std::fs::metadata(src).map_err(read_error)?;
+    if meta.is_dir() {
+        std::fs::create_dir_all(dest)?;
+        for e in std::fs::read_dir(src).map_err(read_error)?.flatten() {
+            copy_tree(&e.path(), &dest.join(e.file_name()))?;
+        }
+    } else {
+        std::fs::copy(src, dest).map_err(read_error)?;
+    }
+    Ok(())
+}
+
+fn read_error(e: std::io::Error) -> VemError {
+    // Outlook keeps its PST locked while it runs (ERROR_SHARING_VIOLATION = 32, LOCK_VIOLATION = 33).
+    match e.raw_os_error() {
+        Some(32 | 33) => VemError::new(Code::ImportRead02),
+        _ => VemError::new(Code::ImportRead01).with_detail(e.kind().to_string()),
+    }
+}
+
+/// Where messages of one source folder go.
+struct Sink<'a> {
+    store: &'a Store,
+    account_id: String,
+    mailbox: bool,
+    delimiter: String,
+    folders: std::collections::HashMap<Vec<String>, i64>,
+    report: ImportReport,
+}
+
+impl Sink<'_> {
+    fn folder(&mut self, path: &[String]) -> Result<i64> {
+        if let Some(id) = self.folders.get(path) {
+            return Ok(*id);
+        }
+        let id = if self.mailbox {
+            let mut parts = vec![MAILBOX_FOLDER.to_string()];
+            parts.extend(path.iter().map(|p| p.replace(self.delimiter.as_str(), " ")));
+            let name = crate::imap::utf7::encode(&parts.join(&self.delimiter));
+            let id = self.store.upsert_folder(&self.account_id, &name, Some(&self.delimiter), None, true)?;
+            self.store.push_op(&self.account_id, &Op::Create { folder: id })?;
+            id
+        } else {
+            let role = (path.len() == 1 && looks_like_inbox(&path[0])).then_some(FolderRole::Inbox);
+            self.store.ensure_local_folder(&self.account_id, path, role)?
+        };
+        self.folders.insert(path.to_vec(), id);
+        Ok(id)
+    }
+
+    fn add(&mut self, path: &[String], raw: Vec<u8>) -> Result<()> {
+        let folder = self.folder(path)?;
+        let p = parse::parse(&raw);
+        if let Some(mid) = p.message_id.as_deref() {
+            if self.store.has_message_id(folder, mid)? {
+                self.report.already_there += 1;
+                return Ok(());
+            }
+        }
+        let size = raw.len() as u64;
+        let id = self.store.insert_message(&NewMessage {
+            account_id: self.account_id.clone(),
+            folder_id: folder,
+            uid: None,
+            raw,
+            has_body: true,
+            unread: false,
+            important: false,
+            size,
+            fallback_date: None,
+        })?;
+        if self.mailbox {
+            self.store.push_op(&self.account_id, &Op::Append { message_id: id, folder, seen: true })?;
+        }
+        self.report.added += 1;
+        Ok(())
+    }
+}
+
+fn looks_like_inbox(name: &str) -> bool {
+    let n = name.to_lowercase();
+    ["postvak in", "inbox", "postvak-in", "inkomend"].contains(&n.as_str())
+}
+
+pub type Emit<'a> = dyn FnMut(&[String], Vec<u8>) -> std::result::Result<(), String> + 'a;
+pub type Skipped = Vec<(String, String)>;
+
+/// Run one import. `progress` is called now and then; `cancel` stops it between messages
+/// (what came in stays).
+pub fn run(
+    store: &Store,
+    job_id: &str,
+    source: &ImportSource,
+    target: &ImportTarget,
+    progress: &dyn Fn(ImportProgress),
+    cancel: &AtomicBool,
+) -> Result<ImportReport> {
+    let src = PathBuf::from(&source.path);
+    if !src.exists() {
+        return Err(VemError::new(Code::ImportRead01).with_detail("missing"));
+    }
+    let size = size_of(&src);
+    if let Some(free) = free_space(&store.originals_dir()) {
+        let need = size + size * GROWTH_PERCENT / 100 + SPARE_BYTES;
+        if free < need {
+            return Err(VemError::new(Code::ImportSpace01).with_detail(format!("{} MB", need / 1024 / 1024)));
+        }
+    }
+    let (account_id, mailbox) = match target {
+        ImportTarget::Local => (store.local_account(&source.label)?.id, false),
+        ImportTarget::Mailbox { account_id } => {
+            let a = store.account(account_id)?;
+            if let Some(q) = a.quota.as_ref() {
+                if let Some(limit) = q.limit_kb {
+                    if q.used_kb + size / 1024 > limit {
+                        return Err(VemError::new(Code::ImportSpace02));
+                    }
+                }
+            }
+            (a.id, true)
+        }
+    };
+    let delimiter = store
+        .folder_infos(&account_id)?
+        .into_iter()
+        .find_map(|f| f.delimiter.filter(|d| !d.is_empty()))
+        .unwrap_or_else(|| "/".into());
+
+    log::event("import.start", &[("job", job_id), ("kind", &format!("{:?}", source.kind)), ("bytes", &size.to_string())]);
+    let copy = keep_original(store, &src)?;
+    store.add_original(&source.label, &copy, size)?;
+
+    let mut sink = Sink { store, account_id, mailbox, delimiter, folders: Default::default(), report: ImportReport::default() };
+    let mut done: u64 = 0;
+    let mut failure: Option<VemError> = None;
+    let read = {
+        let mut emit = |path: &[String], raw: Vec<u8>| -> std::result::Result<(), String> {
+            if cancel.load(Ordering::Relaxed) {
+                return Err("cancelled".into());
+            }
+            if let Err(e) = sink.add(path, raw) {
+                failure = Some(e);
+                return Err("store".into());
+            }
+            done += 1;
+            if done % PROGRESS_EVERY == 0 {
+                progress(ImportProgress {
+                    job_id: job_id.to_string(),
+                    done,
+                    total: None,
+                    current_folder: path.last().cloned(),
+                    finished: false,
+                    error: None,
+                });
+            }
+            Ok(())
+        };
+        match source.kind {
+            ImportKind::Eml | ImportKind::Wlm => eml_tree(&copy, &mut emit),
+            ImportKind::Mbox => mbox::read_path(&copy, &mut emit),
+            ImportKind::Pst => read_pst(&copy, &mut emit),
+            ImportKind::Dbx => read_dbx_tree(&copy, &mut emit),
+        }
+    };
+    if let Some(e) = failure {
+        return Err(e);
+    }
+    let skipped = match read {
+        Ok(s) => s,
+        Err(e) if e == "cancelled" => Vec::new(),
+        Err(e) => return Err(VemError::new(Code::ImportRead01).with_detail(e)),
+    };
+    let mut report = sink.report;
+    report.skipped = skipped;
+    log::event(
+        "import.done",
+        &[("job", job_id), ("added", &report.added.to_string()), ("skipped", &report.skipped.len().to_string())],
+    );
+    Ok(report)
+}
+
+/// A folder of .eml files with subfolders (Windows Live Mail, or saved messages).
+pub fn eml_tree(root: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    let mut skipped = Vec::new();
+    if root.is_file() {
+        let raw = std::fs::read(root).map_err(|e| e.kind().to_string())?;
+        emit(&[], raw)?;
+        return Ok(skipped);
+    }
+    walk(root, &mut Vec::new(), emit, &mut skipped)?;
+    Ok(skipped)
+}
+
+fn walk(dir: &Path, path: &mut Vec<String>, emit: &mut Emit<'_>, skipped: &mut Skipped) -> std::result::Result<(), String> {
+    let mut entries: Vec<_> = std::fs::read_dir(dir).map_err(|e| e.kind().to_string())?.flatten().collect();
+    entries.sort_by_key(|e| e.file_name());
+    for e in entries {
+        let p = e.path();
+        if p.is_dir() {
+            path.push(e.file_name().to_string_lossy().into_owned());
+            walk(&p, path, emit, skipped)?;
+            path.pop();
+        } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("eml")) {
+            match std::fs::read(&p) {
+                Ok(raw) => emit(path, raw)?,
+                Err(err) => skipped.push((path.join("/"), err.kind().to_string())),
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Outlook Express: one .dbx file per folder, or a folder holding them.
+fn read_dbx_tree(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    if path.is_file() {
+        return read_dbx(path, emit);
+    }
+    let mut skipped = Vec::new();
+    let mut files: Vec<_> = std::fs::read_dir(path).map_err(|e| e.kind().to_string())?.flatten().map(|e| e.path()).collect();
+    files.sort();
+    for f in files.into_iter().filter(|f| f.extension().is_some_and(|x| x.eq_ignore_ascii_case("dbx"))) {
+        skipped.extend(read_dbx(&f, emit)?);
+    }
+    Ok(skipped)
+}
+
+// The PST and DBX readers come in their own modules; until then they say so plainly.
+fn read_pst(_path: &Path, _emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    Err("pst reader missing".into())
+}
+
+fn read_dbx(_path: &Path, _emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
+    Err("dbx reader missing".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::testutil::store;
+    use std::sync::Mutex;
+
+    fn eml(subject: &str, id: &str) -> String {
+        format!("From: Oma <oma@x.nl>\r\nSubject: {subject}\r\nMessage-ID: <{id}@x>\r\nDate: Tue, 3 Feb 2004 10:00:00 +0100\r\n\r\nTekst van {subject}\r\n")
+    }
+
+    #[test]
+    fn eml_folder_import_keeps_original_and_skips_repeats() {
+        let (_d, s) = store();
+        let src = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(src.path().join("Postvak IN")).unwrap();
+        std::fs::create_dir_all(src.path().join("Familie/Kerst")).unwrap();
+        std::fs::write(src.path().join("Postvak IN/a.eml"), eml("Eerste", "1")).unwrap();
+        std::fs::write(src.path().join("Familie/Kerst/b.eml"), eml("Kerstdiner", "2")).unwrap();
+        let before = std::fs::read(src.path().join("Postvak IN/a.eml")).unwrap();
+
+        let source = ImportSource { kind: ImportKind::Wlm, path: src.path().to_string_lossy().into(), size: None, label: "Live Mail".into() };
+        let seen = Mutex::new(0);
+        let r = run(&s, "j1", &source, &ImportTarget::Local, &|_| *seen.lock().unwrap() += 1, &AtomicBool::new(false)).unwrap();
+        assert_eq!(r.added, 2);
+        assert_eq!(std::fs::read(src.path().join("Postvak IN/a.eml")).unwrap(), before, "source unchanged");
+        assert_eq!(s.originals().unwrap().len(), 1);
+
+        let acc = s.local_account("Live Mail").unwrap();
+        let folders = s.folders(Some(&acc.id)).unwrap();
+        assert!(folders.iter().any(|f| f.role == Some(FolderRole::Inbox)));
+        assert!(folders.iter().any(|f| f.path == vec!["Familie", "Kerst"]));
+        let hits = s.search("kerstdiner", &crate::model::SearchScope::All, 10).unwrap();
+        assert_eq!(hits.len(), 1);
+
+        let r = run(&s, "j2", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!((r.added, r.already_there), (0, 2), "a second import adds nothing twice");
+    }
+
+    #[test]
+    fn mailbox_target_plans_create_and_append() {
+        let (_d, s) = store();
+        let a = s.add_account("Jan", "jan@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        s.upsert_folder(&a.id, "INBOX", Some("."), Some(FolderRole::Inbox), true).unwrap();
+        let src = tempfile::tempdir().unwrap();
+        let file = src.path().join("oud.mbox");
+        std::fs::write(&file, format!("From x Tue Feb  3 10:00:00 2004\n{}\nFrom y Tue Feb  3 11:00:00 2004\n{}", eml("A", "a"), eml("B", "b"))).unwrap();
+        let source = source_for(&file).unwrap();
+        assert_eq!(source.kind, ImportKind::Mbox);
+        let r = run(&s, "j", &source, &ImportTarget::Mailbox { account_id: a.id.clone() }, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(r.added, 2);
+        let ops = s.ops::<Op>(&a.id).unwrap();
+        assert!(matches!(ops[0].op, Op::Create { .. }));
+        assert_eq!(ops.iter().filter(|o| matches!(o.op, Op::Append { .. })).count(), 2);
+        assert!(s.folder_infos(&a.id).unwrap().iter().any(|f| f.name == "Oude mail.oud"));
+    }
+
+    #[test]
+    fn unknown_file_kind_is_refused() {
+        let d = tempfile::tempdir().unwrap();
+        let f = d.path().join("foto.jpg");
+        std::fs::write(&f, b"x").unwrap();
+        assert_eq!(source_for(&f).unwrap_err().code, "VEM-IMPORT-READ-03");
+    }
+}
