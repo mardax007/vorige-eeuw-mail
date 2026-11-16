@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { toVemError } from "../../api/errors";
 import type { Draft, VemError } from "../../api/types";
@@ -31,6 +31,13 @@ interface Fields {
   shrinkPhotos: boolean;
 }
 
+type AddressFieldName = "to" | "cc";
+
+interface FieldProblem {
+  field: AddressFieldName;
+  text: string;
+}
+
 function fieldsOf(d: Draft): Fields {
   return {
     accountId: d.accountId,
@@ -43,23 +50,41 @@ function fieldsOf(d: Draft): Fields {
   };
 }
 
+/** What is wrong with the addresses before sending, and in which field; null when all is well. */
+export function addressProblem(fields: Pick<Fields, "to" | "cc">): FieldProblem | null {
+  const to = parseAddressList(fields.to);
+  const cc = parseAddressList(fields.cc);
+  if (to.invalid.length > 0) return { field: "to", text: t("compose.badAddress", { address: to.invalid[0] }) };
+  if (cc.invalid.length > 0) return { field: "cc", text: t("compose.badAddress", { address: cc.invalid[0] }) };
+  if (to.addresses.length === 0) return { field: "to", text: t("compose.needTo") };
+  return null;
+}
+
 /** "Nieuwe e-mail": write, attach, send. The text is kept in Concepten all along. */
 export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: ComposeViewProps) {
-  const { accounts, startSend, go } = useApp();
+  const { accounts, startSend, go, showError } = useApp();
   const [fields, setFields] = useState<Fields>(() => fieldsOf(initial));
-  const [draftId, setDraftId] = useState<string | null>(initial.id ?? null);
+  // A ref as well as state: a save right after another must reuse the id the first one got.
+  const draftId = useRef<string | null>(initial.id ?? null);
   const [version, setVersion] = useState(0);
   const [isCcShown, setIsCcShown] = useState(initial.cc.length > 0);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<FieldProblem | null>(null);
   const [error, setError] = useState<VemError | null>(null);
-  const [savedNote, setSavedNote] = useState(false);
+  const [isSavedNoteShown, setIsSavedNoteShown] = useState(false);
+  const [isCloseRefused, setIsCloseRefused] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
+  const isClosing = useRef(false);
+  // The last save error, for when the screen is gone before it can show it.
+  const lastSaveError = useRef<VemError | null>(null);
+  const toRef = useRef<HTMLInputElement>(null);
+  const ccRef = useRef<HTMLInputElement>(null);
   const mail = mailAccounts(accounts);
 
   const update = (patch: Partial<Fields>) => {
     setFields((f) => ({ ...f, ...patch }));
     setVersion((v) => v + 1);
-    setSavedNote(false);
   };
 
   const buildDraft = useCallback(
@@ -83,20 +108,35 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
 
   const save = useCallback(async (): Promise<boolean> => {
     try {
-      setDraftId(await api.saveDraft(buildDraft(draftId)));
-      setSavedNote(true);
+      draftId.current = await api.saveDraft(buildDraft(draftId.current));
+      setIsSavedNoteShown(true);
+      setIsCloseRefused(false);
       return true;
     } catch (e: unknown) {
-      setError(toVemError(e));
+      const err = toVemError(e);
+      lastSaveError.current = err;
+      setError(err);
       return false;
     }
-  }, [buildDraft, draftId]);
+  }, [buildDraft]);
 
-  const autosave = useAutosave({ version, hasContent, intervalMs: autosaveMs, save });
+  // Left through the menu and the last save failed: the app says so, since this screen is gone.
+  const onLastSaveFailed = useCallback(() => {
+    if (lastSaveError.current) showError(lastSaveError.current);
+  }, [showError]);
+
+  const autosave = useAutosave({ version, hasContent, intervalMs: autosaveMs, save, onLastSaveFailed });
 
   const handleClose = async () => {
-    await autosave.flush();
-    onClose();
+    if (isClosing.current) return;
+    isClosing.current = true;
+    // Close only when the text is safe in Concepten; otherwise the error stays, with the text.
+    if (await autosave.flush()) {
+      onClose();
+      return;
+    }
+    isClosing.current = false;
+    setIsCloseRefused(true);
   };
 
   const addAttachments = async () => {
@@ -110,41 +150,62 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
 
   const send = async () => {
     setIsConfirming(false);
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
+    setIsSending(true);
+    const release = () => {
+      isSendingRef.current = false;
+      setIsSending(false);
+    };
+    // Let a running save finish first and stop saving after it, or a copy stays behind in Concepten.
+    if (!(await autosave.flush())) {
+      release();
+      return;
+    }
+    autosave.stop();
     try {
-      const item = await api.sendMessage(buildDraft(draftId));
-      autosave.stop();
+      const item = await api.sendMessage(buildDraft(draftId.current));
       startSend(item);
       go({ kind: "mail" });
     } catch (e: unknown) {
+      autosave.resume();
       setError(toVemError(e));
+      release();
     }
   };
 
   const handleSend = () => {
-    const to = parseAddressList(fields.to);
-    const cc = parseAddressList(fields.cc);
-    const invalid = [...to.invalid, ...cc.invalid];
-    setProblem(null);
-    if (invalid.length > 0) return setProblem(t("compose.badAddress", { address: invalid[0] }));
-    if (to.addresses.length === 0) return setProblem(t("compose.needTo"));
-    if (to.addresses.length + cc.addresses.length > MANY_RECIPIENTS) return setIsConfirming(true);
+    if (isSendingRef.current) return;
+    const found = addressProblem(fields);
+    setProblem(found);
+    if (found) {
+      (found.field === "cc" ? ccRef : toRef).current?.focus();
+      return;
+    }
+    const count = parseAddressList(fields.to).addresses.length + parseAddressList(fields.cc).addresses.length;
+    if (count > MANY_RECIPIENTS) return setIsConfirming(true);
     void send();
   };
 
   const recipientCount = parseAddressList(fields.to).addresses.length + parseAddressList(fields.cc).addresses.length;
+  const problemFor = (field: AddressFieldName) => (problem?.field === field ? problem.text : null);
 
   return (
     <section className="compose" aria-label={t("compose.title")}>
       <header className="compose-header">
         <h2>{t("compose.title")}</h2>
+        <p className="save-note" role="status">
+          {isSavedNoteShown ? t("compose.saved") : ""}
+        </p>
         <div className="button-row">
-          <button type="button" className="primary" onClick={handleSend}>{t("compose.send")}</button>
-          <button type="button" onClick={handleClose}>{t("compose.close")}</button>
+          <button type="button" className="primary" disabled={isSending} onClick={handleSend}>
+            {t("compose.send")}
+          </button>
+          <button type="button" disabled={isSending} onClick={handleClose}>{t("compose.close")}</button>
         </div>
       </header>
-      {savedNote && <p className="calm-line" role="status">{t("compose.saved")}</p>}
-      {problem && <p className="form-problem" role="alert">{problem}</p>}
       {error && <ErrorBox error={error} onClose={() => setError(null)} />}
+      {isCloseRefused && <p className="form-problem" role="alert">{t("compose.notSavedStays")}</p>}
       {mail.length > 1 && (
         <div className="form-row">
           <label htmlFor="compose-from">{t("compose.from")}</label>
@@ -155,9 +216,23 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
           </select>
         </div>
       )}
-      <AddressField id="compose-to" label={t("compose.to")} value={fields.to} onChange={(to) => update({ to })} />
+      <AddressField
+        id="compose-to"
+        label={t("compose.to")}
+        value={fields.to}
+        problem={problemFor("to")}
+        inputRef={toRef}
+        onChange={(to) => update({ to })}
+      />
       {isCcShown ? (
-        <AddressField id="compose-cc" label={t("compose.cc")} value={fields.cc} onChange={(cc) => update({ cc })} />
+        <AddressField
+          id="compose-cc"
+          label={t("compose.cc")}
+          value={fields.cc}
+          problem={problemFor("cc")}
+          inputRef={ccRef}
+          onChange={(cc) => update({ cc })}
+        />
       ) : (
         <button type="button" className="small-button" onClick={() => setIsCcShown(true)}>{t("compose.addCc")}</button>
       )}

@@ -3,8 +3,8 @@ import { api } from "../../api/client";
 import { toVemError } from "../../api/errors";
 import type { VemError } from "../../api/types";
 import { t } from "../../i18n";
-import { copyText } from "../common/clipboard";
-import { ErrorBox } from "../common/ErrorBox";
+import { CopyNoteText, ErrorBox } from "../common/ErrorBox";
+import { useCopyNote } from "../common/useCopyNote";
 import { useApp } from "../state/AppContext";
 
 /** Help: a wish to Martijn, the help report, and the note about help from afar. */
@@ -15,7 +15,7 @@ export function HelpView() {
   const [isSent, setIsSent] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [wishError, setWishError] = useState<VemError | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
+  const reportNote = useCopyNote();
 
   const sendWish = async () => {
     setProblem(null);
@@ -37,13 +37,8 @@ export function HelpView() {
     }
   };
 
-  const copyReport = async () => {
-    try {
-      setIsCopied(await copyText(await api.helpReport()));
-    } catch (e: unknown) {
-      showError(e);
-    }
-  };
+  // The report could not be made: the note says copying failed, and the error says why.
+  const copyReport = () => reportNote.copy(() => api.helpReport(), showError);
 
   return (
     <section className="page help">
@@ -67,7 +62,7 @@ export function HelpView() {
       <p>{t("help.reportText")}</p>
       <div className="button-row">
         <button type="button" onClick={copyReport}>{t("help.report")}</button>
-        {isCopied && <span role="status">{t("help.reportCopied")}</span>}
+        <CopyNoteText result={reportNote.result} copiedText={t("help.reportCopied")} />
       </div>
 
       <h3>{t("help.remote")}</h3>

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
+import type { OutboxItem } from "../../api/types";
 import { t } from "../../i18n";
 import { useApp } from "../state/AppContext";
 
@@ -31,30 +32,83 @@ function secondsLeft(sendAt: string): number {
   return Math.max(0, Math.ceil((new Date(sendAt).getTime() - Date.now()) / 1000));
 }
 
-/** "Wordt verstuurd over N seconden" with "Ongedaan maken" (C3). */
+/** How long "Het bericht is verstuurd." stays once the message really went. */
+export const SENT_BAR_MS = 4000;
+
+export type SendPhase = "countdown" | "sending" | "failed" | "sent";
+
+/**
+ * What the send bar says, from the outbox item itself. A message counts as sent only when it was
+ * in Postvak UIT and is gone from it; before it was ever seen there, it is still being sent.
+ */
+export function sendPhase(item: OutboxItem | undefined, wasSeen: boolean, left: number): SendPhase {
+  if (item) {
+    if (item.state === "failed") return "failed";
+    return item.state === "waiting" && left > 0 ? "countdown" : "sending";
+  }
+  if (wasSeen) return "sent";
+  return left > 0 ? "countdown" : "sending";
+}
+
+/** "Wordt verstuurd over N seconden" with "Ongedaan maken" (C3), then what really happened. */
 export function SendBar() {
-  const { pendingSend, clearSend, compose, showError, outbox } = useApp();
-  const [left, setLeft] = useState(() => (pendingSend ? secondsLeft(pendingSend.sendAt) : 0));
+  const { pendingSend, clearSend, compose, showError, outbox, setLocation, go } = useApp();
+  // Ticks twice a second to count down; the seconds themselves come from the clock on every render.
+  const [, setTick] = useState(0);
+  const left = pendingSend ? secondsLeft(pendingSend.sendAt) : 0;
+  // The send whose item was really found in Postvak UIT; only then does its absence mean "sent".
+  const [seenId, setSeenId] = useState<string | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
+  const isUndoingRef = useRef(false);
 
+  const isCounting = left > 0;
   useEffect(() => {
-    if (!pendingSend) return;
-    setLeft(secondsLeft(pendingSend.sendAt));
-    const timer = setInterval(() => setLeft(secondsLeft(pendingSend.sendAt)), 500);
+    if (!isCounting) return;
+    const timer = setInterval(() => setTick((n) => n + 1), 500);
     return () => clearInterval(timer);
-  }, [pendingSend]);
+  }, [isCounting, pendingSend]);
 
-  const stillWaiting = pendingSend !== null && outbox.some((o) => o.id === pendingSend.id && o.state === "waiting");
+  const item = pendingSend ? outbox.find((o) => o.id === pendingSend.id) : undefined;
+  const pendingId = pendingSend?.id ?? null;
+  const wasSeen = pendingId !== null && seenId === pendingId;
+  const phase = sendPhase(item, wasSeen, left);
 
   useEffect(() => {
-    if (pendingSend && left === 0 && !stillWaiting) {
-      const timer = setTimeout(clearSend, 3000);
+    if (item) setSeenId(item.id);
+  }, [item]);
+
+  // The wait is over and the item was never in the list on screen (it may have come and gone between
+  // two updates): read Postvak UIT once. In it means seen; not in it, after Versturen put it there, means sent.
+  const isUnseenAfterWait = pendingId !== null && !item && !wasSeen && left === 0;
+  useEffect(() => {
+    if (!isUnseenAfterWait || pendingId === null) return;
+    let alive = true;
+    api
+      .listOutbox()
+      .then((list) => {
+        if (alive && !list.some((o) => o.id === pendingId)) setSeenId(pendingId);
+      })
+      // The list did not load: the bar keeps saying it is being sent; the next update decides.
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [isUnseenAfterWait, pendingId]);
+
+  useEffect(() => {
+    if (pendingSend && phase === "sent") {
+      const timer = setTimeout(clearSend, SENT_BAR_MS);
       return () => clearTimeout(timer);
     }
-  }, [pendingSend, left, stillWaiting, clearSend]);
+  }, [pendingSend, phase, clearSend]);
 
   if (!pendingSend) return null;
 
   const handleUndo = async () => {
+    // One undo per send: a second click would find nothing left to take back and show an error.
+    if (isUndoingRef.current) return;
+    isUndoingRef.current = true;
+    setIsUndoing(true);
     try {
       const draft = await api.cancelSend(pendingSend.id);
       clearSend();
@@ -62,18 +116,36 @@ export function SendBar() {
     } catch (e: unknown) {
       clearSend();
       showError(e);
+    } finally {
+      isUndoingRef.current = false;
+      setIsUndoing(false);
     }
   };
 
-  const text =
-    left > 0 ? t("compose.sending", { seconds: left }) : stillWaiting ? t("compose.sendingNow") : t("compose.sent");
+  const openOutbox = () => {
+    clearSend();
+    setLocation({ kind: "outbox" });
+    go({ kind: "mail" });
+  };
+
+  const texts: Record<SendPhase, string> = {
+    countdown: t("compose.sending", { seconds: left }),
+    sending: t("compose.sendingNow"),
+    failed: t("compose.notSent"),
+    sent: t("compose.sent"),
+  };
 
   return (
-    <div className="notice-bar" role="status">
-      <span>{text}</span>
-      {left > 0 && (
-        <button type="button" className="primary" onClick={handleUndo}>
+    <div className={`notice-bar${phase === "failed" ? " failed" : ""}`} role="status">
+      <span>{texts[phase]}</span>
+      {phase === "countdown" && (
+        <button type="button" className="primary" disabled={isUndoing} onClick={handleUndo}>
           {t("undo.button")}
+        </button>
+      )}
+      {phase === "failed" && (
+        <button type="button" className="primary" onClick={openOutbox}>
+          {t("compose.openOutbox")}
         </button>
       )}
     </div>

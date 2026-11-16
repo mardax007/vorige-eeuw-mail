@@ -58,6 +58,9 @@ interface MessageListProps {
   selectedId: string | null;
   isLoading: boolean;
   emptyText: string;
+  /** The list could not be loaded; shows that, with "Opnieuw proberen". */
+  loadError?: boolean;
+  onRetry?: () => void;
   hasMore?: boolean;
   onLoadMore?: () => void;
   onOpen: (message: MessageSummary) => void;
@@ -72,6 +75,8 @@ export function MessageList({
   selectedId,
   isLoading,
   emptyText,
+  loadError = false,
+  onRetry,
   hasMore = false,
   onLoadMore,
   onOpen,
@@ -84,7 +89,17 @@ export function MessageList({
         {actions && <div className="button-row">{actions}</div>}
       </header>
       {isLoading && items.length === 0 && <p className="list-note">{t("list.loading")}</p>}
-      {!isLoading && items.length === 0 && <p className="list-note">{emptyText}</p>}
+      {!isLoading && loadError && (
+        <div className="list-note" role="status">
+          <p>{t(items.length > 0 ? "list.reloadFailed" : "list.loadFailed")}</p>
+          {onRetry && (
+            <button type="button" onClick={onRetry}>
+              {t("list.retry")}
+            </button>
+          )}
+        </div>
+      )}
+      {!isLoading && !loadError && items.length === 0 && <p className="list-note">{emptyText}</p>}
       <ul className="rows">
         {items.map((item) => (
           <MessageRow

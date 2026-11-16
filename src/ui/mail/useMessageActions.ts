@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import type { MessageDetail } from "../../api/types";
 import { t } from "../../i18n";
 import { prefillDraft, type ReplyKind } from "../compose/prefill";
+import { folderLabel } from "../folders";
 import { useApp } from "../state/AppContext";
 
 export interface MessageActions {
@@ -13,7 +14,7 @@ export interface MessageActions {
 
 /** Verwijderen, Verplaatsen and the reply buttons, shared by the buttons and the keyboard. */
 export function useMessageActions(): MessageActions {
-  const { accounts, compose, newDraft, showUndo, showError, reload } = useApp();
+  const { accounts, folders, compose, newDraft, showUndo, showError, reload } = useApp();
 
   const undoWith = useCallback(
     (token: string) => async () => {
@@ -27,6 +28,8 @@ export function useMessageActions(): MessageActions {
     async (ids: string[]) => {
       try {
         const result = await api.deleteMessages(ids);
+        // Nothing moved (already in Verwijderde items): no bar that says otherwise.
+        if (result.count === 0) return false;
         const text = result.count === 1 ? t("undo.deletedOne") : t("undo.deletedMany", { count: result.count });
         showUndo(text, undoWith(result.token));
         await reload();
@@ -43,7 +46,11 @@ export function useMessageActions(): MessageActions {
     async (ids: string[], folderId: string) => {
       try {
         const result = await api.moveMessages(ids, folderId);
-        const text = result.count === 1 ? t("undo.movedOne") : t("undo.movedMany", { count: result.count });
+        if (result.count === 0) return false;
+        const target = folders.find((f) => f.id === folderId);
+        const folder = target ? folderLabel(target) : "";
+        const text =
+          result.count === 1 ? t("undo.movedOne", { folder }) : t("undo.movedMany", { count: result.count, folder });
         showUndo(text, undoWith(result.token));
         await reload();
         return true;
@@ -52,7 +59,7 @@ export function useMessageActions(): MessageActions {
         return false;
       }
     },
-    [reload, showError, showUndo, undoWith],
+    [folders, reload, showError, showUndo, undoWith],
   );
 
   const respond = useCallback(

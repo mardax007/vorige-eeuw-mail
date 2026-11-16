@@ -62,6 +62,18 @@ describe("screen texts", () => {
     expect(t("nav.newMail")).toBe("Nieuwe e-mail");
     expect(t("error.copyForMartijn")).toBe("Kopiëren voor Martijn");
   });
+
+  it("explains Snelle hulp the right way round: Martijn gives the code, others are scammers", () => {
+    const text = t("help.remoteText");
+    expect(text).toContain("Hij belt u dan eerst zelf en geeft u een code om in te typen.");
+    expect(text).toContain("hang op en typ niets in. Dat is oplichting.");
+    expect(text).not.toMatch(/geef hem dan niet/);
+  });
+
+  it("uses every placeholder of a screen text only where it is filled", () => {
+    expect(t("undo.movedOne", { folder: "Vakantie" })).toBe("Het bericht is verplaatst naar Vakantie.");
+    expect(t("folder.waitingCount", { count: 2 })).toBe("2 wachten op versturen");
+  });
 });
 
 describe("t and interpolate", () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { api } from "./api/client";
 import { t } from "./i18n";
+import { BackToMail } from "./ui/common/BackToMail";
+import { CheckMailButton } from "./ui/common/CheckMailButton";
 import { ErrorBox } from "./ui/common/ErrorBox";
 import { ReportNotice, SendBar, UndoBar, UpdateLine } from "./ui/common/Notices";
 import { ComposeView } from "./ui/compose/ComposeView";
@@ -19,39 +20,33 @@ import "./ui/styles/mail.css";
 import "./ui/styles/forms.css";
 
 function TopBar() {
-  const { go, compose, newDraft, showError, view, accounts } = useApp();
+  const { go, compose, newDraft, view, accounts } = useApp();
   if (accounts.length === 0) return null;
   const isAt = (kind: View["kind"]) => view.kind === kind;
-  const run = (task: () => Promise<void>) => () => void task().catch(showError);
+  // On the Write screen Versturen is the one main button; Nieuwe e-mail steps back.
+  const newMailClass = isAt("compose") ? undefined : "primary";
 
   return (
     <header className="top-bar no-print">
       <h1 className="app-name">{t("app.name")}</h1>
       <div className="button-row">
-        <button type="button" className="primary" onClick={() => compose(newDraft())}>
+        <button type="button" className={newMailClass} onClick={() => compose(newDraft())}>
           {t("nav.newMail")}
         </button>
-        <button type="button" onClick={run(() => api.syncNow(null))}>{t("nav.checkMail")}</button>
+        <CheckMailButton />
       </div>
       <div className="button-row top-right">
+        <button type="button" aria-current={isAt("contacts") ? "page" : undefined} onClick={() => go({ kind: "contacts" })}>
+          {t("nav.contacts")}
+        </button>
         <button type="button" aria-current={isAt("settings") ? "page" : undefined} onClick={() => go({ kind: "settings" })}>
           {t("nav.settings")}
         </button>
         <button type="button" aria-current={isAt("help") ? "page" : undefined} onClick={() => go({ kind: "help" })}>
           {t("nav.help")}
         </button>
-        <button type="button" onClick={run(() => api.quitApp())}>{t("nav.quit")}</button>
       </div>
     </header>
-  );
-}
-
-function BackToMail() {
-  const { go } = useApp();
-  return (
-    <button type="button" className="back-button" onClick={() => go({ kind: "mail" })}>
-      ← {t("nav.back")}
-    </button>
   );
 }
 
@@ -67,7 +62,8 @@ function CurrentView() {
     default:
       return (
         <div className="page-wrap">
-          <BackToMail />
+          {/* Contactpersonen has its own back button, so an open contact is never left by accident. */}
+          {view.kind !== "contacts" && <BackToMail />}
           {view.kind === "contacts" && <ContactsView />}
           {view.kind === "settings" && <SettingsView />}
           {view.kind === "help" && <HelpView />}
@@ -100,7 +96,13 @@ function useNewMailKey() {
 function Shell() {
   const { ready, error, dismissError } = useApp();
   useNewMailKey();
-  if (!ready) return <main className="app loading" aria-busy="true" />;
+  if (!ready) {
+    return (
+      <main className="app loading" aria-busy="true">
+        <p className="opening" role="status">{t("app.opening")}</p>
+      </main>
+    );
+  }
   return (
     <div className="app">
       <TopBar />

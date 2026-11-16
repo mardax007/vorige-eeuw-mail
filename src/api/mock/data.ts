@@ -16,6 +16,7 @@ export const sampleAccounts: Account[] = [
     quota: { usedKb: 1_880_000, limitKb: 2_000_000 },
     signature: "Hartelijke groet,\nRia",
     lastError: null,
+    signIn: "password",
   },
   {
     id: GMAIL,
@@ -25,6 +26,7 @@ export const sampleAccounts: Account[] = [
     quota: { usedKb: 4_200_000, limitKb: 15_000_000 },
     signature: null,
     lastError: null,
+    signIn: "google",
   },
   {
     id: LOCAL,
@@ -34,6 +36,7 @@ export const sampleAccounts: Account[] = [
     quota: null,
     signature: null,
     lastError: null,
+    signIn: null,
   },
 ];
 
@@ -205,5 +208,7 @@ export function createSampleState(now: number = Date.now()): MockState {
         importedAt: new Date(now - 30 * 24 * HOUR_MS).toISOString(),
       },
     ],
+    lastImport: null,
+    phonePaired: false,
   };
 }

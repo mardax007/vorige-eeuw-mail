@@ -5,6 +5,7 @@ import { t } from "../../i18n";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { formatKb } from "../format";
 import { useApp } from "../state/AppContext";
+import { AccountSignIn } from "./AccountSignIn";
 
 /** From this share of the mailbox a calm warning shows (features.md: 90%). */
 export const QUOTA_WARN = 0.9;
@@ -31,9 +32,9 @@ interface AccountSettingsProps {
   account: Account;
 }
 
-/** One mailbox on the settings page: its space, its signature, and removing it. */
+/** One mailbox on the settings page: its space, its signature, signing in again, and removing it. */
 export function AccountSettings({ account }: AccountSettingsProps) {
-  const { reload, showError, accounts, go } = useApp();
+  const { reload, showError, accounts, go, syncErrors } = useApp();
   const [signature, setSignature] = useState(account.signature ?? "");
   const [isSaved, setIsSaved] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -86,7 +87,10 @@ export function AccountSettings({ account }: AccountSettingsProps) {
       <div className="button-row">
         <button type="button" onClick={saveSignature}>{t("settings.saveSignature")}</button>
         {isSaved && <span role="status">{t("settings.signatureSaved")}</span>}
-        <button type="button" className="danger" onClick={() => setIsConfirming(true)}>
+      </div>
+      <AccountSignIn account={account} currentError={syncErrors[account.id] ?? account.lastError ?? null} />
+      <div className="button-row danger-zone">
+        <button type="button" className="danger-outline" onClick={() => setIsConfirming(true)}>
           {t("settings.removeAccount")}
         </button>
       </div>

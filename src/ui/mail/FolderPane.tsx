@@ -11,9 +11,13 @@ interface FolderButtonProps {
   unread: number;
   isCurrent: boolean;
   onSelect: () => void;
+  /** What the number means, read aloud; "{count} ongelezen" unless said otherwise. */
+  countLabel?: (count: number) => string;
 }
 
-function FolderButton({ label, unread, isCurrent, onSelect }: FolderButtonProps) {
+const unreadLabel = (count: number) => t("folder.unreadCount", { count });
+
+function FolderButton({ label, unread, isCurrent, onSelect, countLabel = unreadLabel }: FolderButtonProps) {
   return (
     <li>
       <button
@@ -24,7 +28,7 @@ function FolderButton({ label, unread, isCurrent, onSelect }: FolderButtonProps)
       >
         <span className="folder-name">{label}</span>
         {unread > 0 && (
-          <span className="folder-count" aria-label={t("folder.unreadCount", { count: unread })}>
+          <span className="folder-count" aria-label={countLabel(unread)}>
             {unread}
           </span>
         )}
@@ -102,6 +106,7 @@ export function FolderPane() {
           <FolderButton
             label={t("folder.outbox")}
             unread={outbox.length}
+            countLabel={(count) => t("folder.waitingCount", { count })}
             isCurrent={location.kind === "outbox"}
             onSelect={() => select({ kind: "outbox" })}
           />
@@ -142,11 +147,6 @@ export function FolderPane() {
             <FolderGroup key={a.id} title={a.displayName} folders={folders.filter((f) => f.accountId === a.id)} />
           ))}
           <ul className="more-links">
-            <li>
-              <button type="button" className="folder-button" onClick={() => go({ kind: "contacts" })}>
-                {t("nav.contacts")}
-              </button>
-            </li>
             <li>
               <button type="button" className="folder-button" onClick={() => go({ kind: "import" })}>
                 {t("nav.import")}

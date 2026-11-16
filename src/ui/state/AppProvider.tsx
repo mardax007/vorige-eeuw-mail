@@ -38,6 +38,8 @@ export function AppProvider({ children }: AppProviderProps) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [outbox, setOutbox] = useState<OutboxItem[]>([]);
   const [syncErrors, setSyncErrors] = useState<Record<string, VemError>>({});
+  const [syncBusy, setSyncBusy] = useState<Record<string, boolean>>({});
+  const [locationPick, setLocationPick] = useState(0);
   const [mailVersion, setMailVersion] = useState(0);
   const [view, setView] = useState<View>({ kind: "mail" });
   const [location, setLocationState] = useState<MailLocation>({ kind: "folder", folderId: ALL_INBOXES_ID });
@@ -144,6 +146,7 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const setLocation = useCallback((next: MailLocation) => {
     setLocationState(next);
+    setLocationPick((n) => n + 1);
     setOpenMessageId(null);
   }, []);
 
@@ -180,6 +183,7 @@ export function AppProvider({ children }: AppProviderProps) {
     reload,
     setOutbox,
     setSyncErrors,
+    setSyncBusy,
     showMessage: (folderId, messageId) => {
       setLocationState({ kind: "folder", folderId });
       setOpenMessageId(messageId);
@@ -200,12 +204,14 @@ export function AppProvider({ children }: AppProviderProps) {
       tags,
       outbox,
       syncErrors,
+      isSyncing: Object.keys(syncBusy).length > 0,
       mailVersion,
       reload,
       view,
       go: setView,
       location,
       setLocation,
+      locationPick,
       openMessageId,
       setOpenMessageId,
       compose,
@@ -221,8 +227,8 @@ export function AppProvider({ children }: AppProviderProps) {
       dismissUndo,
     }),
     [
-      ready, appInfo, settings, updateSettings, accounts, folders, tags, outbox, syncErrors,
-      mailVersion, reload, view, location, setLocation, openMessageId, compose, newDraft,
+      ready, appInfo, settings, updateSettings, accounts, folders, tags, outbox, syncErrors, syncBusy,
+      mailVersion, reload, view, location, setLocation, locationPick, openMessageId, compose, newDraft,
       pendingSend, error, showError, undoNotice, showUndo, dismissUndo,
     ],
   );

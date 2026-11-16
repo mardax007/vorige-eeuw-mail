@@ -1,5 +1,5 @@
 import type { CommandHandlers } from "../commands";
-import type { Account, ServerSettings } from "../types";
+import type { Account, ServerSettings, SignIn } from "../types";
 import type { MockFolder, MockStore } from "./state";
 import { mockError } from "./state";
 
@@ -11,20 +11,18 @@ type AppCommands =
   | "set_shell_texts"
   | "oauth_available"
   | "add_account_oauth"
+  | "update_password"
+  | "reauth_account"
+  | "cancel_sign_in"
   | "remove_account"
   | "set_signature"
   | "sync_now"
   | "get_settings"
   | "save_settings"
-  | "find_import_sources"
-  | "pick_import_file"
-  | "start_import"
-  | "list_originals"
-  | "delete_original"
-  | "export_folder"
   | "send_wish"
   | "help_report"
   | "pair_phone"
+  | "phone_paired"
   | "unpair_phone"
   | "quit_app";
 
@@ -72,7 +70,7 @@ function standardFolders(accountId: string): MockFolder[] {
   return roles.map(([name, role]) => ({ id: `${accountId}-${role}`, accountId, name, role, path: [name] }));
 }
 
-function createAccount(store: MockStore, displayName: string, email: string): Account {
+function createAccount(store: MockStore, displayName: string, email: string, signIn: SignIn): Account {
   const account: Account = {
     id: store.nextId("acc"),
     displayName,
@@ -81,6 +79,7 @@ function createAccount(store: MockStore, displayName: string, email: string): Ac
     quota: { usedKb: 120_000, limitKb: 1_000_000 },
     signature: null,
     lastError: null,
+    signIn,
   };
   store.set((s) => ({
     ...s,
@@ -90,31 +89,39 @@ function createAccount(store: MockStore, displayName: string, email: string): Ac
   return account;
 }
 
-function runImport(store: MockStore, jobId: string, label: string, size: number): void {
-  const total = 500;
-  const step = (done: number) => {
-    const finished = done >= total;
-    store.events.emit("import:progress", {
-      jobId,
-      done: Math.min(done, total),
-      total,
-      currentFolder: finished ? null : done < 250 ? "Postvak IN" : "Verzonden items",
-      finished,
-      error: null,
-    });
-    if (finished) {
-      store.set((s) => ({
-        ...s,
-        originals: [...s.originals, { id: store.nextId("orig"), label, size, importedAt: new Date().toISOString() }],
-      }));
-      return;
-    }
-    store.later(200, () => step(done + 50));
-  };
-  store.later(100, () => step(0));
+/** A password the mock refuses, to show what a failed login looks like. */
+const WRONG_PASSWORD = "fout";
+
+function loginRefused() {
+  return mockError("VEM-IMAP-LOGIN-01", "a1 NO [AUTHENTICATIONFAILED] Authentication failed.");
+}
+
+interface PendingSignIn {
+  timer: ReturnType<typeof setTimeout>;
+  reject: (reason: unknown) => void;
 }
 
 export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCommands> {
+  let pending: PendingSignIn | null = null;
+
+  /** Pretends the user signs in in the browser; cancel_sign_in stops it. */
+  const waitForBrowser = <T>(finish: () => T): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      const timer = store.later(OAUTH_WAIT_MS, () => {
+        pending = null;
+        resolve(finish());
+      });
+      pending = { timer, reject };
+    });
+
+  const clearAccountError = (accountId: string) => {
+    store.set((s) => ({
+      ...s,
+      accounts: s.accounts.map((a) => (a.id === accountId ? { ...a, lastError: null } : a)),
+    }));
+    store.events.emit("sync:state", { accountId, busy: false, error: null });
+  };
+
   return {
     app_info: () => ({
       version: "0.1.0",
@@ -127,17 +134,27 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
     list_accounts: () => store.get().accounts,
     lookup_settings: ({ email }) => settingsFor(email),
     add_account: ({ displayName, email, password }) => {
-      if (password === "fout") {
-        throw mockError("VEM-IMAP-LOGIN-01", "a1 NO [AUTHENTICATIONFAILED] Authentication failed.");
-      }
-      return createAccount(store, displayName, email);
+      if (password === WRONG_PASSWORD) throw loginRefused();
+      return createAccount(store, displayName, email, "password");
     },
     set_shell_texts: () => undefined,
     oauth_available: ({ signIn }) => signIn === "google",
-    add_account_oauth: ({ displayName, email }) =>
-      new Promise<Account>((resolve) => {
-        store.later(OAUTH_WAIT_MS, () => resolve(createAccount(store, displayName, email)));
-      }),
+    add_account_oauth: ({ displayName, email, settings }) =>
+      waitForBrowser<Account>(() => createAccount(store, displayName, email, settings.signIn)),
+    update_password: ({ accountId, password }) => {
+      if (!store.get().accounts.some((a) => a.id === accountId)) {
+        throw mockError("VEM-STORE-READ-01", undefined, `account ${accountId}`);
+      }
+      if (password === WRONG_PASSWORD) throw loginRefused();
+      clearAccountError(accountId);
+    },
+    reauth_account: ({ accountId }) => waitForBrowser(() => clearAccountError(accountId)),
+    cancel_sign_in: () => {
+      if (!pending) return;
+      store.cancel(pending.timer);
+      pending.reject(mockError("VEM-AUTH-LOGIN-01", undefined, "stopped"));
+      pending = null;
+    },
     remove_account: ({ accountId }) =>
       store.set((s) => ({
         ...s,
@@ -159,33 +176,6 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
     },
     get_settings: () => store.get().settings,
     save_settings: ({ settings }) => store.set((s) => ({ ...s, settings })),
-    find_import_sources: () => [
-      {
-        kind: "pst",
-        path: "C:\\Users\\Ria\\Documents\\Outlook-bestanden\\Outlook.pst",
-        size: 1_288_490_188,
-        label: "Outlook.pst",
-      },
-      { kind: "wlm", path: "C:\\Users\\Ria\\AppData\\Local\\Microsoft\\Windows Live Mail", size: null, label: "Windows Live Mail" },
-    ],
-    pick_import_file: ({ kind }) => ({
-      kind,
-      path: `C:\\Users\\Ria\\Documents\\oud.${kind}`,
-      size: 52_428_800,
-      label: `oud.${kind}`,
-    }),
-    start_import: ({ source }) => {
-      const jobId = store.nextId("job");
-      runImport(store, jobId, source.label, source.size ?? 0);
-      return jobId;
-    },
-    list_originals: () => store.get().originals,
-    delete_original: ({ id }) =>
-      store.set((s) => ({ ...s, originals: s.originals.filter((o) => o.id !== id) })),
-    export_folder: ({ folderId }) => {
-      const folder = store.get().folders.find((f) => f.id === folderId);
-      return `C:\\Users\\Ria\\Documents\\${folder?.path.join(" - ") ?? "map"}.mbox`;
-    },
     send_wish: ({ text }) => {
       if (text.trim() === "") throw mockError("VEM-REPORT-CMD-01", undefined, "empty");
     },
@@ -197,8 +187,13 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
         "Postvak 1: imap.solcon.nl:993 tls",
         "Postvak 2: imap.gmail.com:993 tls",
       ].join("\n"),
-    pair_phone: () => ({ qrSvg: SAMPLE_QR }),
-    unpair_phone: () => undefined,
+    // The mock pretends the phone scans the code at once.
+    pair_phone: () => {
+      store.set((s) => ({ ...s, phonePaired: true }));
+      return { qrSvg: SAMPLE_QR };
+    },
+    phone_paired: () => store.get().phonePaired,
+    unpair_phone: () => store.set((s) => ({ ...s, phonePaired: false })),
     quit_app: () => undefined,
   };
 }

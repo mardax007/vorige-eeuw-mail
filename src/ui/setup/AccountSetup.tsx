@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../../api/client";
-import { toVemError } from "../../api/errors";
+import { isStoppedSignIn, toVemError } from "../../api/errors";
 import type { Account, ServerSettings, VemError } from "../../api/types";
 import { t } from "../../i18n";
 import { ErrorBox } from "../common/ErrorBox";
@@ -24,6 +24,7 @@ export function AccountSetup({ isFirstRun }: AccountSetupProps) {
   const [route, setRoute] = useState<SignInRoute>("password");
   const [problem, setProblem] = useState<string | null>(null);
   const [error, setError] = useState<VemError | null>(null);
+  const isStopping = useRef(false);
 
   const finish = async (account: Account) => {
     await reload();
@@ -35,12 +36,24 @@ export function AccountSetup({ isFirstRun }: AccountSetupProps) {
 
   const run = async (busy: Step, add: () => Promise<Account>) => {
     setError(null);
+    isStopping.current = false;
     setStep(busy);
     try {
       await finish(await add());
     } catch (e: unknown) {
-      setError(toVemError(e));
+      const err = toVemError(e);
+      // Stoppen pressed: just go back to the choice, without an error.
+      if (!isStopping.current && !isStoppedSignIn(err)) setError(err);
       setStep("credentials");
+    }
+  };
+
+  const stopSignIn = async () => {
+    isStopping.current = true;
+    try {
+      await api.cancelSignIn();
+    } catch (e: unknown) {
+      setError(toVemError(e));
     }
   };
 
@@ -143,6 +156,7 @@ export function AccountSetup({ isFirstRun }: AccountSetupProps) {
             isBusy={step !== "credentials"}
             isWaitingForBrowser={step === "waiting"}
             onBack={back}
+            onStop={() => void stopSignIn()}
             onPassword={(password) =>
               void run("adding", () => api.addAccount(name.trim(), email.trim(), password, found))
             }

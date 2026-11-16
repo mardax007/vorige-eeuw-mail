@@ -62,6 +62,11 @@ export const api = {
   oauthAvailable: (signIn: SignIn) => call("oauth_available", { signIn }),
   addAccountOAuth: (displayName: string, email: string, settings: ServerSettings, donePage: string) =>
     call("add_account_oauth", { displayName, email, settings, donePage }),
+  updatePassword: (accountId: string, password: string) =>
+    call("update_password", { accountId, password }),
+  reauthAccount: (accountId: string, donePage: string) =>
+    call("reauth_account", { accountId, donePage }),
+  cancelSignIn: () => call("cancel_sign_in", undefined),
   removeAccount: (accountId: string) => call("remove_account", { accountId }),
   setSignature: (accountId: string, signature: string) =>
     call("set_signature", { accountId, signature }),
@@ -116,6 +121,9 @@ export const api = {
   pickImportFile: (kind: ImportKind) => call("pick_import_file", { kind }),
   startImport: (source: ImportSource, target: ImportTarget) =>
     call("start_import", { source, target }),
+  importFromAccount: (sourceAccountId: string, target: ImportTarget) =>
+    call("import_from_account", { sourceAccountId, target }),
+  importStatus: () => call("import_status", undefined),
   listOriginals: () => call("list_originals", undefined),
   deleteOriginal: (id: string) => call("delete_original", { id }),
   exportFolder: (folderId: string) => call("export_folder", { folderId }),
@@ -123,6 +131,7 @@ export const api = {
   sendWish: (text: string) => call("send_wish", { text }),
   helpReport: () => call("help_report", undefined),
   pairPhone: () => call("pair_phone", undefined),
+  phonePaired: () => call("phone_paired", undefined),
   unpairPhone: () => call("unpair_phone", undefined),
   quitApp: () => call("quit_app", undefined),
 };

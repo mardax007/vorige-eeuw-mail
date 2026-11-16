@@ -129,6 +129,10 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
 - **Release builds unwind on a panic instead of aborting**, so a damaged PST that trips the
   `outlook-pst` crate ends that import with an error, not the whole app.
 - **The app icon** is a white envelope on dark blue (`assets/icon.svg`). Martijn may want another.
+- **Screen changes from the UX review:** Contactpersonen sits in the top bar (no longer under Meer
+  mappen), and Afsluiten moved from the top bar to the bottom of Instellingen (the icon next to the
+  clock keeps it too). The list of skipped import folders is copied with "Lijst kopiëren", because
+  the app has no command to save a file. Martijn may want these placed differently.
 
 ## Hard-rule changes P1–P3 (accepted 16 November 2026)
 
@@ -155,3 +159,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-16 | P1–P3 accepted and applied to `CLAUDE.md` (Martijn) |
 | 2026-11-16 | Decisions 1, 3, 4, 6–12, 14–16, 19, 21, 22 answered (Martijn); phase 6 dropped |
 | 2026-11-16 | Build choices recorded: stack confirmed (decision 6), own SMTP client, no MX/SRV yet, local drafts, delayed server moves, report queue, mbox import, unwind on panic |
+| 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |

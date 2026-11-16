@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import type { MailWarning, MessageDetail } from "../../api/types";
+import { toVemError } from "../../api/errors";
+import type { MailWarning, MessageDetail, VemError } from "../../api/types";
 import { t } from "../../i18n";
+import { ErrorBox } from "../common/ErrorBox";
 import { TagChip } from "../common/TagChip";
 import { formatAddressList } from "../compose/address";
 import { displayName, formatBytes, readableDate } from "../format";
@@ -32,18 +34,29 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
   const { tags, folders, settings, showError, compose, reload } = useApp();
   const { remove, move, respond } = useMessageActions();
   const [message, setMessage] = useState<MessageDetail | null>(null);
+  const [loadError, setLoadError] = useState<VemError | null>(null);
   const [showImages, setShowImages] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
+  // Goes up on every load: an answer for an older load (another message, by now) is ignored.
+  const request = useRef(0);
 
   const load = useCallback(
     async (remote: boolean) => {
+      const token = ++request.current;
+      let m: MessageDetail;
       try {
-        const m = await api.getMessage(messageId, remote);
-        setMessage(m);
-        if (m.unread) {
-          await api.setRead([m.id], true);
-          await reload();
-        }
+        m = await api.getMessage(messageId, remote);
+      } catch (e: unknown) {
+        if (token === request.current) setLoadError(toVemError(e));
+        return;
+      }
+      if (token !== request.current) return;
+      setMessage(m);
+      if (!m.unread) return;
+      // The message is open either way; a failure here only means it stays bold in the list.
+      try {
+        await api.setRead([m.id], true);
+        await reload();
       } catch (e: unknown) {
         showError(e);
       }
@@ -53,6 +66,7 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
 
   useEffect(() => {
     setMessage(null);
+    setLoadError(null);
     setShowImages(false);
     setPanel("none");
     void load(false);
@@ -64,7 +78,15 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
     return (
       <section className="reading-pane">
         {onBack && <BackButton onBack={onBack} />}
-        <p className="list-note">{t("read.loading")}</p>
+        {loadError ? (
+          <>
+            <p className="list-note">{t("read.loadFailed")}</p>
+            <ErrorBox error={loadError} />
+            {!onBack && <BackButton onBack={onRemoved} />}
+          </>
+        ) : (
+          <p className="list-note" role="status">{t("read.loading")}</p>
+        )}
       </section>
     );
   }
@@ -73,11 +95,14 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
   const accountFolders = folders.filter((f) => f.accountId === message.accountId);
   const messageTags = tags.filter((tag) => message.tagIds.includes(tag.id));
   const isDraft = folder?.role === "drafts";
+  // In Verwijderde items Verwijderen would move nothing; emptying the folder is its own button.
+  const canDelete = folder?.role !== "trash";
 
   const toggleImportant = async () => {
     try {
       await api.setImportant([message.id], !message.important);
-      setMessage({ ...message, important: !message.important });
+      const important = !message.important;
+      setMessage((m) => (m && m.id === message.id ? { ...m, important } : m));
       await reload();
     } catch (e: unknown) {
       showError(e);
@@ -94,10 +119,12 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
 
   const handleShowImages = async () => {
     setShowImages(true);
+    const token = ++request.current;
     try {
-      setMessage(await api.getMessage(message.id, true));
+      const m = await api.getMessage(message.id, true);
+      if (token === request.current) setMessage(m);
     } catch (e: unknown) {
-      showError(e);
+      if (token === request.current) showError(e);
     }
   };
 
@@ -122,15 +149,17 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
         <button type="button" onClick={() => respond(message, "reply")}>{t("read.reply")}</button>
         <button type="button" onClick={() => respond(message, "replyAll")}>{t("read.replyAll")}</button>
         <button type="button" onClick={() => respond(message, "forward")}>{t("read.forward")}</button>
-        <button type="button" onClick={() => remove([message.id]).then((ok) => ok && onRemoved())}>{t("read.delete")}</button>
+        {canDelete && (
+          <button type="button" onClick={() => remove([message.id]).then((ok) => ok && onRemoved())}>{t("read.delete")}</button>
+        )}
         <button type="button" aria-expanded={panel === "move"} onClick={() => setPanel(panel === "move" ? "none" : "move")}>
           {t("read.move")}
         </button>
         <button type="button" aria-expanded={panel === "label"} onClick={() => setPanel(panel === "label" ? "none" : "label")}>
           {t("read.label")}
         </button>
-        <button type="button" aria-pressed={message.important} onClick={toggleImportant}>
-          {message.important ? `★ ${t("read.important")}` : `☆ ${t("read.important")}`}
+        <button type="button" onClick={toggleImportant}>
+          {message.important ? `★ ${t("read.unmarkImportant")}` : `☆ ${t("read.markImportant")}`}
         </button>
         <button type="button" onClick={() => window.print()}>{t("read.print")}</button>
       </div>

@@ -1,7 +1,6 @@
-import { useState } from "react";
 import type { VemError } from "../../api/types";
 import { errorText, t } from "../../i18n";
-import { copyText } from "./clipboard";
+import { useCopyNote, type CopyResult } from "./useCopyNote";
 
 interface ErrorBoxProps {
   error: VemError;
@@ -21,16 +20,29 @@ export function textForMartijn(error: VemError): string {
   return lines.join("\n");
 }
 
+interface CopyNoteTextProps {
+  result: CopyResult | null;
+  /** Said when copying worked; "Gekopieerd." unless given. */
+  copiedText?: string;
+}
+
+/** The note next to one copy button: copied, or how to copy by hand. Empty otherwise. */
+export function CopyNoteText({ result, copiedText = t("error.copied") }: CopyNoteTextProps) {
+  const text = result === "copied" ? copiedText : result === "failed" ? t("error.copyFailed") : "";
+  return (
+    <span className="copy-note" role="status">
+      {text}
+    </span>
+  );
+}
+
 /** One error, as docs/errors.md says: what happened, what to do, the exact words, the code. */
 export function ErrorBox({ error, isReported = false, onClose }: ErrorBoxProps) {
-  const [copied, setCopied] = useState(false);
+  const rawNote = useCopyNote();
+  const martijnNote = useCopyNote();
   const { sentence, next } = errorText(error.code);
   const raw = error.serverReply ?? error.detail ?? null;
   const label = error.serverReply ? t("error.serverSaid") : t("error.details");
-
-  const handleCopy = async (text: string) => {
-    setCopied(await copyText(text));
-  };
 
   return (
     <section className="error-box" role="alert">
@@ -40,23 +52,26 @@ export function ErrorBox({ error, isReported = false, onClose }: ErrorBoxProps) 
         <div className="error-raw">
           <p className="error-label">{label}</p>
           <pre className="error-reply">{raw}</pre>
-          <button type="button" onClick={() => handleCopy(raw)}>
-            {t("error.copy")}
-          </button>
+          <div className="button-row">
+            <button type="button" onClick={() => void rawNote.copy(raw)}>
+              {t("error.copy")}
+            </button>
+            <CopyNoteText result={rawNote.result} />
+          </div>
         </div>
       )}
       <p className="error-code">{t("error.code", { code: error.code })}</p>
       {isReported && <p>{t("error.reported")}</p>}
       <div className="button-row">
-        <button type="button" onClick={() => handleCopy(textForMartijn(error))}>
+        <button type="button" onClick={() => void martijnNote.copy(textForMartijn(error))}>
           {t("error.copyForMartijn")}
         </button>
+        <CopyNoteText result={martijnNote.result} />
         {onClose && (
           <button type="button" onClick={onClose}>
             {t("error.close")}
           </button>
         )}
-        {copied && <span role="status">{t("error.copied")}</span>}
       </div>
     </section>
   );

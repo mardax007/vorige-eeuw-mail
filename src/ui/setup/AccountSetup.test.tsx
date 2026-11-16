@@ -77,18 +77,38 @@ describe("Google and Microsoft", () => {
   it("falls back to an app password when Google sign-in is not available", async () => {
     vi.spyOn(api, "oauthAvailable").mockResolvedValue(false);
     await fillAddress("Ria", "ria@gmail.com");
-    expect(await screen.findByText("Gebruik een app-wachtwoord van Google.")).toBeTruthy();
+    expect(await screen.findByText(/Vraag Martijn om een app-wachtwoord voor u te maken/)).toBeTruthy();
     expect(screen.getByLabelText("Wachtwoord van uw e-mail")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Postvak toevoegen" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("says plainly that Microsoft mailboxes cannot be opened yet and blocks adding", async () => {
+  it("says plainly that Microsoft mailboxes cannot be opened yet and only offers another address", async () => {
     const spy = vi.spyOn(api, "addAccount");
-    await fillAddress("Ria", "ria@outlook.com");
-    expect(await screen.findByText("Dit soort postvak kan het programma nog niet openen.")).toBeTruthy();
+    const user = await fillAddress("Ria", "ria@outlook.com");
+    expect(await screen.findByText(/Dit soort postvak \(Outlook\.com, Hotmail, Live\) kan het programma nog niet openen/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Inloggen met Microsoft" })).toBeNull();
-    expect((screen.getByRole("button", { name: "Postvak toevoegen" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Postvak toevoegen" })).toBeNull();
+    expect(screen.queryByLabelText("Wachtwoord van uw e-mail")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ander adres" }));
+    expect(await screen.findByLabelText("Uw e-mailadres")).toBeTruthy();
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("stops a waiting browser sign-in with Stoppen and shows no error", async () => {
+    const user = await fillAddress("Ria", "ria@gmail.com");
+    await user.click(await screen.findByRole("button", { name: "Inloggen met Google" }));
+    await user.click(await screen.findByRole("button", { name: "Stoppen" }));
+    expect(await screen.findByRole("button", { name: "Inloggen met Google" })).toBeTruthy();
+    expect(screen.queryByText("Inloggen met Google of Microsoft is niet afgemaakt.")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Mappen" })).toBeNull();
+  });
+
+  it("can show the password while typing it", async () => {
+    const user = await fillAddress("Ria", "ria@solcon.nl");
+    const box = (await screen.findByLabelText("Wachtwoord van uw e-mail")) as HTMLInputElement;
+    expect(box.type).toBe("password");
+    await user.click(screen.getByLabelText("Wachtwoord laten zien"));
+    expect(box.type).toBe("text");
   });
 
   it("shows the sign-in error in the normal error box", async () => {

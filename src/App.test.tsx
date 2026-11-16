@@ -25,7 +25,8 @@ describe("main screen", () => {
     expect(pane.getAllByRole("button", { name: /^Concepten/ }).length).toBeGreaterThan(0);
     expect(pane.getAllByRole("button", { name: /^Ongewenste e-mail/ }).length).toBeGreaterThan(0);
     expect(pane.getByText("Oude mail uit Outlook")).toBeTruthy();
-    expect(pane.getByRole("button", { name: "Contactpersonen" })).toBeTruthy();
+    expect(pane.queryByRole("button", { name: "Contactpersonen" })).toBeNull();
+    expect(document.querySelector(".top-bar")?.textContent).toContain("Contactpersonen");
     expect(pane.getByText("Rekeningen")).toBeTruthy();
   });
 

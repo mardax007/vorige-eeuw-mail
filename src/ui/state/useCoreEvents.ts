@@ -7,6 +7,7 @@ interface CoreEventHandlers {
   reload: () => Promise<void>;
   setOutbox: Dispatch<SetStateAction<OutboxItem[]>>;
   setSyncErrors: Dispatch<SetStateAction<Record<string, VemError>>>;
+  setSyncBusy: Dispatch<SetStateAction<Record<string, boolean>>>;
   showMessage: (folderId: string, messageId: string) => void;
   composeTo: (to: Addr[]) => void;
   showError: (e: unknown) => void;
@@ -32,11 +33,12 @@ export function useCoreEvents(handlers: CoreEventHandlers): void {
     add(onEvent("mail:changed", () => void ref.current.reload()));
     add(onEvent("outbox:changed", (items) => ref.current.setOutbox(items)));
     add(
-      onEvent("sync:state", ({ accountId, error }) =>
+      onEvent("sync:state", ({ accountId, busy, error }) => {
+        ref.current.setSyncBusy((prev) => (busy ? { ...prev, [accountId]: true } : withoutKey(prev, accountId)));
         ref.current.setSyncErrors((prev) =>
           error ? { ...prev, [accountId]: error } : withoutKey(prev, accountId),
-        ),
-      ),
+        );
+      }),
     );
     add(
       onEvent("open:message", ({ messageId }) => {

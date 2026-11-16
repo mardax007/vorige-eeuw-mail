@@ -30,7 +30,7 @@ function defaultChoice(choices: readonly ScopeChoice[]): ScopeChoice {
 /** The main screen: folders, the list, the open message. */
 export function MailView() {
   const app = useApp();
-  const { location, folders, accounts, tags, mailVersion, openMessageId, setOpenMessageId, showError } = app;
+  const { location, locationPick, folders, accounts, tags, mailVersion, openMessageId, setOpenMessageId, showError } = app;
   const isNarrow = useNarrow(app.settings.textSize);
   const folder = location.kind === "folder" ? folders.find((f) => f.id === location.folderId) : undefined;
   const choices = availableChoices(location, folder);
@@ -41,11 +41,13 @@ export function MailView() {
   const [exportedTo, setExportedTo] = useState<string | null>(null);
 
   useEffect(() => {
+    // Picking a folder, also the same one again, ends a search.
+    setQuery("");
     setChoice(defaultChoice(availableChoices(location, folder)));
     setExportedTo(null);
-    // Reset only when the place changes, not when its counts change.
+    // Reset only when the place changes or is picked again, not when its counts change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationKey]);
+  }, [locationKey, locationPick]);
 
   const list = useMessages(location, mailVersion, showError);
   const search = useSearch(query, scopeFor(choice, location, folder), showError);
@@ -97,7 +99,11 @@ export function MailView() {
     </>
   );
 
-  const syncError = folder ? app.syncErrors[folder.accountId] : undefined;
+  // One mailbox shows its own error; "Alle postvakken", a label list or Postvak UIT show every mailbox's.
+  const syncErrors = Object.entries(app.syncErrors)
+    .filter(([accountId]) => folder === undefined || accountId === folder.accountId)
+    .map(([accountId, error]) => ({ accountId, error }));
+  const isAccountNamed = folder === undefined;
   const open = (m: MessageSummary) => setOpenMessageId(m.id);
   const isOverList = isNarrow && openMessageId !== null;
 
@@ -111,6 +117,8 @@ export function MailView() {
         tags={tags}
         selectedId={openMessageId}
         isLoading={isSearching ? search.isBusy : list.isLoading}
+        loadError={isSearching ? search.loadError : list.loadError}
+        onRetry={isSearching ? search.retry : list.retry}
         emptyText={isSearching ? (search.isBusy ? t("search.busy") : t("search.none", { query: query.trim() })) : t("list.empty")}
         hasMore={!isSearching && list.hasMore}
         onLoadMore={list.loadMore}
@@ -126,7 +134,13 @@ export function MailView() {
         {!isOverList && (
           <SearchBar query={query} choice={choice} choices={choices} onQuery={setQuery} onChoice={setChoice} />
         )}
-        {syncError && !isOverList && <ErrorBox error={syncError} />}
+        {!isOverList &&
+          syncErrors.map(({ accountId, error }) => (
+            <div key={accountId} className="sync-error">
+              {isAccountNamed && <h3 className="sync-error-account">{accountName(accountId)}</h3>}
+              <ErrorBox error={error} />
+            </div>
+          ))}
         {exportedTo && !isOverList && <p className="calm-line" role="status">{t("folder.exported", { path: exportedTo })}</p>}
         <div className="mail-columns">
           {!isOverList && middle}

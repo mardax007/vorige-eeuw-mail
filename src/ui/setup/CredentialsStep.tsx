@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { ServerSettings } from "../../api/types";
 import { t } from "../../i18n";
+import { PasswordField } from "../common/PasswordField";
+import { SignInWait } from "../common/SignInWait";
 
 export type SignInRoute = "password" | "oauth";
 
@@ -11,6 +13,8 @@ interface CredentialsStepProps {
   isWaitingForBrowser: boolean;
   onPassword: (password: string) => void;
   onOAuth: () => void;
+  /** "Stoppen" while the browser sign-in is open. */
+  onStop: () => void;
   onBack: () => void;
 }
 
@@ -27,6 +31,7 @@ export function CredentialsStep({
   isWaitingForBrowser,
   onPassword,
   onOAuth,
+  onStop,
   onBack,
 }: CredentialsStepProps) {
   const [password, setPassword] = useState("");
@@ -34,26 +39,28 @@ export function CredentialsStep({
 
   if (route === "oauth") {
     const label = settings.signIn === "microsoft" ? t("setup.signInMicrosoft") : t("setup.signInGoogle");
+    if (isWaitingForBrowser) return <SignInWait onStop={onStop} />;
     return (
-      <div>
-        <div className="button-row">
-          <button type="button" className="primary" disabled={isBusy} onClick={onOAuth}>
-            {label}
-          </button>
-          <button type="button" disabled={isBusy} onClick={onBack}>{t("setup.back")}</button>
-        </div>
-        {isWaitingForBrowser && <p role="status">{t("setup.oauthWaiting")}</p>}
+      <div className="button-row">
+        <button type="button" className="primary" disabled={isBusy} onClick={onOAuth}>
+          {label}
+        </button>
+        <button type="button" disabled={isBusy} onClick={onBack}>{t("setup.back")}</button>
       </div>
     );
   }
 
-  const isBlocked = !canUsePassword(settings);
-  const note =
-    settings.signIn === "google"
-      ? t("setup.googleAppPassword")
-      : settings.signIn === "microsoft"
-        ? t("setup.microsoftNotYet")
-        : null;
+  // A mailbox the program cannot open yet: say so, and only offer another address.
+  if (!canUsePassword(settings)) {
+    return (
+      <div>
+        <p className="calm-line">{t("setup.microsoftNotYet")}</p>
+        <div className="button-row">
+          <button type="button" className="primary" onClick={onBack}>{t("setup.back")}</button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = () => {
     if (password === "") {
@@ -68,24 +75,20 @@ export function CredentialsStep({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!isBlocked) handleSubmit();
+        if (!isBusy) handleSubmit();
       }}
     >
-      {note && <p className="calm-line">{note}</p>}
+      {settings.signIn === "google" && <p className="calm-line">{t("setup.googleAppPassword")}</p>}
       {problem && <p className="form-problem" role="alert">{problem}</p>}
-      <div className="form-row">
-        <label htmlFor="setup-password">{t("setup.password")}</label>
-        <input
-          id="setup-password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          disabled={isBlocked}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
+      <PasswordField
+        id="setup-password"
+        label={t("setup.password")}
+        value={password}
+        autoComplete="current-password"
+        onChange={setPassword}
+      />
       <div className="button-row">
-        <button type="submit" className="primary" disabled={isBusy || isBlocked}>
+        <button type="submit" className="primary" disabled={isBusy}>
           {t("setup.add")}
         </button>
         <button type="button" disabled={isBusy} onClick={onBack}>{t("setup.back")}</button>

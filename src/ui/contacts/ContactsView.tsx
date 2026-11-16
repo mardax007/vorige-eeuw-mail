@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Contact, MessageSummary } from "../../api/types";
 import { t } from "../../i18n";
+import { BackToMail } from "../common/BackToMail";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { shortDate } from "../format";
 import { useApp } from "../state/AppContext";
@@ -20,15 +21,19 @@ export function ContactsView() {
   const { showError, compose, newDraft, setLocation, setOpenMessageId, go } = useApp();
   const [query, setQuery] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [recent, setRecent] = useState<MessageSummary[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
 
   const load = useCallback(async () => {
+    setIsLoading(true);
     try {
       setContacts(byName(await api.listContacts(query)));
     } catch (e: unknown) {
       showError(e);
+    } finally {
+      setIsLoading(false);
     }
   }, [query, showError]);
 
@@ -77,7 +82,11 @@ export function ContactsView() {
     return (
       <section className="page">
         <h2>{mode.contact.id ? mode.contact.name : t("contacts.new")}</h2>
-        <ContactEditor contact={mode.contact} onSave={save} onCancel={() => setMode({ kind: "list" })} />
+        <ContactEditor
+          contact={mode.contact}
+          onSave={save}
+          onCancel={() => (mode.contact.id ? setMode({ kind: "show", contact: mode.contact }) : setMode({ kind: "list" }))}
+        />
       </section>
     );
   }
@@ -86,7 +95,7 @@ export function ContactsView() {
     const c = mode.contact;
     return (
       <section className="page">
-        <button type="button" className="back-button" onClick={() => setMode({ kind: "list" })}>← {t("nav.back")}</button>
+        <button type="button" className="back-button" onClick={() => setMode({ kind: "list" })}>← {t("contacts.back")}</button>
         <h2>{c.name}</h2>
         <ul className="plain-list">
           {c.emails.map((e) => <li key={e}>{e}</li>)}
@@ -127,6 +136,7 @@ export function ContactsView() {
 
   return (
     <section className="page">
+      <BackToMail />
       <h2>{t("contacts.title")}</h2>
       <div className="button-row">
         <button type="button" className="primary" onClick={() => setMode({ kind: "edit", contact: EMPTY_CONTACT })}>
@@ -137,7 +147,10 @@ export function ContactsView() {
         <label htmlFor="contact-search">{t("contacts.search")}</label>
         <input id="contact-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
-      {contacts.length === 0 && <p>{t("contacts.empty")}</p>}
+      {isLoading && contacts.length === 0 && <p role="status">{t("contacts.loading")}</p>}
+      {!isLoading && contacts.length === 0 && (
+        <p>{query.trim() === "" ? t("contacts.empty") : t("contacts.none", { query: query.trim() })}</p>
+      )}
       <ul className="plain-list">
         {contacts.map((c) => (
           <li key={c.id}>

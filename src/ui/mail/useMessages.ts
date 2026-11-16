@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { MessageSummary } from "../../api/types";
 import type { MailLocation } from "../state/AppContext";
@@ -10,6 +10,9 @@ interface MessagesState {
   isLoading: boolean;
   hasMore: boolean;
   loadMore: () => void;
+  /** True when the last load failed; the error itself is shown at the top. */
+  loadError: boolean;
+  retry: () => void;
 }
 
 async function load(location: MailLocation, limit: number): Promise<MessageSummary[]> {
@@ -27,7 +30,11 @@ export function useMessages(
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const key = location.kind === "folder" ? location.folderId : location.kind === "tag" ? `tag:${location.tagId}` : "outbox";
+  // The place the list on screen belongs to: a failed reload there keeps it, another place does not.
+  const loadedKey = useRef<string | null>(null);
 
   useEffect(() => {
     setLimit(PAGE_SIZE);
@@ -38,10 +45,17 @@ export function useMessages(
     setIsLoading(true);
     load(location, limit)
       .then((list) => {
-        if (alive) setMessages(list);
+        if (!alive) return;
+        loadedKey.current = key;
+        setMessages(list);
+        setLoadError(false);
       })
       .catch((e: unknown) => {
-        if (alive) onError(e);
+        if (!alive) return;
+        // Only the first load of a place empties the list; a failed reload keeps what is there.
+        if (loadedKey.current !== key) setMessages([]);
+        setLoadError(true);
+        onError(e);
       })
       .finally(() => {
         if (alive) setIsLoading(false);
@@ -51,10 +65,11 @@ export function useMessages(
     };
     // location is identified by key; reloading on every new object would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, limit, mailVersion, onError]);
+  }, [key, limit, mailVersion, attempt, onError]);
 
   const loadMore = useCallback(() => setLimit((l) => l + PAGE_SIZE), []);
-  const hasMore = location.kind === "folder" && messages.length >= limit;
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const hasMore = !loadError && location.kind === "folder" && messages.length >= limit;
 
-  return { messages, isLoading, hasMore, loadMore };
+  return { messages, isLoading, hasMore, loadMore, loadError, retry };
 }

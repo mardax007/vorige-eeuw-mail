@@ -9,7 +9,7 @@ export interface ErrorText {
 export const nlErrors = {
   "VEM-LOOKUP-FIND-01": {
     sentence: "Voor dit e-mailadres zijn geen instellingen gevonden.",
-    next: "Controleer of het adres goed gespeld is. Klopt het, vraag Martijn dan om de instellingen met de hand in te vullen.",
+    next: "Controleer of het adres goed gespeld is. Klopt het wel, vraag het dan aan Martijn.",
   },
   "VEM-IMAP-FIND-01": {
     sentence: "De computer van uw e-mailprovider is niet gevonden.",
@@ -65,7 +65,7 @@ export const nlErrors = {
   },
   "VEM-SMTP-LOGIN-01": {
     sentence: "Inloggen om mail te versturen is niet gelukt.",
-    next: "Controleer het wachtwoord van dit postvak bij Instellingen. Het bericht blijft in Postvak UIT staan.",
+    next: "Typ bij Instellingen, bij dit postvak, het nieuwe wachtwoord in en druk op Wachtwoord opslaan. Het bericht blijft in Postvak UIT staan.",
   },
   "VEM-SMTP-CMD-01": {
     sentence: "Een van de adressen werd geweigerd.",
@@ -85,7 +85,7 @@ export const nlErrors = {
   },
   "VEM-AUTH-LOGIN-02": {
     sentence: "Uw inlog is verlopen.",
-    next: "Log opnieuw in bij Instellingen, bij dit postvak.",
+    next: "Druk bij Instellingen, bij dit postvak, op Opnieuw inloggen.",
   },
   "VEM-IMPORT-READ-01": {
     sentence: "Het bestand met oude mail kan niet gelezen worden.",
@@ -109,7 +109,7 @@ export const nlErrors = {
   },
   "VEM-IMPORT-SPACE-02": {
     sentence: "Er is niet genoeg ruimte in uw postvak voor de oude mail.",
-    next: "Kies Op deze computer bewaren.",
+    next: "Kies Op deze computer en druk opnieuw op Ophalen.",
   },
   "VEM-STORE-WRITE-01": {
     sentence: "Het programma kon niets opslaan op deze computer.",
@@ -117,11 +117,11 @@ export const nlErrors = {
   },
   "VEM-STORE-READ-01": {
     sentence: "Bewaarde mail kon niet gelezen worden.",
-    next: "Sluit het programma met Afsluiten en open het opnieuw. Blijft dit komen, vraag het dan aan Martijn.",
+    next: "Sluit het programma met Afsluiten (onderaan bij Instellingen) en open het opnieuw. Blijft dit komen, vraag het dan aan Martijn.",
   },
   "VEM-STORE-SECRET-01": {
     sentence: "Het bewaarde wachtwoord kon niet gelezen worden.",
-    next: "Typ het wachtwoord van dit postvak opnieuw in.",
+    next: "Typ bij Instellingen, bij dit postvak, het wachtwoord opnieuw in en druk op Wachtwoord opslaan. Logt dit postvak in via Google of Microsoft, druk daar dan op Opnieuw inloggen.",
   },
   "VEM-UPDATE-CMD-01": {
     sentence: "Het bijwerken van het programma is niet gelukt.",

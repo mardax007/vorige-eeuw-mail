@@ -6,6 +6,7 @@ import { createAppHandlers } from "./mock/appHandlers";
 import { clearComposeTimers, createComposeHandlers } from "./mock/composeHandlers";
 import { createSampleState } from "./mock/data";
 import { MockEvents } from "./mock/events";
+import { createImportHandlers } from "./mock/importHandlers";
 import { createMailHandlers } from "./mock/mailHandlers";
 import type { MockState, MockStore } from "./mock/state";
 
@@ -42,6 +43,7 @@ export class MockBackend {
       ...createMailHandlers(store),
       ...createComposeHandlers(store),
       ...createAppHandlers(store),
+      ...createImportHandlers(store),
     };
   }
 

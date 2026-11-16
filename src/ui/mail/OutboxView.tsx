@@ -13,11 +13,14 @@ const STATE_KEYS = {
 
 /** Postvak UIT: what is still waiting to go, and what could not be sent. */
 export function OutboxView() {
-  const { outbox, compose, showError } = useApp();
+  const { outbox, compose, showError, pendingSend, clearSend } = useApp();
 
   const takeBack = async (item: OutboxItem) => {
     try {
-      compose(await api.cancelSend(item.id));
+      const draft = await api.cancelSend(item.id);
+      // Taken back, so the send bar must not go on to say it was sent.
+      if (pendingSend?.id === item.id) clearSend();
+      compose(draft);
     } catch (e: unknown) {
       showError(e);
     }

@@ -1,3 +1,4 @@
+import { api } from "../../api/client";
 import { t } from "../../i18n";
 import { mailAccounts } from "../folders";
 import { MAX_TEXT_SIZE, MIN_TEXT_SIZE, useApp } from "../state/AppContext";
@@ -24,7 +25,7 @@ function Toggle({ id, label, isOn, onChange }: ToggleProps) {
 
 /** "Instellingen": the few settings there are, on one page. */
 export function SettingsView() {
-  const { settings, updateSettings, accounts, go } = useApp();
+  const { settings, updateSettings, accounts, go, showError } = useApp();
   const size = settings.textSize;
   const setSize = (next: number) =>
     void updateSettings({ textSize: Math.min(MAX_TEXT_SIZE, Math.max(MIN_TEXT_SIZE, next)) });
@@ -87,6 +88,14 @@ export function SettingsView() {
       <div className="button-row">
         <button type="button" className="primary" onClick={() => go({ kind: "setup" })}>
           {t("settings.addAccount")}
+        </button>
+      </div>
+
+      <h3>{t("nav.quit")}</h3>
+      <p>{t("settings.quitText")}</p>
+      <div className="button-row">
+        <button type="button" onClick={() => void api.quitApp().catch(showError)}>
+          {t("nav.quit")}
         </button>
       </div>
     </section>

@@ -3,6 +3,7 @@ import type {
   Contact,
   Draft,
   Folder,
+  ImportProgress,
   MessageDetail,
   OriginalCopy,
   OutboxItem,
@@ -35,6 +36,9 @@ export interface MockState {
   undo: Record<string, UndoEntry>;
   settings: Settings;
   originals: OriginalCopy[];
+  /** Latest progress of the running import, or the last finished one (import_status). */
+  lastImport: ImportProgress | null;
+  phonePaired: boolean;
 }
 
 export interface MockStore {

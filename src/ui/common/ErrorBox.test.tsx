@@ -18,7 +18,7 @@ describe("ErrorBox", () => {
   it("shows sentence, next step, the exact server reply and the code", () => {
     render(<ErrorBox error={{ code: "VEM-SMTP-LOGIN-01", serverReply: REPLY }} />);
     expect(screen.getByText("Inloggen om mail te versturen is niet gelukt.")).toBeTruthy();
-    expect(screen.getByText(/Controleer het wachtwoord/)).toBeTruthy();
+    expect(screen.getByText(/het nieuwe wachtwoord in en druk op Wachtwoord opslaan/)).toBeTruthy();
     expect(screen.getByText("De server zei:")).toBeTruthy();
     const pre = document.querySelector("pre.error-reply");
     expect(pre?.textContent).toBe(REPLY);

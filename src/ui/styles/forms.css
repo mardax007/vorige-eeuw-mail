@@ -11,6 +11,10 @@
   font-weight: 600;
 }
 
+.form-row label.check-row {
+  font-weight: 400;
+}
+
 .form-row.grow {
   flex: 1;
 }
@@ -93,7 +97,7 @@ legend {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 12px 16px 96px;
+  padding: 12px 16px 24px;
   max-width: 60em;
 }
 
@@ -107,6 +111,14 @@ legend {
 }
 
 .compose-header h2 {
+  margin: 0;
+}
+
+/* A fixed place for "Opgeslagen in Concepten.", so the fields do not jump when it comes and goes. */
+.save-note {
+  flex: 1;
+  min-width: 14em;
+  min-height: 1.5em;
   margin: 0;
 }
 
@@ -139,6 +151,27 @@ legend {
 .account-settings {
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.account-sign-in {
+  margin-top: 16px;
+}
+
+.danger-zone {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.sign-in-wait {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sign-in-wait p {
+  margin: 0;
 }
 
 .quota progress,

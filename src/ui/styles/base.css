@@ -113,6 +113,13 @@ button.danger {
   color: #ffffff;
 }
 
+/* Starts something that cannot be undone; the filled red is kept for the "Ja, ..." in the dialog. */
+button.danger-outline {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
 button:disabled {
   cursor: default;
   border-style: dashed;
@@ -130,6 +137,14 @@ button.current {
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Full-width rows sit against the edge of a scrolling pane; draw the ring inside so it is not cut off. */
+.message-row:focus-visible,
+.folder-button:focus-visible,
+.list-button:focus-visible,
+.suggestions button:focus-visible {
+  outline-offset: -4px;
 }
 
 .link-button {
@@ -158,6 +173,11 @@ button.current {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+.copy-note,
+.check-note {
+  min-height: 1.5em;
 }
 
 .calm-line {

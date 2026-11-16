@@ -11,39 +11,53 @@ interface AutosaveOptions {
   intervalMs: number;
   /** Saves the message; handles its own errors and says whether it worked. */
   save: () => Promise<boolean>;
+  /** Called when the last save, as the screen closes, did not work: the screen can no longer say so itself. */
+  onLastSaveFailed?: () => void;
 }
 
 export interface Autosave {
-  /** Saves now if anything changed since the last save. */
-  flush: () => Promise<void>;
-  /** Stops all saving (after Versturen). */
+  /** Saves now if anything changed since the last save. True when nothing is left unsaved. */
+  flush: () => Promise<boolean>;
+  /** Stops all saving (while Versturen runs, and after it). */
   stop: () => void;
+  /** Saves again after a stop (Versturen did not work). */
+  resume: () => void;
 }
 
 /** Keeps a message being written in Concepten: every few seconds, and when it closes. */
-export function useAutosave({ version, hasContent, intervalMs, save }: AutosaveOptions): Autosave {
-  const latest = useRef({ version, hasContent, save });
+export function useAutosave({ version, hasContent, intervalMs, save, onLastSaveFailed }: AutosaveOptions): Autosave {
+  const latest = useRef({ version, hasContent, save, onLastSaveFailed });
   const savedVersion = useRef(0);
   const isStopped = useRef(false);
-  const isSaving = useRef(false);
+  const inFlight = useRef<Promise<boolean> | null>(null);
 
   useEffect(() => {
-    latest.current = { version, hasContent, save };
+    latest.current = { version, hasContent, save, onLastSaveFailed };
   });
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<boolean> => {
+    // One save at a time: wait for a running one, then look again at what is left.
+    while (inFlight.current) await inFlight.current;
     const { version: v, hasContent: has, save: run } = latest.current;
-    if (isStopped.current || isSaving.current || !has || v === savedVersion.current) return;
-    isSaving.current = true;
+    if (isStopped.current || !has || v === savedVersion.current) return true;
+    const attempt = run().then((ok) => {
+      if (ok) savedVersion.current = v;
+      return ok;
+    });
+    inFlight.current = attempt;
     try {
-      if (await run()) savedVersion.current = v;
+      return await attempt;
     } finally {
-      isSaving.current = false;
+      if (inFlight.current === attempt) inFlight.current = null;
     }
   }, []);
 
   const stop = useCallback(() => {
     isStopped.current = true;
+  }, []);
+
+  const resume = useCallback(() => {
+    isStopped.current = false;
   }, []);
 
   useEffect(() => {
@@ -56,9 +70,11 @@ export function useAutosave({ version, hasContent, intervalMs, save }: AutosaveO
       window.removeEventListener("pagehide", onHide);
       window.removeEventListener("beforeunload", onHide);
       // Closing the screen keeps the text: one last save.
-      void flush();
+      void flush().then((ok) => {
+        if (!ok) latest.current.onLastSaveFailed?.();
+      });
     };
   }, [flush, intervalMs]);
 
-  return { flush, stop };
+  return { flush, stop, resume };
 }

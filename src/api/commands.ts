@@ -8,6 +8,7 @@ import type {
   Draft,
   Folder,
   ImportKind,
+  ImportProgress,
   ImportSource,
   ImportTarget,
   MessageDetail,
@@ -44,6 +45,12 @@ export interface CommandMap {
     args: { displayName: string; email: string; settings: ServerSettings; donePage: string };
     result: Account;
   };
+  /** Tries the new password on the mailbox first; saves nothing when it does not work. */
+  update_password: { args: { accountId: string; password: string }; result: void };
+  /** Opens the browser for Google or Microsoft again. */
+  reauth_account: { args: { accountId: string; donePage: string }; result: void };
+  /** Stops a waiting browser sign-in; that call then fails with VEM-AUTH-LOGIN-01, detail "stopped". */
+  cancel_sign_in: { args: NoArgs; result: void };
   remove_account: { args: { accountId: string }; result: void };
   set_signature: { args: { accountId: string; signature: string }; result: void };
 
@@ -91,6 +98,10 @@ export interface CommandMap {
   find_import_sources: { args: NoArgs; result: ImportSource[] };
   pick_import_file: { args: { kind: ImportKind }; result: ImportSource | null };
   start_import: { args: { source: ImportSource; target: ImportTarget }; result: string };
+  /** Copies the mail of an added mailbox into the target; the source mailbox is only read. */
+  import_from_account: { args: { sourceAccountId: string; target: ImportTarget }; result: string };
+  /** The running import's latest progress, or the last finished one. */
+  import_status: { args: NoArgs; result: ImportProgress | null };
   list_originals: { args: NoArgs; result: OriginalCopy[] };
   delete_original: { args: { id: string }; result: void };
   export_folder: { args: { folderId: string }; result: string | null };
@@ -98,6 +109,7 @@ export interface CommandMap {
   send_wish: { args: { text: string }; result: void };
   help_report: { args: NoArgs; result: string };
   pair_phone: { args: NoArgs; result: PairInfo };
+  phone_paired: { args: NoArgs; result: boolean };
   unpair_phone: { args: NoArgs; result: void };
   quit_app: { args: NoArgs; result: void };
 }

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { api, onEvent } from "../../api/client";
-import type { ImportKind, ImportProgress, ImportSource, ImportTarget } from "../../api/types";
+import { api } from "../../api/client";
+import type { Account, ImportKind, ImportSource, ImportTarget } from "../../api/types";
 import { t, type MessageKey } from "../../i18n";
-import { ErrorBox } from "../common/ErrorBox";
 import { formatBytes } from "../format";
 import { mailAccounts } from "../folders";
 import { useApp } from "../state/AppContext";
+import { ImportProgressView } from "./ImportProgressView";
 import { OriginalsList } from "./OriginalsList";
+import { useImportProgress } from "./useImportProgress";
 
 const KINDS: readonly { kind: ImportKind; label: MessageKey }[] = [
   { kind: "pst", label: "import.kind.pst" },
@@ -16,71 +17,107 @@ const KINDS: readonly { kind: ImportKind; label: MessageKey }[] = [
   { kind: "mbox", label: "import.kind.mbox" },
 ];
 
-function progressText(p: ImportProgress): string {
-  return p.total === null
-    ? t("import.progressUnknown", { done: p.done })
-    : t("import.progress", { done: p.done, total: p.total });
+/** Where the old mail comes from: a file or folder on this computer, or an added mailbox. */
+type ImportChoice = { kind: "file"; source: ImportSource } | { kind: "account"; accountId: string };
+
+function chosenText(choice: ImportChoice, accounts: readonly Account[]): string {
+  if (choice.kind === "file") return t("import.chosen", { label: choice.source.label });
+  const account = accounts.find((a) => a.id === choice.accountId);
+  return t("import.chosenAccount", { account: account?.displayName ?? "" });
 }
 
-/** "Oude mail ophalen": choose a file, choose where it goes, watch it come in. */
+interface AccountSourcesProps {
+  mail: readonly Account[];
+  choice: ImportChoice | null;
+  onChoose: (accountId: string) => void;
+  onAddAccount: () => void;
+}
+
+/** "Uit een ander postvak": the added mailboxes, or how to add the old one first. */
+function AccountSources({ mail, choice, onChoose, onAddAccount }: AccountSourcesProps) {
+  return (
+    <>
+      <h3>{t("import.fromAccount")}</h3>
+      <p>{t("import.fromAccountText")}</p>
+      {mail.length < 2 ? (
+        <div className="button-row">
+          <p className="calm-line">{t("import.fromAccountNeedsTwo")}</p>
+          <button type="button" onClick={onAddAccount}>{t("import.addAccount")}</button>
+        </div>
+      ) : (
+        <ul className="plain-list">
+          {mail.map((a) => (
+            <li key={a.id} className="attachment-row">
+              <span>
+                {a.displayName} <span className="row-address">&lt;{a.email}&gt;</span>
+              </span>
+              <button
+                type="button"
+                aria-pressed={choice?.kind === "account" && choice.accountId === a.id}
+                onClick={() => onChoose(a.id)}
+              >
+                {t("import.choose")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+/** "Oude mail ophalen": choose a file, folder or old mailbox, choose where it goes, watch it come in. */
 export function ImportView() {
-  const { accounts, showError, reload } = useApp();
+  const { accounts, showError, reload, go } = useApp();
   const mail = mailAccounts(accounts);
   const [sources, setSources] = useState<ImportSource[]>([]);
-  const [source, setSource] = useState<ImportSource | null>(null);
+  const [choice, setChoice] = useState<ImportChoice | null>(null);
   const [targetKind, setTargetKind] = useState<"local" | "mailbox">("local");
   const [accountId, setAccountId] = useState(mail[0]?.id ?? "");
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [progressByJob, setProgressByJob] = useState<Readonly<Record<string, ImportProgress>>>({});
+  const [isStarting, setIsStarting] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
+  const job = useImportProgress(() => {
+    setDoneCount((n) => n + 1);
+    void reload();
+  }, showError);
 
   useEffect(() => {
     api.findImportSources().then(setSources).catch(showError);
   }, [showError]);
 
-  // Listen from the start, so no progress is missed while the import starts.
-  useEffect(() => {
-    let stop: (() => void) | null = null;
-    let alive = true;
-    onEvent("import:progress", (p) => {
-      setProgressByJob((prev) => ({ ...prev, [p.jobId]: p }));
-      if (p.finished) {
-        setDoneCount((n) => n + 1);
-        void reload();
-      }
-    })
-      .then((u) => {
-        if (alive) stop = u;
-        else u();
-      })
-      .catch(showError);
-    return () => {
-      alive = false;
-      stop?.();
-    };
-  }, [reload, showError]);
+  // The old mailbox itself is never offered as the place to put its mail.
+  const sourceAccountId = choice?.kind === "account" ? choice.accountId : null;
+  const targets = mail.filter((a) => a.id !== sourceAccountId);
+  const targetId = targets.some((a) => a.id === accountId) ? accountId : (targets[0]?.id ?? "");
+  const effectiveKind = targets.length === 0 ? "local" : targetKind;
 
   const pickOther = async (kind: ImportKind) => {
     try {
       const picked = await api.pickImportFile(kind);
-      if (picked) setSource(picked);
+      if (picked) setChoice({ kind: "file", source: picked });
     } catch (e: unknown) {
       showError(e);
     }
   };
 
   const start = async () => {
-    if (!source) return;
-    const target: ImportTarget = targetKind === "mailbox" ? { kind: "mailbox", accountId } : { kind: "local" };
+    if (!choice || job.isRunning || isStarting) return;
+    const target: ImportTarget = effectiveKind === "mailbox" ? { kind: "mailbox", accountId: targetId } : { kind: "local" };
+    setIsStarting(true);
     try {
-      setJobId(await api.startImport(source, target));
+      const jobId =
+        choice.kind === "file"
+          ? await api.startImport(choice.source, target)
+          : await api.importFromAccount(choice.accountId, target);
+      job.begin(jobId);
     } catch (e: unknown) {
       showError(e);
+      // Perhaps an import is already running (started elsewhere): show it.
+      job.refresh();
+    } finally {
+      setIsStarting(false);
     }
   };
-
-  const progress = jobId ? (progressByJob[jobId] ?? null) : null;
-  const isRunning = progress !== null && !progress.finished;
 
   return (
     <section className="page import">
@@ -92,7 +129,11 @@ export function ImportView() {
         {sources.map((s) => (
           <li key={s.path} className="attachment-row">
             <span>{s.label}{s.size ? ` (${formatBytes(s.size)})` : ""}</span>
-            <button type="button" aria-pressed={source?.path === s.path} onClick={() => setSource(s)}>
+            <button
+              type="button"
+              aria-pressed={choice?.kind === "file" && choice.source.path === s.path}
+              onClick={() => setChoice({ kind: "file", source: s })}
+            >
               {t("import.choose")}
             </button>
           </li>
@@ -105,44 +146,47 @@ export function ImportView() {
           <button key={k.kind} type="button" onClick={() => void pickOther(k.kind)}>{t(k.label)}</button>
         ))}
       </div>
-      {source && <p className="calm-line"><strong>{t("import.chosen", { label: source.label })}</strong></p>}
+
+      <AccountSources
+        mail={mail}
+        choice={choice}
+        onChoose={(id) => setChoice({ kind: "account", accountId: id })}
+        onAddAccount={() => go({ kind: "setup" })}
+      />
+
+      {choice && <p className="calm-line"><strong>{chosenText(choice, accounts)}</strong></p>}
 
       <fieldset>
         <legend>{t("import.where")}</legend>
         <label className="check-row">
-          <input type="radio" name="import-target" checked={targetKind === "local"} onChange={() => setTargetKind("local")} />
+          <input type="radio" name="import-target" checked={effectiveKind === "local"} onChange={() => setTargetKind("local")} />
           {t("import.local")}
         </label>
-        {mail.length > 0 && (
+        {targets.length > 0 && (
           <label className="check-row">
-            <input type="radio" name="import-target" checked={targetKind === "mailbox"} onChange={() => setTargetKind("mailbox")} />
-            {t("import.mailbox")}
+            <input type="radio" name="import-target" checked={effectiveKind === "mailbox"} onChange={() => setTargetKind("mailbox")} />
+            {targets.length === 1 && sourceAccountId !== null
+              ? t("import.mailboxNamed", { account: targets[0].displayName })
+              : t("import.mailbox")}
           </label>
         )}
-        {targetKind === "mailbox" && mail.length > 1 && (
+        {effectiveKind === "mailbox" && targets.length > 1 && (
           <div className="form-row">
             <label htmlFor="import-account">{t("import.account")}</label>
-            <select id="import-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              {mail.map((a) => <option key={a.id} value={a.id}>{a.displayName}</option>)}
+            <select id="import-account" value={targetId} onChange={(e) => setAccountId(e.target.value)}>
+              {targets.map((a) => <option key={a.id} value={a.id}>{a.displayName}</option>)}
             </select>
           </div>
         )}
       </fieldset>
 
       <div className="button-row">
-        <button type="button" className="primary" disabled={!source || isRunning} onClick={start}>
+        <button type="button" className="primary" disabled={!choice || job.isRunning || isStarting} onClick={start}>
           {t("import.start")}
         </button>
       </div>
 
-      {progress && (
-        <div className="import-progress" role="status">
-          <progress max={progress.total ?? undefined} value={progress.done} />
-          <p>{progress.finished ? t("import.done", { done: progress.done }) : progressText(progress)}</p>
-          {progress.currentFolder && !progress.finished && <p>{t("import.folder", { folder: progress.currentFolder })}</p>}
-          {progress.error && <ErrorBox error={progress.error} />}
-        </div>
-      )}
+      {job.progress && <ImportProgressView progress={job.progress} />}
 
       <OriginalsList refreshKey={doneCount} />
     </section>

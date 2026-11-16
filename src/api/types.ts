@@ -31,6 +31,8 @@ export interface Account {
   signature?: string | null;
   /** Last error while checking this account, if the last check failed. */
   lastError?: VemError | null;
+  /** How this mailbox signs in; null for local mailboxes (and older indexes). */
+  signIn?: SignIn | null;
 }
 
 export interface Folder {
@@ -192,6 +194,12 @@ export interface ImportSource {
   label: string;
 }
 
+/** A folder an import left out, with the core's short technical reason (English; shown only as details). */
+export interface ImportSkip {
+  folder: string;
+  reason: string;
+}
+
 export interface ImportProgress {
   jobId: string;
   done: number;
@@ -199,6 +207,10 @@ export interface ImportProgress {
   currentFolder?: string | null;
   finished: boolean;
   error?: VemError | null;
+  /** Messages that were already in the target and were not copied again. */
+  alreadyThere: number;
+  /** Filled only in the final event (finished = true). */
+  skipped: ImportSkip[];
 }
 
 export interface OriginalCopy {

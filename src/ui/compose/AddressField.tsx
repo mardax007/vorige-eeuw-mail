@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Ref } from "react";
 import { api } from "../../api/client";
 import type { Addr, Contact } from "../../api/types";
 import { t } from "../../i18n";
@@ -13,6 +13,9 @@ interface AddressFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  /** What is wrong with this field, shown right under it. */
+  problem?: string | null;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 function suggestionsFrom(contacts: readonly Contact[], typed: string): Addr[] {
@@ -24,9 +27,10 @@ function suggestionsFrom(contacts: readonly Contact[], typed: string): Addr[] {
 }
 
 /** An address box that suggests contacts while typing. */
-export function AddressField({ id, label, value, onChange }: AddressFieldProps) {
+export function AddressField({ id, label, value, onChange, problem = null, inputRef }: AddressFieldProps) {
   const [suggestions, setSuggestions] = useState<Addr[]>([]);
   const typed = lastToken(value);
+  const problemId = `${id}-problem`;
 
   useEffect(() => {
     if (typed.length < 2) {
@@ -61,11 +65,19 @@ export function AddressField({ id, label, value, onChange }: AddressFieldProps) 
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
+        ref={inputRef}
         type="text"
         autoComplete="off"
         value={value}
+        aria-invalid={problem ? true : undefined}
+        aria-describedby={problem ? problemId : undefined}
         onChange={(e) => onChange(e.target.value)}
       />
+      {problem && (
+        <p id={problemId} className="form-problem" role="alert">
+          {problem}
+        </p>
+      )}
       {suggestions.length > 0 && (
         <ul className="suggestions" aria-label={t("compose.suggestions")}>
           {suggestions.map((a) => (

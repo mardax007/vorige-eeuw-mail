@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { ALL_INBOXES_ID } from "../../api/commands";
 import type { Folder, SearchHit, SearchScope } from "../../api/types";
@@ -32,12 +32,17 @@ export function scopeFor(choice: ScopeChoice, location: MailLocation, folder: Fo
 interface SearchState {
   hits: SearchHit[];
   isBusy: boolean;
+  /** True when the last search failed; the error itself is shown at the top. */
+  loadError: boolean;
+  retry: () => void;
 }
 
 /** Results while typing, a moment after the last key. */
 export function useSearch(query: string, scope: SearchScope, onError: (e: unknown) => void): SearchState {
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [isBusy, setIsBusy] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const scopeKey = JSON.stringify(scope);
 
   useEffect(() => {
@@ -45,6 +50,7 @@ export function useSearch(query: string, scope: SearchScope, onError: (e: unknow
     if (q === "") {
       setHits([]);
       setIsBusy(false);
+      setLoadError(false);
       return;
     }
     let alive = true;
@@ -53,10 +59,15 @@ export function useSearch(query: string, scope: SearchScope, onError: (e: unknow
       api
         .search(q, JSON.parse(scopeKey) as SearchScope, SEARCH_LIMIT)
         .then((found) => {
-          if (alive) setHits([...found].sort((a, b) => b.message.date.localeCompare(a.message.date)));
+          if (!alive) return;
+          setHits([...found].sort((a, b) => b.message.date.localeCompare(a.message.date)));
+          setLoadError(false);
         })
         .catch((e: unknown) => {
-          if (alive) onError(e);
+          if (!alive) return;
+          setHits([]);
+          setLoadError(true);
+          onError(e);
         })
         .finally(() => {
           if (alive) setIsBusy(false);
@@ -66,9 +77,10 @@ export function useSearch(query: string, scope: SearchScope, onError: (e: unknow
       alive = false;
       clearTimeout(timer);
     };
-  }, [query, scopeKey, onError]);
+  }, [query, scopeKey, attempt, onError]);
 
-  return { hits, isBusy };
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  return { hits, isBusy, loadError, retry };
 }
 
 interface SearchBarProps {

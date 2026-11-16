@@ -41,6 +41,8 @@ export interface AppContextValue {
   tags: Tag[];
   outbox: OutboxItem[];
   syncErrors: Readonly<Record<string, VemError>>;
+  /** True while the core is fetching mail for any mailbox. */
+  isSyncing: boolean;
   /** Goes up whenever mail changed, so lists know to load again. */
   mailVersion: number;
   reload: () => Promise<void>;
@@ -49,6 +51,8 @@ export interface AppContextValue {
   go: (view: View) => void;
   location: MailLocation;
   setLocation: (location: MailLocation) => void;
+  /** Goes up each time a place is picked, also when it is the same place again. */
+  locationPick: number;
   openMessageId: string | null;
   setOpenMessageId: (id: string | null) => void;
 
