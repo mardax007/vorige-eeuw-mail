@@ -2,9 +2,9 @@
 
 Soms helpt Martijn u via **Snelle hulp** (Quick Assist) van Windows. Hij kijkt dan op uw scherm mee.
 
-- **Alleen Martijn vraagt ooit om een code van Snelle hulp.** Hij belt of mailt u eerst zelf.
-- Belt of mailt iemand anders, ook iemand die zegt van Microsoft, de bank of uw provider te zijn,
-  en vraagt die om een code of om mee te kijken: hang op en geef niets. Dat is oplichting.
+- **Martijn belt u eerst zelf.** Hij geeft u dan een code, en die typt u in Snelle hulp in.
+- Belt, mailt of sms't iemand anders u met zo'n code, ook iemand die zegt van Microsoft, de bank of
+  uw provider te zijn, of vraagt iemand om mee te kijken: hang op en typ niets in. Dat is oplichting.
 - Vorige Eeuw Mail vraagt nooit om uw wachtwoord in een e-mail, en Martijn ook niet.
 
 [Alle meldingen](index.md)
