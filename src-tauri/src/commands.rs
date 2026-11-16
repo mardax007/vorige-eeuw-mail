@@ -452,19 +452,19 @@ async fn pick_import_file(app: AppHandle, kind: ImportKind) -> R<Option<ImportSo
 
 #[tauri::command]
 fn start_import(app: AppHandle, state: State<'_, AppState>, source: ImportSource, target: ImportTarget) -> R<String> {
-    Ok(spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
+    spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
         import::run(&engine.store, job, &source, &target, emit, cancel)
-    }))
+    })
 }
 
 /// "Uit een ander postvak": download the old mailbox's mail (read-only), then copy it.
 #[tauri::command]
 fn import_from_account(app: AppHandle, state: State<'_, AppState>, source_account_id: String, target: ImportTarget) -> R<String> {
-    Ok(spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
-        emit(ImportProgress { job_id: job.to_string(), done: 0, total: None, current_folder: None, finished: false, error: None });
+    spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
+        emit(ImportProgress { job_id: job.to_string(), ..Default::default() });
         tauri::async_runtime::block_on(engine.download_bodies(&source_account_id, cancel))?;
         import::account::run(&engine.store, job, &source_account_id, &target, emit, cancel)
-    }))
+    })
 }
 
 /// Run an import in the background with progress events, a stop switch and a final event.
@@ -473,25 +473,45 @@ fn spawn_import(
     state: &AppState,
     target: ImportTarget,
     work: impl FnOnce(&Engine, &str, &dyn Fn(ImportProgress), &AtomicBool) -> vem_core::Result<import::ImportReport> + Send + 'static,
-) -> String {
+) -> R<String> {
     let job = uuid::Uuid::new_v4().simple().to_string();
     let cancel = Arc::new(AtomicBool::new(false));
-    state.imports.lock().unwrap_or_else(|e| e.into_inner()).insert(job.clone(), cancel.clone());
+    {
+        let mut running = state.imports.lock().unwrap_or_else(|e| e.into_inner());
+        // One import at a time: a second press of "Ophalen" must not start a second copy.
+        if !running.is_empty() {
+            return Err(app_error("an import is running"));
+        }
+        running.insert(job.clone(), cancel.clone());
+    }
     let engine = state.engine.clone();
     let job2 = job.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let emit = |p: ImportProgress| {
+            if let Some(state) = tauri::Manager::try_state::<AppState>(&app) {
+                *state.last_import.lock().unwrap_or_else(|e| e.into_inner()) = Some(p.clone());
+            }
             let _ = app.emit("import:progress", p);
         };
         let result = work(&engine, &job2, &emit, &cancel);
-        let (done, error) = match result {
-            Ok(r) => (r.added, None),
+        let (report, error) = match result {
+            Ok(r) => (r, None),
             Err(e) => {
                 vem_core::log::error("import.failed", &e);
-                (0, Some(e))
+                (import::ImportReport::default(), Some(e))
             }
         };
-        emit(ImportProgress { job_id: job2.clone(), done, total: Some(done), current_folder: None, finished: true, error: error.clone() });
+        let skipped = report.skipped.iter().map(|(folder, reason)| ImportSkip { folder: folder.clone(), reason: reason.clone() }).collect();
+        emit(ImportProgress {
+            job_id: job2.clone(),
+            done: report.added,
+            total: Some(report.added),
+            finished: true,
+            error: error.clone(),
+            already_there: report.already_there,
+            skipped,
+            ..Default::default()
+        });
         if let ImportTarget::Mailbox { account_id } = &target {
             engine.wake(Some(account_id));
         }
@@ -506,7 +526,14 @@ fn spawn_import(
             state.imports.lock().unwrap_or_else(|e| e.into_inner()).remove(&job2);
         }
     });
-    job
+    Ok(job)
+}
+
+/// The running import's latest progress, or the last finished one, for when the Import screen
+/// opens again.
+#[tauri::command]
+fn import_status(state: State<'_, AppState>) -> Option<ImportProgress> {
+    state.last_import.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
 #[tauri::command]
@@ -577,6 +604,12 @@ fn pair_phone(state: State<'_, AppState>) -> R<PairInfo> {
     Ok(PairInfo { qr_svg })
 }
 
+/// Whether a phone is linked, so "Koppeling verbreken" only shows when there is one.
+#[tauri::command]
+fn phone_paired(state: State<'_, AppState>) -> R<bool> {
+    Ok(contacts_sync::paired_account(&state.engine.store)?.is_some())
+}
+
 #[tauri::command]
 fn unpair_phone(state: State<'_, AppState>) -> R<()> {
     contacts_sync::unpair(&state.engine.store, &state.engine.secrets)
@@ -633,6 +666,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         find_import_sources,
         pick_import_file,
         start_import,
+        phone_paired,
+        import_status,
         cancel_sign_in,
         update_password,
         reauth_account,

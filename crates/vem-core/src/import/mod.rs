@@ -346,6 +346,7 @@ fn pump(
                     current_folder: path.last().cloned(),
                     finished: false,
                     error: None,
+                    ..Default::default()
                 });
             }
             Ok(())

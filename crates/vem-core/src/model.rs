@@ -314,7 +314,7 @@ pub enum ImportTarget {
     Mailbox { account_id: String },
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportProgress {
     pub job_id: String,
@@ -323,6 +323,18 @@ pub struct ImportProgress {
     pub current_folder: Option<String>,
     pub finished: bool,
     pub error: Option<VemError>,
+    /// Only in the last event: messages that were there already (same Message-ID).
+    pub already_there: u64,
+    /// Only in the last event: what was left out, by folder, with a short technical reason
+    /// (shown under "Details" and in the saved list, like a server reply).
+    pub skipped: Vec<ImportSkip>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportSkip {
+    pub folder: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
