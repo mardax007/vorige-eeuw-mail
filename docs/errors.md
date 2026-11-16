@@ -136,6 +136,7 @@ The screen labels are "De server zei" and, when no server was involved, "Details
 | `VEM-IMPORT-READ-01` | Het bestand met oude mail kan niet gelezen worden. | Kies het bestand opnieuw. Lukt het niet, vraag het dan aan Martijn. | phases 1-4 |
 | `VEM-IMPORT-READ-02` | Het bestand met oude mail is nog in gebruik. | Sluit Outlook en probeer het opnieuw. | phases 1-4 |
 | `VEM-IMPORT-READ-03` | Dit soort bestand kent het programma niet. | Kies een ander bestand, of vraag het aan Martijn. | phases 1-4 |
+| `VEM-IMPORT-READ-04` | Dit bestand is een kopie die Outlook van een postvak bijhoudt. Die kan het programma niet lezen. | Voeg dat postvak hier toe met uw e-mailadres. Dan komt de mail vanzelf binnen. | phases 1-4 |
 | `VEM-IMPORT-SPACE-01` | Er is niet genoeg ruimte op deze computer om de oude mail op te halen. | Maak ruimte vrij, bijvoorbeeld bij Originele bestanden, en probeer het opnieuw. | phases 1-4 |
 | `VEM-IMPORT-SPACE-02` | Er is niet genoeg ruimte in uw postvak voor de oude mail. | Kies Op deze computer bewaren. | phases 1-4 |
 | `VEM-STORE-WRITE-01` | Het programma kon niets opslaan op deze computer. | Misschien is de schijf vol. Maak ruimte vrij en probeer het opnieuw. | phases 1-4 |

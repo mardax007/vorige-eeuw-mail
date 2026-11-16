@@ -72,7 +72,7 @@ pub fn kind_of(path: &Path) -> Option<ImportKind> {
     }
     let ext = path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
     match ext.as_str() {
-        "pst" | "ost" => Some(ImportKind::Pst),
+        "pst" => Some(ImportKind::Pst),
         "dbx" => Some(ImportKind::Dbx),
         "eml" => Some(ImportKind::Eml),
         "mbox" | "mbx" | "" => Some(ImportKind::Mbox),
@@ -81,6 +81,10 @@ pub fn kind_of(path: &Path) -> Option<ImportKind> {
 }
 
 pub fn source_for(path: &Path) -> Result<ImportSource> {
+    // An .ost is Outlook's offline copy of a mailbox: the mail is still in that mailbox.
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("ost")) {
+        return Err(VemError::new(Code::ImportRead04));
+    }
     let kind = kind_of(path).ok_or_else(|| VemError::new(Code::ImportRead03).with_detail(ext_detail(path)))?;
     Ok(ImportSource {
         kind,
@@ -404,6 +408,34 @@ mod tests {
 
     fn eml(subject: &str, id: &str) -> String {
         format!("From: Oma <oma@x.nl>\r\nSubject: {subject}\r\nMessage-ID: <{id}@x>\r\nDate: Tue, 3 Feb 2004 10:00:00 +0100\r\n\r\nTekst van {subject}\r\n")
+    }
+
+    #[test]
+    fn ost_is_refused_with_its_own_code() {
+        let e = source_for(Path::new("C:/Users/oma/outlook.OST")).unwrap_err();
+        assert_eq!(e.code, "VEM-IMPORT-READ-04");
+        assert!(source_for(Path::new("C:/oud/archief.pst")).is_ok());
+    }
+
+    #[test]
+    fn import_keeps_read_state_star_and_tags() {
+        let (_d, s) = store();
+        let src = tempfile::tempdir().unwrap();
+        let mbox = src.path().join("Thunderbird.mbox");
+        std::fs::write(
+            &mbox,
+            "From - Tue Feb  3 10:00:00 2004\r\nX-Mozilla-Status: 0004\r\nX-Mozilla-Keys: $label2\r\nSubject: Nieuw\r\nMessage-ID: <t1@x>\r\n\r\nTekst\r\n",
+        )
+        .unwrap();
+        let source = source_for(&mbox).unwrap();
+        let r = run(&s, "job", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(r.added, 1);
+        let a = s.local_account("Thunderbird").unwrap();
+        let folder = s.folder_infos(&a.id).unwrap().into_iter().next().unwrap().id;
+        let m = &s.messages_in_folder(folder, 0, 10).unwrap()[0];
+        assert!(m.unread && m.important);
+        let names: Vec<String> = m.tag_ids.iter().filter_map(|id| s.tags().unwrap().into_iter().find(|t| &t.id == id)).map(|t| t.name).collect();
+        assert_eq!(names, vec!["Work"]);
     }
 
     #[test]
