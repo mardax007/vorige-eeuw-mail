@@ -49,3 +49,4 @@ src-tauri/gen/schemas
 dist-ssr
 *.local
 *.log
+.serena/

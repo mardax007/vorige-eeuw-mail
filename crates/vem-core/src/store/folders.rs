@@ -82,9 +82,10 @@ impl Store {
                 let name: String = r.get(2)?;
                 let delim: Option<String> = r.get(3)?;
                 let role: Option<String> = r.get(4)?;
+                let shown = crate::imap::utf7::decode(&name);
                 let path = match delim.as_deref().filter(|d| !d.is_empty()) {
-                    Some(d) => name.split(d).map(str::to_string).collect(),
-                    None => vec![name.clone()],
+                    Some(d) => shown.split(d).map(str::to_string).collect(),
+                    None => vec![shown],
                 };
                 Ok(Folder {
                     id: folder_key(r.get(0)?),

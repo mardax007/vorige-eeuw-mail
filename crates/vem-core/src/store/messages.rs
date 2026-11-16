@@ -377,6 +377,24 @@ impl Store {
             .optional()?)
     }
 
+    /// A message we put in this folder ourselves (moved, sent copy, draft, import) has no UID
+    /// yet. When the server reports it, give it the UID instead of adding it twice.
+    pub fn adopt_by_message_id(&self, folder_id: i64, message_id_hdr: &str, uid: u32) -> Result<Option<i64>> {
+        let id: Option<i64> = self
+            .db()
+            .query_row(
+                "SELECT id FROM messages WHERE folder_id = ?1 AND uid IS NULL AND message_id_hdr = ?2
+                 ORDER BY id LIMIT 1",
+                params![folder_id, message_id_hdr],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(id) = id {
+            self.set_uid(id, Some(uid))?;
+        }
+        Ok(id)
+    }
+
     pub fn set_uid(&self, id: i64, uid: Option<u32>) -> Result<()> {
         self.db().execute("UPDATE messages SET uid = ?2 WHERE id = ?1", params![id, uid])?;
         Ok(())

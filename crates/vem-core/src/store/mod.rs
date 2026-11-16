@@ -4,7 +4,7 @@
 
 mod accounts;
 mod contacts;
-mod folders;
+pub mod folders;
 mod kv;
 mod messages;
 mod outbox;
