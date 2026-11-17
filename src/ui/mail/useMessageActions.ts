@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { api } from "../../api/client";
 import type { MessageDetail } from "../../api/types";
 import { t } from "../../i18n";
@@ -15,6 +15,7 @@ export interface MessageActions {
 /** Verwijderen, Verplaatsen and the reply buttons, shared by the buttons and the keyboard. */
 export function useMessageActions(): MessageActions {
   const { accounts, folders, compose, newDraft, showUndo, showError, reload } = useApp();
+  const forwarding = useRef(false);
 
   const undoWith = useCallback(
     (token: string) => async () => {
@@ -72,13 +73,17 @@ export function useMessageActions(): MessageActions {
         compose(draft);
         return;
       }
-      // Doorsturen sends the attachments along, as Outlook does.
+      // Doorsturen sends the attachments along, as Outlook does. If they cannot be fetched, Write
+      // does not open: a forward without the photos would look complete and go out as such.
+      // A second tap while the files are being written starts nothing.
+      if (forwarding.current) return;
+      forwarding.current = true;
       api
         .forwardAttachments(message.id)
         .then((attachments) => compose({ ...draft, attachments }))
-        .catch((e: unknown) => {
-          showError(e);
-          compose(draft);
+        .catch((e: unknown) => showError(e))
+        .finally(() => {
+          forwarding.current = false;
         });
     },
     [accounts, compose, newDraft, showError],

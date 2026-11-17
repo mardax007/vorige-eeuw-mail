@@ -128,6 +128,15 @@ describe("message buttons", () => {
     expect(screen.getByText("afvalkalender-2027.pdf")).toBeTruthy();
   });
 
+  it("does not open Write without the attachments when they cannot be fetched", async () => {
+    vi.spyOn(api, "forwardAttachments").mockRejectedValue({ code: "VEM-STORE-READ-01" });
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Afvalkalender 2027/ }));
+    await user.click(await screen.findByRole("button", { name: "Doorsturen" }));
+    expect(await screen.findByText("Bewaarde mail kon niet gelezen worden.")).toBeTruthy();
+    expect(screen.queryByLabelText("Onderwerp")).toBeNull();
+  });
+
   it("prints the message with Afdrukken on the PC", async () => {
     const print = vi.spyOn(window, "print").mockImplementation(() => {});
     const user = await renderApp();
