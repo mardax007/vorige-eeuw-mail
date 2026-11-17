@@ -629,6 +629,69 @@ mod tests {
         format!("From: Oma <oma@x.nl>\r\nSubject: {subject}\r\nMessage-ID: <{id}@x>\r\nDate: Tue, 3 Feb 2004 10:00:00 +0100\r\n\r\nTekst van {subject}\r\n")
     }
 
+    /// Every `.pst` below `VEM_REAL_PST_DIR` (real files kept outside the repository, see
+    /// `docs/PROGRESS.md`), read by the normal reader and, when `VEM_READPST` names the rescue
+    /// tool, by that too. Both must open every file without error and leave it unchanged. When
+    /// both readers run, each message the rescue tool wrote must also come in through the normal
+    /// reader (so a real PST the patched `outlook-pst` silently drops messages from would fail
+    /// here). A protected file is refused with no password and, when `VEM_REAL_PST_PASSWORD`
+    /// gives a string whose check matches, accepted with it.
+    #[test]
+    fn real_pst_files_import_with_both_readers() {
+        let Some(dir) = std::env::var_os("VEM_REAL_PST_DIR").map(PathBuf::from) else {
+            eprintln!("note: VEM_REAL_PST_DIR not set, no real PST files tried");
+            return;
+        };
+        let rescue_tool = std::env::var_os("VEM_READPST").map(PathBuf::from);
+        let mut files: Vec<PathBuf> = walk_psts(&dir);
+        files.sort();
+        assert!(!files.is_empty(), "no .pst below {}", dir.display());
+        for file in files {
+            let before = std::fs::read(&file).unwrap();
+            let source = source_for(&file).unwrap();
+            if source.protected {
+                assert!(check_password(&source, None).is_err(), "{}: protected, so refused with no password", source.label);
+                if let Ok(p) = std::env::var("VEM_REAL_PST_PASSWORD") {
+                    assert!(check_password(&source, Some(&p)).is_ok(), "{}: a matching check is accepted", source.label);
+                }
+            }
+
+            let (_d1, s1) = store();
+            let normal = run(&s1, "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false))
+                .unwrap_or_else(|e| panic!("{}: the normal reader opens it ({})", source.label, e.code));
+            if let Some(tool) = &rescue_tool {
+                let (_d2, s2) = store();
+                let rescued = run_rescue(&s2, "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false), tool)
+                    .unwrap_or_else(|e| panic!("{}: the rescue tool opens it ({})", source.label, e.code));
+                assert!(
+                    normal.added >= rescued.added,
+                    "{}: the normal reader added {}, fewer than the rescue tool's {}",
+                    source.label,
+                    normal.added,
+                    rescued.added
+                );
+            }
+            assert_eq!(std::fs::read(&file).unwrap(), before, "{} was changed", file.display());
+        }
+    }
+
+    fn walk_psts(dir: &Path) -> Vec<PathBuf> {
+        std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .flat_map(|e| {
+                let p = e.path();
+                if p.is_dir() {
+                    walk_psts(&p)
+                } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("pst")) {
+                    vec![p]
+                } else {
+                    vec![]
+                }
+            })
+            .collect()
+    }
+
     #[test]
     fn ost_is_refused_with_its_own_code() {
         let e = source_for(Path::new("C:/Users/oma/outlook.OST")).unwrap_err();
