@@ -210,6 +210,8 @@ impl Engine {
         smtp::check_login(&Self::smtp_config(&settings, auth, self.trust)).await?;
         self.secrets.put(account_id, &secret)?;
         log::event("account.secret_updated", &[("account", account_id)]);
+        // Both servers just accepted it, so the old error is over; the screens reload right away.
+        self.store.set_last_error(account_id, None)?;
         self.stop_account(account_id);
         self.start_account(account_id);
         self.sink.sync_state(account_id, false, None);

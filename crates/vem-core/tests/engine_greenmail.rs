@@ -262,3 +262,20 @@ async fn new_password_is_checked_before_it_is_saved() {
     assert!(matches!(e.secrets.get(&a.id).unwrap(), Some(Secret::Password { password }) if password == "geheim"));
     e.update_secret(&a.id, pw("geheim")).await.unwrap();
 }
+
+/// A new password that works clears the mailbox's old error at once: the screens reload right
+/// after saving, before the restarted mailbox has finished its first round.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_working_new_password_clears_the_old_error() {
+    if !server_up() {
+        return;
+    }
+    let d = tempfile::tempdir().unwrap();
+    let (e, _) = engine(d.path());
+    let pw = |p: &str| Secret::Password { password: p.into() };
+    let a = e.add_account("Jan", "jan@example.test", pw("geheim"), settings("jan@example.test")).await.unwrap();
+    let old = vem_core::VemError::new(vem_core::Code::StoreSecret01).with_detail("unprotect");
+    e.store.set_last_error(&a.id, Some(&old)).unwrap();
+    e.update_secret(&a.id, pw("geheim")).await.unwrap();
+    assert!(e.store.account(&a.id).unwrap().last_error.is_none());
+}
