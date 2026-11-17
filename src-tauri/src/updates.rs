@@ -48,9 +48,16 @@ pub fn recent_update(store: &Store) -> Option<Updated> {
 #[cfg(desktop)]
 fn idle(app: &AppHandle) -> bool {
     let state = app.state::<AppState>();
-    let writing = now() - state.last_draft_save.load(Ordering::Relaxed) < WRITING_SECS;
     let importing = !state.imports.lock().unwrap_or_else(|e| e.into_inner()).is_empty();
-    !writing && !importing && state.engine.idle_for_update()
+    may_install(now(), state.last_draft_save.load(Ordering::Relaxed), importing, state.engine.idle_for_update())
+}
+
+/// CLAUDE.md, Updates: install only when no message is being written (no draft saved in the last
+/// ten minutes), no import runs and nothing is sending or waiting in Postvak UIT.
+#[cfg(desktop)]
+fn may_install(now: i64, last_draft_save: i64, importing: bool, outbox_idle: bool) -> bool {
+    let writing = now - last_draft_save < WRITING_SECS;
+    !writing && !importing && outbox_idle
 }
 
 pub fn spawn(app: AppHandle) {
@@ -258,4 +265,19 @@ async fn check_update(app: &AppHandle) -> Result<(), String> {
     // On Windows the installer closes the app, installs quietly and starts it again.
     update.install(bytes).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(all(test, desktop))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installs_only_when_nobody_writes_imports_or_sends() {
+        let now = 1_000_000;
+        assert!(may_install(now, 0, false, true), "idle");
+        assert!(!may_install(now, now - 60, false, true), "a draft saved a minute ago: still writing");
+        assert!(may_install(now, now - WRITING_SECS, false, true), "ten minutes without typing");
+        assert!(!may_install(now, 0, true, true), "an import runs");
+        assert!(!may_install(now, 0, false, false), "something is sending or waits in Postvak UIT");
+    }
 }
