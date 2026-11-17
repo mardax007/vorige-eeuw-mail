@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ALL_INBOXES_ID } from "../../api/commands";
 import type { Account, Folder } from "../../api/types";
 import { t } from "../../i18n";
@@ -28,9 +28,12 @@ function FolderButton({ label, unread, isCurrent, onSelect, countLabel = unreadL
       >
         <span className="folder-name">{label}</span>
         {unread > 0 && (
-          <span className="folder-count" aria-label={countLabel(unread)}>
-            {unread}
-          </span>
+          <>
+            <span className="folder-count" aria-hidden="true">
+              {unread}
+            </span>
+            <span className="sr-only">{countLabel(unread)}</span>
+          </>
         )}
       </button>
     </li>
@@ -78,9 +81,19 @@ function allInboxesUnread(accounts: readonly Account[], folders: readonly Folder
 /** Left pane: the few folders people use, and the rest behind "Meer mappen". */
 export function FolderPane() {
   const { accounts, folders, tags, outbox, location, setLocation, go } = useApp();
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const mail = mailAccounts(accounts);
   const local = localAccounts(accounts);
+  // A folder or label behind "Meer mappen" that is open keeps that part open, so the current
+  // place is always visible in the pane.
+  const isInMore =
+    location.kind === "tag" ||
+    (location.kind === "folder" &&
+      (mail.some((a) => otherFolders(folders, a.id).some((f) => f.id === location.folderId)) ||
+        local.some((a) => folders.some((f) => f.accountId === a.id && f.id === location.folderId))));
+  const [isMoreOpen, setIsMoreOpen] = useState(isInMore);
+  useEffect(() => {
+    if (isInMore) setIsMoreOpen(true);
+  }, [isInMore]);
   const select = (next: MailLocation) => {
     setLocation(next);
     go({ kind: "mail" });
@@ -129,17 +142,21 @@ export function FolderPane() {
             <div className="folder-group">
               <h3>{t("folder.tags")}</h3>
               <ul>
-                {tags.map((tag) => (
-                  <li key={tag.id}>
-                    <button
-                      type="button"
-                      className={`folder-button${location.kind === "tag" && location.tagId === tag.id ? " current" : ""}`}
-                      onClick={() => select({ kind: "tag", tagId: tag.id })}
-                    >
-                      <TagChip tag={tag} />
-                    </button>
-                  </li>
-                ))}
+                {tags.map((tag) => {
+                  const isCurrent = location.kind === "tag" && location.tagId === tag.id;
+                  return (
+                    <li key={tag.id}>
+                      <button
+                        type="button"
+                        className={`folder-button${isCurrent ? " current" : ""}`}
+                        aria-current={isCurrent ? "true" : undefined}
+                        onClick={() => select({ kind: "tag", tagId: tag.id })}
+                      >
+                        <TagChip tag={tag} />
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

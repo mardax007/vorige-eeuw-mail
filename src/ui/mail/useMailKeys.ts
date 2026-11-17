@@ -23,7 +23,8 @@ export function useMailKeys(openMessageId: string | null): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const { openMessageId: id, actions: act, setOpenMessageId: setOpen, showError: fail } = ref.current;
-      if (id === null || isTyping(e.target)) return;
+      // Not while a question is open: Delete would act on the message behind it.
+      if (id === null || isTyping(e.target) || document.querySelector('[aria-modal="true"]')) return;
       if (e.key === "Delete") {
         e.preventDefault();
         void act.remove([id]).then((ok) => ok && setOpen(null));

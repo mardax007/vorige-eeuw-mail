@@ -26,6 +26,7 @@ function MessageRow({ item, tags, isSelected, onOpen }: MessageRowProps) {
       <button
         type="button"
         className={classes}
+        data-id={m.id}
         aria-current={isSelected ? "true" : undefined}
         onClick={() => onOpen(m)}
       >
@@ -58,6 +59,10 @@ interface MessageListProps {
   selectedId: string | null;
   isLoading: boolean;
   emptyText: string;
+  /** Shown while the first rows load; "Berichten worden geladen…" by default. */
+  loadingText?: string;
+  /** Shown when nothing could be loaded; the folder's own text by default. */
+  failedText?: string;
   /** The list could not be loaded; shows that, with "Opnieuw proberen". */
   loadError?: boolean;
   onRetry?: () => void;
@@ -75,6 +80,8 @@ export function MessageList({
   selectedId,
   isLoading,
   emptyText,
+  loadingText,
+  failedText,
   loadError = false,
   onRetry,
   hasMore = false,
@@ -88,10 +95,12 @@ export function MessageList({
         <h2>{title}</h2>
         {actions && <div className="button-row">{actions}</div>}
       </header>
-      {isLoading && items.length === 0 && <p className="list-note">{t("list.loading")}</p>}
+      {isLoading && items.length === 0 && (
+        <p className="list-note" role="status">{loadingText ?? t("list.loading")}</p>
+      )}
       {!isLoading && loadError && (
         <div className="list-note" role="status">
-          <p>{t(items.length > 0 ? "list.reloadFailed" : "list.loadFailed")}</p>
+          <p>{items.length > 0 ? t("list.reloadFailed") : (failedText ?? t("list.loadFailed"))}</p>
           {onRetry && (
             <button type="button" onClick={onRetry}>
               {t("list.retry")}
@@ -112,8 +121,8 @@ export function MessageList({
         ))}
       </ul>
       {hasMore && onLoadMore && (
-        <button type="button" className="load-more" onClick={onLoadMore}>
-          {t("list.more")}
+        <button type="button" className="load-more" onClick={onLoadMore} disabled={isLoading}>
+          {isLoading ? t("list.loading") : t("list.more")}
         </button>
       )}
     </section>

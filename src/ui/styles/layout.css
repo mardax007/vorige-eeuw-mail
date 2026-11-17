@@ -157,6 +157,19 @@
   background: var(--danger);
 }
 
+/* On the dark and red bars the blue main button and the orange focus ring were hard to see
+   (1.2:1 to 1.9:1); white keeps both clear (18.9:1 and 9.1:1). */
+.notice-bar:not(.calm) button.primary,
+.notice-bar:not(.calm) button.primary:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--ink);
+}
+
+.notice-bar:not(.calm) :focus-visible {
+  outline-color: #ffffff;
+}
+
 .notice-bar.calm {
   margin: 8px 12px 0;
   background: var(--accent-soft);
@@ -247,6 +260,17 @@
   margin: 8px 12px 0;
 }
 
+/* The open message on a phone: the buttons two by two, each as wide as half the screen. */
+.mail-view.phone .action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.mail-view.phone .action-row > button {
+  min-width: 0;
+}
+
 @media (max-width: 639px) {
   .app-name {
     display: none;
@@ -261,25 +285,45 @@
     gap: 8px;
   }
 
-  /* Two even rows of buttons that fill the width, instead of three ragged ones. */
+  /* Rows of buttons that fill the width. They may wrap: with large text one word can be wider
+     than a third of the screen, and a label must never run into the next button. */
   .top-bar .button-row {
     flex: 1 1 100%;
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
   .top-bar .button-row > button {
     flex: 1 1 auto;
-    min-width: 0;
+    min-width: max-content;
     padding: 6px 8px;
+  }
+
+  .top-bar .check-note {
+    flex-basis: 100%;
+  }
+
+  /* With nothing to say it takes no row of its own, but stays in the page so a screen reader
+     still hears it when it speaks. */
+  .top-bar .check-note:empty {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .page-wrap {
     padding: 8px 12px 24px;
   }
 
-  .bottom-bars {
+  .bottom-bars:not(:empty) {
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
+}
+
+/* The list stays in the page while a narrow window shows a message over it (MailView). */
+.list-holder:not([hidden]) {
+  display: contents;
 }

@@ -5,6 +5,7 @@ import type { Folder, MessageSummary } from "../../api/types";
 import { t } from "../../i18n";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { ErrorBox } from "../common/ErrorBox";
+import { useBackStep } from "../common/useBackStep";
 import { folderLabel } from "../folders";
 import { useApp, type MailLocation } from "../state/AppContext";
 import { FolderPane } from "./FolderPane";
@@ -23,6 +24,19 @@ function locationTitle(location: MailLocation, folder: Folder | undefined, tagNa
   return folder ? folderLabel(folder) : "";
 }
 
+/** After "Terug" on a narrow screen: focus the row that was open, so the place in the list stays. */
+function focusRow(id: string) {
+  requestAnimationFrame(() => {
+    const rows = document.querySelectorAll<HTMLButtonElement>("button.message-row[data-id]");
+    for (const row of Array.from(rows)) {
+      if (row.dataset.id === id) {
+        row.focus();
+        return;
+      }
+    }
+  });
+}
+
 function defaultChoice(choices: readonly ScopeChoice[]): ScopeChoice {
   return choices.includes("folder") ? "folder" : "all";
 }
@@ -39,6 +53,7 @@ export function MailView() {
   const [choice, setChoice] = useState<ScopeChoice>(defaultChoice(choices));
   const [isConfirmingEmpty, setIsConfirmingEmpty] = useState(false);
   const [exportedTo, setExportedTo] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
   // On a phone the folders are a screen of their own, opened with "Mappen".
   const [isPickingFolder, setIsPickingFolder] = useState(false);
 
@@ -72,32 +87,42 @@ export function MailView() {
 
   const isLocalFolder = folder !== undefined && accounts.find((a) => a.id === folder.accountId)?.kind === "local";
   const handleExport = async () => {
-    if (!folder) return;
+    if (!folder || isBusy) return;
+    setIsBusy(true);
     try {
       setExportedTo(await api.exportFolder(folder.id));
     } catch (e: unknown) {
       showError(e);
+    } finally {
+      setIsBusy(false);
     }
   };
   const handleEmptyTrash = async () => {
     setIsConfirmingEmpty(false);
-    if (!folder) return;
+    if (!folder || isBusy) return;
+    setIsBusy(true);
     try {
       await api.emptyTrash(folder.accountId);
       setOpenMessageId(null);
       await app.reload();
     } catch (e: unknown) {
       showError(e);
+    } finally {
+      setIsBusy(false);
     }
   };
 
   const actions = (
     <>
       {!isSearching && folder?.role === "trash" && folder.total > 0 && (
-        <button type="button" onClick={() => setIsConfirmingEmpty(true)}>{t("folder.emptyTrash")}</button>
+        <button type="button" className="danger-outline" disabled={isBusy} onClick={() => setIsConfirmingEmpty(true)}>
+          {t("folder.emptyTrash")}
+        </button>
       )}
       {!isSearching && isLocalFolder && (
-        <button type="button" onClick={handleExport}>{t("folder.export")}</button>
+        <button type="button" disabled={isBusy} onClick={handleExport}>
+          {isBusy ? t("general.saving") : t("folder.export")}
+        </button>
       )}
     </>
   );
@@ -111,6 +136,19 @@ export function MailView() {
   const isOverList = isNarrow && openMessageId !== null;
   const isFolderScreen = isPhone && isPickingFolder && !isOverList;
   const showFolders = !isOverList && (!isPhone || isFolderScreen);
+  const closeMessage = () => {
+    const id = openMessageId;
+    setOpenMessageId(null);
+    if (id) focusRow(id);
+  };
+  // Android's back key: the open message first, then the folder screen.
+  useBackStep(isOverList, closeMessage, 1);
+  useBackStep(isFolderScreen, () => setIsPickingFolder(false), 1);
+
+  let emptyText = t("list.empty");
+  if (isSearching) emptyText = search.isBusy ? t("search.busy") : t("search.none", { query: query.trim() });
+  else if (location.kind === "tag") emptyText = t("list.emptyTag");
+  else if (app.isSyncing) emptyText = t("list.emptySyncing");
 
   const middle =
     location.kind === "outbox" && !isSearching ? (
@@ -124,7 +162,9 @@ export function MailView() {
         isLoading={isSearching ? search.isBusy : list.isLoading}
         loadError={isSearching ? search.loadError : list.loadError}
         onRetry={isSearching ? search.retry : list.retry}
-        emptyText={isSearching ? (search.isBusy ? t("search.busy") : t("search.none", { query: query.trim() })) : t("list.empty")}
+        emptyText={emptyText}
+        loadingText={isSearching ? t("search.busy") : undefined}
+        failedText={isSearching ? t("search.failed") : undefined}
         hasMore={!isSearching && list.hasMore}
         onLoadMore={list.loadMore}
         onOpen={open}
@@ -159,11 +199,14 @@ export function MailView() {
           ))}
         {exportedTo && !isOverList && <p className="calm-line" role="status">{t("folder.exported", { path: exportedTo })}</p>}
         <div className="mail-columns">
-          {!isOverList && middle}
+          {/* Kept in the page while a message lies over it, so "Terug" returns to the same place. */}
+          <div className="list-holder" hidden={isOverList}>
+            {middle}
+          </div>
           {openMessageId && (
             <ReadingPane
               messageId={openMessageId}
-              onBack={isNarrow ? () => setOpenMessageId(null) : undefined}
+              onBack={isNarrow ? closeMessage : undefined}
               onRemoved={() => setOpenMessageId(null)}
             />
           )}

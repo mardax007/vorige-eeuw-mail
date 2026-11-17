@@ -55,7 +55,7 @@ describe("a list that cannot be loaded", () => {
     vi.spyOn(api, "search").mockRejectedValue({ code: "VEM-STORE-READ-01" });
     const user = await renderApp();
     await user.type(screen.getByLabelText("Zoeken"), "texel");
-    expect(await screen.findByText("De berichten konden niet geladen worden. Bovenaan staat wat er misging.")).toBeTruthy();
+    expect(await screen.findByText("Zoeken lukte niet. Bovenaan staat wat er misging.")).toBeTruthy();
     expect(screen.queryByText(/Niets gevonden/)).toBeNull();
   });
 });

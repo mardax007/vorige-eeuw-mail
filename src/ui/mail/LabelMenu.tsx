@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { api } from "../../api/client";
 import type { Tag } from "../../api/types";
 import { t } from "../../i18n";
@@ -28,17 +28,30 @@ export function LabelMenu({ messageId, tags, activeTagIds, onChanged, onClose, o
     }
   };
 
-  const create = async () => {
+  /** Makes the typed label and puts it on the message; false when that failed. */
+  const create = async (): Promise<boolean> => {
     const trimmed = name.trim();
-    if (trimmed === "") return;
+    if (trimmed === "") return true;
     try {
       const tag = await api.createTag(trimmed, color);
       await api.setMessageTags([messageId], tag.id, true);
       setName("");
       onChanged();
+      return true;
     } catch (e: unknown) {
       onError(e);
+      return false;
     }
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void create();
+  };
+
+  // A name typed but not yet made is not lost when Klaar is pressed.
+  const handleDone = async () => {
+    if (await create()) onClose();
   };
 
   return (
@@ -57,29 +70,31 @@ export function LabelMenu({ messageId, tags, activeTagIds, onChanged, onClose, o
           );
         })}
       </ul>
-      <h4>{t("tag.new")}</h4>
-      <div className="form-row">
-        <label htmlFor="new-tag-name">{t("tag.name")}</label>
-        <input id="new-tag-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="form-row">
-        <label htmlFor="new-tag-color">{t("tag.color")}</label>
-        <select id="new-tag-color" value={color} onChange={(e) => setColor(e.target.value)}>
-          {TAG_PALETTE.map((c) => (
-            <option key={c.key} value={c.key}>
-              {t(c.label)}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="button-row">
-        <button type="button" onClick={create} disabled={name.trim() === ""}>
-          {t("tag.create")}
-        </button>
-        <button type="button" className="primary" onClick={onClose}>
-          {t("tag.close")}
-        </button>
-      </div>
+      <form onSubmit={handleSubmit}>
+        <h4>{t("tag.new")}</h4>
+        <div className="form-row">
+          <label htmlFor="new-tag-name">{t("tag.name")}</label>
+          <input id="new-tag-name" value={name} enterKeyHint="done" onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <label htmlFor="new-tag-color">{t("tag.color")}</label>
+          <select id="new-tag-color" value={color} onChange={(e) => setColor(e.target.value)}>
+            {TAG_PALETTE.map((c) => (
+              <option key={c.key} value={c.key}>
+                {t(c.label)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="button-row">
+          <button type="submit" disabled={name.trim() === ""}>
+            {t("tag.create")}
+          </button>
+          <button type="button" className="primary" onClick={() => void handleDone()}>
+            {t("tag.close")}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
