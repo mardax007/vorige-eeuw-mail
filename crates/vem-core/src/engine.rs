@@ -51,6 +51,10 @@ pub struct Engine {
     pub facts: AppFacts,
     wakes: Mutex<HashMap<String, Arc<Notify>>>,
     loops: Mutex<HashMap<String, JoinHandle<()>>>,
+    /// The send queue and housekeeping loops, so `pause` can stop them.
+    background: Mutex<Vec<JoinHandle<()>>>,
+    /// Held while the send queue sends: `pause` waits for it, so nothing goes out twice.
+    sending: tokio::sync::Mutex<()>,
     outbox_wake: Arc<Notify>,
 }
 
@@ -64,11 +68,13 @@ impl Engine {
             facts,
             wakes: Mutex::new(HashMap::new()),
             loops: Mutex::new(HashMap::new()),
+            background: Mutex::new(Vec::new()),
+            sending: tokio::sync::Mutex::new(()),
             outbox_wake: Arc::new(Notify::new()),
         })
     }
 
-    /// Start every loop. Call once, inside the Tokio runtime.
+    /// Start every loop, inside the Tokio runtime. Also starts again after `pause`.
     pub fn start(self: &Arc<Self>) -> Result<()> {
         self.store.reset_sending()?;
         for a in self.store.accounts()? {
@@ -77,10 +83,24 @@ impl Engine {
             }
         }
         let me = self.clone();
-        tokio::spawn(async move { me.outbox_loop().await });
+        let outbox = tokio::spawn(async move { me.outbox_loop().await });
         let me = self.clone();
-        tokio::spawn(async move { me.housekeeping_loop().await });
+        let housekeeping = tokio::spawn(async move { me.housekeeping_loop().await });
+        let old = std::mem::replace(&mut *self.background.lock().unwrap_or_else(|e| e.into_inner()), vec![outbox, housekeeping]);
+        old.into_iter().for_each(|h| h.abort());
         Ok(())
+    }
+
+    /// Stop all work: the mailbox loops, the send queue and housekeeping. A message that is going
+    /// out is sent first. `start` begins again. On Android only one process may work on the
+    /// mailboxes at a time: the open app, or the background service of decision 24.
+    pub async fn pause(&self) {
+        let _sending = self.sending.lock().await;
+        let background = std::mem::take(&mut *self.background.lock().unwrap_or_else(|e| e.into_inner()));
+        background.into_iter().for_each(|h| h.abort());
+        let loops = std::mem::take(&mut *self.loops.lock().unwrap_or_else(|e| e.into_inner()));
+        loops.into_values().for_each(|h| h.abort());
+        log::event("engine.paused", &[]);
     }
 
     fn wake_for(&self, account_id: &str) -> Arc<Notify> {
@@ -387,26 +407,35 @@ impl Engine {
         }
     }
 
+    /// Send what is due, then the waiting error reports. Each message holds `sending` while it
+    /// goes out, so `pause` waits for that message only, not for the whole queue.
+    async fn send_due(&self) {
+        loop {
+            let _sending = self.sending.lock().await;
+            let Ok(Some(row)) = self.store.take_due(now()) else { break };
+            self.outbox_changed();
+            match self.deliver(&row.draft).await {
+                Ok(()) => {
+                    let _ = self.store.sent(&row.id);
+                    log::event("send.done", &[("outbox", &row.id)]);
+                }
+                Err(e) => {
+                    log::error("send.failed", &e);
+                    let retry = matches!(e.code(), Some(Code::SmtpConnect01) | Some(Code::SmtpTls01))
+                        .then(|| now() + SEND_RETRY_SECS);
+                    let _ = self.store.send_failed(&row.id, &e, retry);
+                    self.report(Some(&row.account_id), &e).await;
+                }
+            }
+            self.outbox_changed();
+        }
+        let _sending = self.sending.lock().await;
+        self.flush_reports().await;
+    }
+
     async fn outbox_loop(self: Arc<Self>) {
         loop {
-            while let Ok(Some(row)) = self.store.take_due(now()) {
-                self.outbox_changed();
-                match self.deliver(&row.draft).await {
-                    Ok(()) => {
-                        let _ = self.store.sent(&row.id);
-                        log::event("send.done", &[("outbox", &row.id)]);
-                    }
-                    Err(e) => {
-                        log::error("send.failed", &e);
-                        let retry = matches!(e.code(), Some(Code::SmtpConnect01) | Some(Code::SmtpTls01))
-                            .then(|| now() + SEND_RETRY_SECS);
-                        let _ = self.store.send_failed(&row.id, &e, retry);
-                        self.report(Some(&row.account_id), &e).await;
-                    }
-                }
-                self.outbox_changed();
-            }
-            self.flush_reports().await;
+            self.send_due().await;
             let next = self.store.outbox().ok().and_then(|items| {
                 items
                     .iter()

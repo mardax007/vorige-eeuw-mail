@@ -184,6 +184,9 @@ impl Store {
     }
 
     fn init(conn: Connection, root: PathBuf) -> Result<Store> {
+        // On Android the app and its background service (decision 24) are two processes on one
+        // index; a write of the other waits briefly instead of failing as "database is locked".
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
         conn.execute_batch(
             "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;
              PRAGMA temp_store=MEMORY; PRAGMA cache_size=-32000;",

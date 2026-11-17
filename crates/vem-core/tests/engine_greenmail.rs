@@ -279,3 +279,63 @@ async fn a_working_new_password_clears_the_old_error() {
     e.update_secret(&a.id, pw("geheim")).await.unwrap();
     assert!(e.store.account(&a.id).unwrap().last_error.is_none());
 }
+
+/// Decision 24: on Android the app pauses its engine when the background service takes over, and
+/// starts it again when it comes back. A paused engine does no work; a restarted one picks up
+/// the mail that arrived meanwhile.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_paused_engine_does_nothing_and_catches_up_after_start() {
+    if !server_up() {
+        return;
+    }
+    let dj = tempfile::tempdir().unwrap();
+    let dp = tempfile::tempdir().unwrap();
+    let (jan, _) = engine(dj.path());
+    let (piet, piet_sink) = engine(dp.path());
+    jan.start().unwrap();
+    piet.start().unwrap();
+    let ja = jan
+        .add_account("Jan", "jan@example.test", Secret::Password { password: "geheim".into() }, settings("jan@example.test"))
+        .await
+        .unwrap();
+    let pa = piet
+        .add_account("Piet", "piet@example.test", Secret::Password { password: "geheim".into() }, settings("piet@example.test"))
+        .await
+        .unwrap();
+    assert!(until(20, || piet.store.folder_by_role(&pa.id, FolderRole::Inbox).unwrap().is_some()).await);
+
+    piet.pause().await;
+    let subject = format!("Pauze {}", uuid::Uuid::new_v4().simple());
+    let draft = Draft {
+        account_id: ja.id.clone(),
+        to: vec![Addr::new(Some("Piet"), "piet@example.test")],
+        subject: subject.clone(),
+        body_text: "Terwijl de telefoon sliep.".into(),
+        ..Default::default()
+    };
+    jan.send(draft).unwrap();
+    assert!(until(20, || jan.store.outbox().unwrap().is_empty()).await, "Jan's mail went out");
+
+    // Piet is paused: no IDLE, no fetch, nothing new in the index.
+    let inbox = piet.store.folder_by_role(&pa.id, FolderRole::Inbox).unwrap().unwrap();
+    let seen = |e: &Engine| e.store.messages_in_folder(inbox, 0, 200).unwrap().iter().any(|m| m.subject == subject);
+    tokio::time::sleep(Duration::from_secs(4)).await;
+    assert!(!seen(&piet), "a paused engine fetches nothing");
+
+    // A paused engine does not send either: the send queue waits for the next start.
+    let reply = Draft {
+        account_id: pa.id.clone(),
+        to: vec![Addr::new(Some("Jan"), "jan@example.test")],
+        subject: format!("Re: {subject}"),
+        body_text: "Goed.".into(),
+        ..Default::default()
+    };
+    piet.send(reply).unwrap();
+    tokio::time::sleep(Duration::from_secs(4)).await;
+    assert_eq!(piet.store.outbox().unwrap().len(), 1, "nothing sent while paused");
+
+    piet.start().unwrap();
+    assert!(until(30, || seen(&piet)).await, "the restarted engine fetches what came in meanwhile");
+    assert!(until(20, || piet.store.outbox().unwrap().is_empty()).await, "and sends what waited");
+    assert!(piet_sink.errors.lock().unwrap().is_empty(), "no errors: {:?}", piet_sink.errors.lock().unwrap());
+}
