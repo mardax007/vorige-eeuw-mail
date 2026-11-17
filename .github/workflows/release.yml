@@ -1,6 +1,8 @@
-# Builds the Windows installer, signs the update and makes a *draft* release with the installer
-# and latest.json. Martijn installs the draft on his own PC first and publishes it by hand
-# (docs/release.md). Run it from the Actions tab: "Release" > "Run workflow".
+# Builds the Windows installer and the Android APK, signs both updates and makes a *draft* release
+# with the installer, latest.json, the APK and android.json. Martijn installs the draft on his own
+# PC and phone first and publishes it by hand (docs/release.md). Run it from the Actions tab:
+# "Release" > "Run workflow". What is new comes from release-notes.md, read here, because the
+# apps read it from latest.json and android.json, which are written now.
 name: Release
 
 on:
@@ -44,6 +46,12 @@ jobs:
           npm test
           cargo test -p vem-core --lib
 
+      - name: What is new
+        id: notes
+        shell: bash
+        run: |
+          { echo 'body<<VEM_NOTES_END'; cat release-notes.md; echo 'VEM_NOTES_END'; } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,9 +71,76 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: Vorige Eeuw Mail __VERSION__
-          releaseBody: |
-            - Schrijf hier twee of drie zinnen over wat er nieuw is. Ze verschijnen achter "Wat is er nieuw?".
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true
           args: --config {"bundle":{"createUpdaterArtifacts":true}}
+
+  # The phone app (phase 5 task 8). Runs after the Windows job, which made the draft release.
+  # NOT YET RUN on GitHub: the first real run is part of the first release with Android.
+  android:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - run: npm ci
+
+      # The APK signing key. Every update must carry the same key or Android refuses it, so this
+      # key is kept like the updater key: here and in Martijn's offline backup only.
+      - name: Android signing key
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_KEY_BASE64" | base64 -d > "$RUNNER_TEMP/vem-android.jks"
+          {
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "password=$ANDROID_KEY_PASSWORD"
+            echo "storeFile=$RUNNER_TEMP/vem-android.jks"
+          } > src-tauri/gen/android/keystore.properties
+
+      - name: Build the APK
+        env:
+          NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+          VEM_SUPPORT_ADDRESS: ${{ secrets.VEM_SUPPORT_ADDRESS }}
+          VEM_UPDATER_PUBKEY: ${{ secrets.VEM_UPDATER_PUBKEY }}
+          VEM_GOOGLE_CLIENT_ID: ${{ secrets.VEM_GOOGLE_CLIENT_ID }}
+          VEM_GOOGLE_CLIENT_SECRET: ${{ secrets.VEM_GOOGLE_CLIENT_SECRET }}
+          VEM_MICROSOFT_CLIENT_ID: ${{ secrets.VEM_MICROSOFT_CLIENT_ID }}
+          VEM_UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+          VEM_LOG_REQUESTS_URL: https://raw.githubusercontent.com/${{ github.repository }}/main/log-requests.json
+        run: npm run tauri android build -- --apk --target aarch64
+
+      - name: Sign the update and attach it to the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release.apk' | head -n 1)
+          test -n "$apk" || { echo "no release APK found"; exit 1; }
+          npx tauri signer sign "$apk"
+          node scripts/android-release.mjs --apk "$apk" --repo "${{ github.repository }}" --out dist-android --notes release-notes.md
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          gh release upload "v$version" dist-android/vorige-eeuw-mail.apk dist-android/android.json --clobber
