@@ -62,19 +62,19 @@ contacts to the phone (QR pairing, encrypted message in the mailbox; the phone s
 - Windows Live Mail: folder names, read state and stars from `Mail.MSMessageStore` (ESE, through
   `esent.dll` on a copy). Needs a real Live Mail store to build against; until then the import uses
   the folder names on disk and marks all mail read, as phase 3 task 6 allows.
-- Rescue mode: run on four real PSTs with mail (the normal reader and `readpst` both import them
-  whole), but not yet on a PST so damaged that the normal reader fails and rescue is the only way
-  in, and not yet from an installed build. Whether the release should carry the GPL source archives
-  is open question 23.
+- Rescue mode: proven end to end on a real PST whose header CRC is broken (the normal reader
+  rejects it with VEM-IMPORT-READ-01, `readpst` then imports all 71 messages), and on four
+  undamaged real PSTs. Not yet run from an installed build. Whether the release should carry the
+  GPL source archives is open question 23.
 - Help pages on GitHub Pages: generated in `docs/help/`; publishing is a repository setting
   (Pages from `docs/` on main) once the repository exists.
 
 ### Never run against real systems yet
 
 Real IMAP/SMTP providers (only GreenMail; the MX/SRV lookup was tried read-only against real DNS),
-Google and Microsoft sign-in, a real Live Mail store, a PST so damaged the normal reader needs
-rescue mode, the taskbar count and notification click on an installed build, the updater with a
-signed release, notifications from an installed build, the release workflow.
+Google and Microsoft sign-in, a real Live Mail store, the taskbar count and notification click on
+an installed build, the updater with a signed release, notifications from an installed build, the
+release workflow.
 (Real PST and DBX files are now tested — four public PSTs with mail, contacts and a password, and a
 real Outlook Express DBX — and CI fetches them so the import tests run on real data; see the
 session log for 2026-11-17.)
@@ -95,6 +95,7 @@ session log for 2026-11-17.)
 | 2026-11-17 | MSYS2's libpst installed (Martijn's yes); `scripts/rescue-tool.mjs` collects readpst, its 18 DLLs and their licences into `src-tauri/rescue/`, shipped as `rescue\` by the installer; CI and the release workflow install the package; a test runs the real readpst | readpst opens paths through the ANSI code page and fails under a folder like "Łucja", so it now runs inside its scratch folder with plain names, on a hard link to our copy | Question 23; a real damaged PST; Martijn's items above; phase 5 |
 | 2026-11-17 | Imported four public real PSTs (Enron, Aspose sample, java-libpst dist-list and passworded) with the normal reader and readpst side by side. outlook-pst 1.2.0 refused most real messages, so it is now vendored under `vendor/outlook-pst` with six small "accept more files" patches (`VEM-PATCHES.md`), redirected by `[patch.crates-io]`. New test `real_pst_files_import_with_both_readers` over `VEM_REAL_PST_DIR`. The password check verified on a real protected file (refused empty, accepted a matching check) | outlook-pst drops almost every real message: a missing `PtypObject` type arm, an over-strict heap free-count check, distribution lists with no sub-node tree, a missing attachment method, and embedded-message nodes looked up in the wrong sub-node tree (plus a double file-lock dead-lock). readpst double-writes long attachment names as `filename*=` and `filename=` | A truly damaged PST; the real DBX/Live Mail/providers; Martijn's items; phase 5 |
 | 2026-11-17 | Imported a real Outlook Express DBX (fillyfoal's `Inbox.dbx`): new test `real_dbx_file_imports` over `VEM_REAL_DBX`. CI now fetches the four PSTs and the DBX into the runner temp and points the import tests at them, so a lost outlook-pst patch fails CI | The DBX fixture's two message-info blocks carry no attributes, so both entries are header-only (no body); our reader reads the signature, item count and index tree right and classifies them correctly | A truly damaged PST; the real Live Mail/providers; Martijn's items; phase 5 |
+| 2026-11-17 | Rescue-only path proven on a real PST: flipping one reserved header byte breaks outlook-pst's header CRC but not readpst, so the normal reader fails with VEM-IMPORT-READ-01 (the rescue offer) and readpst imports all 71 messages. New test `a_pst_the_normal_reader_rejects_is_read_by_rescue`, run in CI | outlook-pst checks dwCRCPartial over the header; readpst does not, so a reserved-field flip cleanly separates the two readers | The real Live Mail store/providers/sign-in; installed-build checks; Martijn's items; phase 5 |
 
 ## Ideas parked
 
