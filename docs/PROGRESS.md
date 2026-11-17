@@ -11,9 +11,11 @@ Claude Code updates this file at the end of every session.
   debug APK builds (`scripts\androidenv.cmd`, CLAUDE.md Commands). Passwords on Android are
   sealed with a key kept in the Android Keystore (task 5) and TLS uses Android's own certificate
   check (task 4). Both ran on the Android 16 emulator against GreenMail (session log, 17 November).
-  Not yet on a real phone.
-- **Next for Claude Code:** task 3 (sign-in on Android), task 8 (Bijwerken button) and task 7's
-  proposal (background mail; ask Martijn first).
+  Sign-in on Android (task 3: Gmail by app password, Microsoft by the browser) and the
+  "Bijwerken" button (task 8) are built; Bijwerken ran on the emulator up to Android's own install
+  screen. Not yet on a real phone.
+- **Next for Claude Code:** task 7's proposal (background mail; ask Martijn first), task 9
+  (contacts on the phone), task 6 (search speed on a phone).
 - **Martijn, to unblock the rest:**
   1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
      repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
@@ -27,6 +29,10 @@ Claude Code updates this file at the end of every session.
   6. Say whether the envelope icon and mbox import may stay (`DECISIONS.md`, "Build choices").
   7. Answer question 23 in `DECISIONS.md`: GPL source of the bundled rescue tool, pointer only or
      attached to every release.
+  8. Make the Android signing key and put it in the secrets (`docs/release.md`, "Once", step 3).
+     Keep it in the backup: a lost key means every family phone reinstalls.
+  9. Phase 5 task 8: the free limited-distribution account at Google before 2027, with each family
+     phone added.
 
 ## State of the folder
 
@@ -87,7 +93,10 @@ contacts to the phone (QR pairing, encrypted message in the mailbox; the phone s
 Real IMAP/SMTP providers (only GreenMail; the MX/SRV lookup was tried read-only against real DNS),
 Google and Microsoft sign-in, a real Live Mail store, the taskbar count and notification click on
 an installed build, the updater with a signed release, notifications from an installed build, the
-release workflow.
+release workflow (its Android job has never run: it needs the signing key secrets), Google and
+Microsoft sign-in on a phone, and the last step of "Bijwerken" (Android's "Toestaan van deze bron"
+and the update itself; on the emulator the run stopped there, since that switch is a security
+setting).
 (Real PST and DBX files are now tested — four public PSTs with mail, contacts and a password, and a
 real Outlook Express DBX — and CI fetches them so the import tests run on real data; see the
 session log for 2026-11-17.)
@@ -112,6 +121,7 @@ session log for 2026-11-17.)
 | 2026-11-17 | GitHub: public repository `mardax007/vorige-eeuw-mail` (GPL-3.0), Tests workflow and Pages on; first runs green, real-file tests included. Damaged data, on self-made damage (Martijn: "corrupt data to see recov"): `Store::open` refuses a damaged `index.sqlite` (`PRAGMA quick_check`, VEM-STORE-READ-01, file left as it is); a mailbox message whose `.eml` was removed or emptied is downloaded again when opened (GreenMail test), a local one reports its loss; a damaged password file gives VEM-STORE-SECRET-01; `import/corrupt_tests.rs` feeds truncated, overwritten and bit-flipped copies of the empty and Enron PST, the real and a self-made 40-message DBX, an mbox and an EML folder to the import (each must end within 2 minutes, leave the file unchanged, and import what it can or stop with a VEM-IMPORT-READ code). Phase 5 started: phone layout of the mail screen (one part at a time below 640 px) | Three import faults found and fixed: a non-DBX file "imported 0 messages" (now refused, or listed as skipped in a folder); a DBX cut inside a message block lost the whole recovery scan (now 26 of 26 whole messages back); a damaged mbox start and a cut "From " line were dropped silently or became an empty message (now listed). Bit flips and overwritten runs in the Enron PST lose at most a few messages (68 to 71 of 71). A PST cut short is lost to both readers (open items). The Live Mail message table is undocumented | Android SDK and NDK (Martijn's OK for the download), then the APK; phase 5 tasks 7 and 8 meanwhile |
 | 2026-11-17 | Android build: SDK command-line tools, platform 36, build-tools, NDK 29 in `%LOCALAPPDATA%\Android\Sdk` (Gradle added platform 37 and build-tools 36 itself; the SDK licence was accepted as part of Martijn's go), four Rust Android targets, `tauri android init`. Desktop-only parts (tray, autostart, single instance, updater, folder picker, taskbar badge) behind `cfg(desktop)`; `tauri.android.conf.json` leaves the Windows rescue tool out of the APK. Keystore-sealed password files on Android (same file layout and damage handling as DPAPI; sealing tested on Windows). `rustls-platform-verifier` Android part: Kotlin component from its Maven archive, ProGuard rule, `net::init_android()` at start. Debug APK (arm64) builds. | `JAVA_HOME` must be a real `jdk-*` folder (the `latest` link breaks Gradle); Gradle 9.6.1 runs on JDK 26. A source edit during a running Android build breaks that build. The verifier's README says group `rustls`, its archive uses `org.rustls`. | Emulator run (approval for the download), then sign-in on Android |
 | 2026-11-17 | Emulator run (Martijn approved the download): AVD `vem-test`, Android 16 x86_64, with GreenMail behind a self-made test CA and a test autoconfig host (all in `Mail-scratch`, outside the repository). Checked on the emulator: the app starts and Android's certificate check works (a real HTTPS settings lookup; GreenMail refused with VEM-IMAP-TLS-01 once the test CA was removed); adding the GreenMail mailbox; reading, replying (In-Reply-To right), new mail after a force-stop; the password file sealed with the Keystore key (no plain text in the file or the preferences); a damaged password file shows VEM-STORE-SECRET-01, and a new password in Instellingen repairs it and mail comes in again with a notification. Fixed on the way: the screen ran under the status bar (Android 15+ edge to edge, now padded by the window insets); notifications need Android's one-time question (asked at start and after adding a mailbox, `capabilities/mobile.json`); a fetch that failed before the screens listened was never shown (the stored error is now read at start); the old error stayed after a working new password (the core now clears it at once); "Starten met Windows" is hidden on a phone (`AppInfo.isPhone`); a reply's heading said "Nieuwe e-mail" (now "Antwoord schrijven") | `rustls-platform-verifier` uses Android's `AndroidCAStore`, so certificates the user installed are trusted on Android too (as the Windows store does). The x86_64 APK for the emulator: `--target x86_64` in the APK command | Task 3 (sign-in on Android), task 8, task 7 proposal; Android backup switched off on Martijn's answer (`DECISIONS.md`) |
+| 2026-11-17 | Android backup off (Martijn). Task 3: sign-in on Android; Gmail takes an app password on a phone, Microsoft keeps the browser sign-in, the page after sign-in says to open the app again. Task 8: "Bijwerken" on a phone. The app reads `android.json` next to `latest.json` (15 s after start, then every six hours), shows "Er is een nieuwe versie", downloads the APK from `https://github.com/` only, checks it with the updater key (minisign, the same key as Windows) and opens Android's install screen through a FileProvider (`ApkInstaller.kt`, JNI). Release workflow: an Android job builds the signed APK, signs the update and adds the APK and `android.json` to the draft (not yet run); `scripts/android-release.mjs` writes `android.json`; release notes now come from `release-notes.md`. `docs/release.md` and `docs/install.md` have the Android steps. On the emulator, with a throwaway key and a test HTTPS server standing in for github.com: offer shown, 674 MB debug APK fetched and checked, Android's install screen opened | Latest.json's notes were written when the workflow ran, so editing the draft's text (the old step 3) never reached the apps. Tauri's Android context is the Application object, whose class comes from the framework's loader, so app classes must be loaded through `Context.getClassLoader()`. With `MSYS_NO_PATHCONV=1` set, `cmd //c` from Git Bash opens an idle shell and the build silently does nothing. On a touch screen a tapped button keeps its hover look, which made the disabled "Bijwerken" unreadable | Task 7 proposal, task 9, task 6; Martijn's items |
 
 ## Ideas parked
 

@@ -43,6 +43,25 @@ updates van dit programma zonder iets te zeggen. Zo controleert u het:
 
 Windows 10 heeft geen Slim app-beheer; daar hoeft u niets te doen.
 
+## Op een Android-telefoon
+
+Vorige Eeuw Mail staat niet in de Play Store. Martijn stuurt u een link naar het bestand.
+
+1. Tik op de link en kies **vorige-eeuw-mail.apk**. Uw telefoon haalt het op.
+2. Tik op het opgehaalde bestand (bovenaan bij de meldingen, of in **Downloads**).
+3. De eerste keer zegt Android dat installeren uit deze bron niet mag. Tik op **Instellingen**,
+   zet **Toestaan van deze bron** aan en ga terug. *(schermafdruk: `android-1-bron.png`)*
+4. Tik op **Installeren** en daarna op **Openen**. *(schermafdruk: `android-2-installeren.png`)*
+
+Het programma vraagt uw naam en uw e-mailadres, net als op de pc. Gebruikt u Gmail, dan vraagt
+het op de telefoon om een **app-wachtwoord**. Martijn maakt dat voor u.
+
+**Een nieuwe versie.** Op de telefoon werkt het programma zichzelf niet ongemerkt bij; Android
+staat dat niet toe. Er verschijnt bovenaan een blauwe balk: *Er is een nieuwe versie*. Tik op
+**Bijwerken**, wacht tot Android vraagt of u wilt bijwerken en tik daar op **Updaten**,
+**Bijwerken** of **Installeren**. De eerste keer vraagt Android ook hier eerst om
+**Toestaan van deze bron**, nu voor Vorige Eeuw Mail zelf. Uw postvakken en mail blijven bewaard.
+
 ## Hulp
 
 Ziet u een melding met een code die begint met **VEM**, zoek de code dan op of kijk in

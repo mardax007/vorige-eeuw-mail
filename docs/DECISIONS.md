@@ -162,6 +162,15 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
   identity platform accepts from any public client; Outlook.com has no app passwords for IMAP any
   more. The page the browser shows afterwards says to open the app again. Not yet tried with real
   Google or Microsoft accounts on a real phone (needs Martijn's client ids).
+- **Android updates (17 November 2026, phase 5 task 8).** The release carries
+  `vorige-eeuw-mail.apk` and `android.json` (version, notes, address, signature) next to
+  `latest.json`. The app downloads only from `https://github.com/`, checks the APK with the same
+  updater key as Windows (minisign) and then opens Android's own install screen; Android asks the
+  person, as decision 22 says. The APK itself is signed with a separate Android key kept in the
+  Actions secrets and Martijn's backup.
+- **What is new comes from `release-notes.md` (17 November 2026).** Both update files are written
+  when the release workflow runs, so the text is committed with the version number instead of
+  typed into the draft afterwards.
 - **Drafts stay on this computer.** "Opslaan" keeps the draft in the local index (in the account's
   Concepten folder, or "Op deze computer" when there is none) and does not append it to the server.
   Fewer writes to the mailbox, and no half-written draft on the phone.
