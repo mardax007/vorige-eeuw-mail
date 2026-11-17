@@ -94,7 +94,9 @@ async fn send_sync_search_flag_move_delete() {
         return;
     }
     let subject = unique("Verjaardag");
-    let raw = message("jan@example.test", "piet@example.test", &subject, "Tot zaterdag bij oma. Groet, Jan");
+    // A word unique to this run: Piet's test mailbox keeps the mail of every earlier run.
+    let word = unique("taart");
+    let raw = message("jan@example.test", "piet@example.test", &subject, &format!("Tot zaterdag bij oma, met {word}. Groet, Jan"));
     smtp::send(&smtp_cfg("jan@example.test"), "jan@example.test", &["piet@example.test".into()], &raw)
         .await
         .expect("send");
@@ -121,7 +123,7 @@ async fn send_sync_search_flag_move_delete() {
     // Bodies come in a second pass, newest first.
     sync::fetch_bodies(&store, &mut imap, &acc.id, 500).await.unwrap();
 
-    let hits = store.search("oma", &SearchScope::All, 50).unwrap();
+    let hits = store.search(&word, &SearchScope::All, 50).unwrap();
     assert!(hits.iter().any(|h| h.message.id == summary.id), "search finds body text");
     let hits = store.search(&subject[..6], &SearchScope::All, 50).unwrap();
     assert!(hits.iter().any(|h| h.message.id == summary.id), "search finds subject prefix");
