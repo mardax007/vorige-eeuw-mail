@@ -114,6 +114,7 @@ export const api = {
     call("open_attachment", { messageId, attachmentId }),
   saveAttachment: (messageId: string, attachmentId: string) =>
     call("save_attachment", { messageId, attachmentId }),
+  forwardAttachments: (messageId: string) => call("forward_attachments", { messageId }),
 
   syncNow: (accountId: string | null) => call("sync_now", { accountId }),
   getSettings: () => call("get_settings", undefined),

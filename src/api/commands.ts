@@ -98,6 +98,8 @@ export interface CommandMap {
   open_attachment: { args: { messageId: string; attachmentId: string }; result: void };
   /** False when the user closed the save dialog without choosing a place. */
   save_attachment: { args: { messageId: string; attachmentId: string }; result: boolean };
+  /** "Doorsturen": the attachments of a message as files the Write screen can send along. */
+  forward_attachments: { args: { messageId: string }; result: string[] };
 
   sync_now: { args: { accountId: string | null }; result: void };
   get_settings: { args: NoArgs; result: Settings };

@@ -320,6 +320,36 @@ pub fn message_detail(store: &Store, key: &str, show_remote: bool) -> Result<Mes
     })
 }
 
+/// "Doorsturen": the attachments the reading pane lists for this message, written as files in
+/// `dir`, so the Write screen sends them along as Outlook does. The body must be local already.
+pub fn forward_attachments(store: &Store, key: &str, dir: &std::path::Path) -> Result<Vec<std::path::PathBuf>> {
+    let shown = message_detail(store, key, false)?.attachments;
+    if shown.is_empty() {
+        return Ok(Vec::new());
+    }
+    let raw = store
+        .read_eml(parse_message_key(key)?)?
+        .ok_or_else(|| VemError::new(Code::StoreRead01).with_detail("body"))?;
+    std::fs::create_dir_all(dir)?;
+    let mut paths = Vec::new();
+    for a in shown {
+        let index: usize = a.id.parse().map_err(|_| VemError::new(Code::StoreRead01).with_detail("attachment"))?;
+        let bytes =
+            parse::attachment_bytes(&raw, index).ok_or_else(|| VemError::new(Code::StoreRead01).with_detail("attachment"))?;
+        let name = parse::safe_file_name(&a.name);
+        // Two attachments with the same name stay two files.
+        let mut path = dir.join(&name);
+        let mut n = 2;
+        while path.exists() {
+            path = dir.join(format!("{n} {name}"));
+            n += 1;
+        }
+        std::fs::write(&path, bytes)?;
+        paths.push(path);
+    }
+    Ok(paths)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -440,5 +470,37 @@ mod tests {
         let d = message_detail(&s, &id.to_string(), true).unwrap();
         assert!(d.remote_images_shown && d.html.unwrap().contains("t.example"));
         assert!(message_detail(&s, &id.to_string(), false).unwrap().remote_images_shown, "the choice is remembered");
+    }
+
+    #[test]
+    fn forwarding_takes_the_attachments_along_as_files() {
+        let (d, s, acc, inbox, _, plain) = setup();
+        let files = tempfile::tempdir().unwrap();
+        let a = files.path().join("Recept crème.pdf");
+        let b = files.path().join("sub").join("Recept crème.pdf");
+        std::fs::create_dir_all(b.parent().unwrap()).unwrap();
+        std::fs::write(&a, b"eerste").unwrap();
+        std::fs::write(&b, b"tweede").unwrap();
+        let draft = crate::model::Draft {
+            account_id: acc.clone(),
+            to: vec![crate::model::Addr::new(None, "jan@x.nl")],
+            subject: "Recepten".into(),
+            body_text: "Zie bijlagen.".into(),
+            attachments: vec![a.to_string_lossy().into(), b.to_string_lossy().into()],
+            shrink_photos: false,
+            ..Default::default()
+        };
+        let raw = crate::compose::build(&draft, &crate::model::Addr::new(Some("Piet"), "piet@y.nl"), now()).unwrap().raw;
+        let id = s
+            .insert_message(&NewMessage { account_id: acc, folder_id: inbox, uid: Some(8), raw: raw.clone(), has_body: true, size: raw.len() as u64, ..Default::default() })
+            .unwrap();
+
+        let out = d.path().join("doorsturen");
+        let paths = forward_attachments(&s, &id.to_string(), &out).unwrap();
+        let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(names, vec!["Recept crème.pdf", "2 Recept crème.pdf"]);
+        assert_eq!(std::fs::read(&paths[0]).unwrap(), b"eerste");
+        assert_eq!(std::fs::read(&paths[1]).unwrap(), b"tweede");
+        assert!(forward_attachments(&s, &plain.to_string(), &out).unwrap().is_empty(), "nothing to take along");
     }
 }

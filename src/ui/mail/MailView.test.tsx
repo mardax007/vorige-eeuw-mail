@@ -119,6 +119,15 @@ describe("message buttons", () => {
     expect(await screen.findByRole("button", { name: "★ Niet meer belangrijk" })).toBeTruthy();
   });
 
+  it("takes the attachments along with Doorsturen", async () => {
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Afvalkalender 2027/ }));
+    await user.click(await screen.findByRole("button", { name: "Doorsturen" }));
+    const subject = (await screen.findByLabelText("Onderwerp")) as HTMLInputElement;
+    expect(subject.value).toBe("Fw: Afvalkalender 2027");
+    expect(screen.getByText("afvalkalender-2027.pdf")).toBeTruthy();
+  });
+
   it("prints the message with Afdrukken on the PC", async () => {
     const print = vi.spyOn(window, "print").mockImplementation(() => {});
     const user = await renderApp();

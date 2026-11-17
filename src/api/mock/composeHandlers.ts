@@ -13,6 +13,7 @@ type ComposeCommands =
   | "pick_attachments"
   | "open_attachment"
   | "save_attachment"
+  | "forward_attachments"
   | "list_contacts"
   | "save_contact"
   | "delete_contact"
@@ -151,6 +152,11 @@ export function createComposeHandlers(store: MockStore): Pick<CommandHandlers, C
     pick_attachments: () => ["C:\\Users\\Ria\\Pictures\\Kleinkinderen.jpg"],
     open_attachment: () => undefined,
     save_attachment: () => true,
+    forward_attachments: ({ messageId }) => {
+      const message = store.get().messages.find((m) => m.id === messageId);
+      const dir = `C:\\Users\\Ria\\AppData\\Local\\Temp\\vorige-eeuw-mail\\${messageId}`;
+      return (message?.attachments ?? []).map((a) => `${dir}\\${a.name}`);
+    },
     list_contacts: ({ query }) => {
       const q = query.trim().toLowerCase();
       return store

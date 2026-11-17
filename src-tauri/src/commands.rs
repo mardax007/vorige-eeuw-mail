@@ -397,6 +397,16 @@ fn open_attachment(app: AppHandle, state: State<'_, AppState>, message_id: Strin
     app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| app_error(e.to_string()))
 }
 
+/// "Doorsturen": the message's attachments as files, for the Write screen to send along.
+#[tauri::command]
+async fn forward_attachments(state: State<'_, AppState>, message_id: String) -> R<Vec<String>> {
+    let engine = state.engine.clone();
+    engine.ensure_body(parse_message_key(&message_id)?).await?;
+    let dir = std::env::temp_dir().join("vorige-eeuw-mail").join(uuid::Uuid::new_v4().simple().to_string());
+    let paths = vem_core::actions::forward_attachments(&engine.store, &message_id, &dir)?;
+    Ok(paths.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
+}
+
 /// True when the file was written; false when the user closed the save dialog.
 #[tauri::command]
 async fn save_attachment(app: AppHandle, state: State<'_, AppState>, message_id: String, attachment_id: String) -> R<bool> {
@@ -795,6 +805,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         pick_attachments,
         open_attachment,
         save_attachment,
+        forward_attachments,
         sync_now,
         get_settings,
         save_settings,

@@ -67,9 +67,21 @@ export function useMessageActions(): MessageActions {
       // Mail kept on this computer cannot be answered from itself; use the first real mailbox.
       const own = accounts.find((a) => a.id === message.accountId && a.kind === "imap") ?? accounts.find((a) => a.kind === "imap");
       const base = newDraft({ accountId: own?.id ?? "", bodyText: "" });
-      compose(prefillDraft(base, message, kind, own?.email ?? "", own?.signature));
+      const draft = prefillDraft(base, message, kind, own?.email ?? "", own?.signature);
+      if (kind !== "forward" || message.attachments.length === 0) {
+        compose(draft);
+        return;
+      }
+      // Doorsturen sends the attachments along, as Outlook does.
+      api
+        .forwardAttachments(message.id)
+        .then((attachments) => compose({ ...draft, attachments }))
+        .catch((e: unknown) => {
+          showError(e);
+          compose(draft);
+        });
     },
-    [accounts, compose, newDraft],
+    [accounts, compose, newDraft, showError],
   );
 
   return { remove, move, respond };
