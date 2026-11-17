@@ -136,6 +136,15 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
   files through the ANSI code page, so it runs inside its scratch folder with plain names only (it
   failed under a folder named "Łucja"). The README beside it points to MSYS2's source archive for
   the exact versions; see open question 23.
+- **outlook-pst is vendored and patched (17 November 2026).** Importing four real public PST files
+  showed `outlook-pst` 1.2.0 refusing almost every real message (a missing `PtypObject` type arm, an
+  over-strict heap free-count check, distribution lists with no sub-node tree, a missing attachment
+  method, embedded-message nodes looked up in the wrong tree, and a double file-lock dead-lock). The
+  crate is copied under `vendor/outlook-pst` and redirected with `[patch.crates-io]`; the six
+  changes are each marked `vem patch` and listed in `vendor/outlook-pst/VEM-PATCHES.md`, and every
+  one only makes the reader accept a file it refused. With them both readers import the four files
+  whole. Drop the folder and the patch when an upstream release carries these fixes. This keeps
+  `outlook-pst` as the first PST reader (decision in `PLAN.md`), with `readpst` the backup.
 - **PST password (17 November 2026).** The content of a protected PST is not encrypted; the file
   only keeps a CRC-32 of the password. The app still asks for it and checks it before reading, out
   of respect for whoever set it. The password is not kept or logged.
@@ -185,4 +194,5 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-16 | Build choices recorded: stack confirmed (decision 6), own SMTP client, no MX/SRV yet, local drafts, delayed server moves, report queue, mbox import, unwind on panic |
 | 2026-11-17 | MX/SRV lookup built; readpst chosen as rescue tool; PST password checked |
 | 2026-11-17 | readpst from MSYS2 bundled in the installer (Martijn said yes to installing it); question 23 added |
+| 2026-11-17 | Four real public PSTs imported; outlook-pst vendored and patched (six fixes) so it reads them; PST password check verified on a real protected file |
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |

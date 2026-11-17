@@ -44,7 +44,9 @@ contacts learned from mail; error box with exact server reply and `VEM-` code; e
 button, help report, log requests; mailbox space; notifications, icon next to the clock, autostart,
 single instance; unread count of every Postvak IN on the taskbar icon; clicking a notification about
 one message opens it; silent updates (download, wait until idle, install quietly, "Bijgewerkt" for a
-day); import of PST, DBX, EML folders, Windows Live Mail folders and mbox, with copies of the
+day); import of PST (four real public files read whole, with mail, folders, attachments, embedded
+messages, contacts and the password check — through a patched, vendored `outlook-pst`), DBX, EML
+folders, Windows Live Mail folders and mbox, with copies of the
 original files, read state, star and tags, into a local account or the mailbox; import from
 another added mailbox (read-only; skips Verwijderde items, Ongewenste e-mail, Concepten and
 Postvak UIT); Outlook contacts from a PST into the address book; the password of a protected PST is asked and
@@ -60,19 +62,21 @@ contacts to the phone (QR pairing, encrypted message in the mailbox; the phone s
 - Windows Live Mail: folder names, read state and stars from `Mail.MSMessageStore` (ESE, through
   `esent.dll` on a copy). Needs a real Live Mail store to build against; until then the import uses
   the folder names on disk and marks all mail read, as phase 3 task 6 allows.
-- Rescue mode: the bundled `readpst` ran on outlook-pst's `Empty.pst` (also under a folder named
-  "Łucja"), but never on a real damaged PST with messages, and never from an installed build.
-  Whether the release should carry the GPL source archives is open question 23.
-- PST password check: never tried on a real protected PST. Both CRC-32 variants are accepted;
-  if Outlook's check differs, a right password would be refused (VEM-IMPORT-READ-05).
+- Rescue mode: run on four real PSTs with mail (the normal reader and `readpst` both import them
+  whole), but not yet on a PST so damaged that the normal reader fails and rescue is the only way
+  in, and not yet from an installed build. Whether the release should carry the GPL source archives
+  is open question 23.
 - Help pages on GitHub Pages: generated in `docs/help/`; publishing is a repository setting
   (Pages from `docs/` on main) once the repository exists.
 
 ### Never run against real systems yet
 
-Real IMAP/SMTP providers (only GreenMail; the MX/SRV lookup was tried read-only against real DNS), Google and Microsoft sign-in, a real PST or DBX file
-(also PST contacts), a real Live Mail store, the taskbar count and notification click on an installed build,
-the updater with a signed release, notifications from an installed build, the release workflow.
+Real IMAP/SMTP providers (only GreenMail; the MX/SRV lookup was tried read-only against real DNS),
+Google and Microsoft sign-in, a real DBX file, a real Live Mail store, a PST so damaged the normal
+reader needs rescue mode, the taskbar count and notification click on an installed build, the
+updater with a signed release, notifications from an installed build, the release workflow.
+(Real PST files are now tested: four public ones with mail, contacts and a password; see the
+session log for 2026-11-17.)
 
 ## Session log
 
@@ -88,6 +92,7 @@ the updater with a signed release, notifications from an installed build, the re
 | 2026-11-16 | Live Mail contacts through its .vcf export (one screen, four steps). Code review of the upload limits and imports, all findings fixed: a read or star change on a message waiting for upload goes into the upload, the first upload of a day always goes, Gmail's quota day counted from 08:00 UTC, OVERQUOTA pauses uploads, APPENDLIMIT uses the CRLF size, an empty Live Mail message with a Content-Type is kept, a known contact gets new addresses, a broken vCard line cannot swallow the next card | Gmail's daily upload count follows Pacific time. A queued flag change on a not-yet-uploaded message had nowhere to go and was silently dropped | Martijn's items above; a real Live Mail store for the ESE reader; phase 5 |
 | 2026-11-17 | MX and SRV steps of the settings lookup (checked read-only against real DNS); the password of a protected PST asked on the import screen and checked; rescue mode with readpst offered once when a PST cannot be read (app side, tested with a stand-in tool); confirmation text no longer says every unchecked host was guessed | PST passwords protect nothing: the file keeps only a CRC-32. libpst has no official Windows build. Google publishes RFC 6186 SRV records for gmail.com | A Windows readpst for the installer; Martijn's items above; a real Live Mail store; phase 5 |
 | 2026-11-17 | MSYS2's libpst installed (Martijn's yes); `scripts/rescue-tool.mjs` collects readpst, its 18 DLLs and their licences into `src-tauri/rescue/`, shipped as `rescue\` by the installer; CI and the release workflow install the package; a test runs the real readpst | readpst opens paths through the ANSI code page and fails under a folder like "Łucja", so it now runs inside its scratch folder with plain names, on a hard link to our copy | Question 23; a real damaged PST; Martijn's items above; phase 5 |
+| 2026-11-17 | Imported four public real PSTs (Enron, Aspose sample, java-libpst dist-list and passworded) with the normal reader and readpst side by side. outlook-pst 1.2.0 refused most real messages, so it is now vendored under `vendor/outlook-pst` with six small "accept more files" patches (`VEM-PATCHES.md`), redirected by `[patch.crates-io]`. New test `real_pst_files_import_with_both_readers` over `VEM_REAL_PST_DIR`. The password check verified on a real protected file (refused empty, accepted a matching check) | outlook-pst drops almost every real message: a missing `PtypObject` type arm, an over-strict heap free-count check, distribution lists with no sub-node tree, a missing attachment method, and embedded-message nodes looked up in the wrong sub-node tree (plus a double file-lock dead-lock). readpst double-writes long attachment names as `filename*=` and `filename=` | A truly damaged PST; the real DBX/Live Mail/providers; Martijn's items; phase 5 |
 
 ## Ideas parked
 
