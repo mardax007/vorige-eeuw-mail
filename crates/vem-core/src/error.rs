@@ -232,6 +232,19 @@ mod tests {
         }
     }
 
+    /// Every code the core can raise must be in the user-facing registry (`docs/errors.md`), from
+    /// which `scripts/help-pages.mjs` writes the help page and which the Dutch catalogue mirrors.
+    /// A new code without its registry row would reach a user with no explanation (docs/errors.md).
+    #[test]
+    fn every_code_is_in_the_registry() {
+        let registry = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/errors.md"),
+        )
+        .expect("docs/errors.md");
+        let missing: Vec<&str> = Code::ALL.iter().map(|c| c.as_str()).filter(|code| !registry.contains(code)).collect();
+        assert!(missing.is_empty(), "codes not in docs/errors.md: {missing:?}");
+    }
+
     #[test]
     fn masking_keeps_allowed_and_rest_of_reply() {
         let reply = "550 5.1.1 <someone@example.nl>: Recipient address rejected (from me@home.nl)";
