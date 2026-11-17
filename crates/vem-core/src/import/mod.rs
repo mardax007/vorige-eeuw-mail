@@ -22,6 +22,8 @@ mod pst_contact;
 pub mod rescue;
 pub mod vcard;
 mod rtf;
+#[cfg(test)]
+mod corrupt_tests;
 
 /// Leave this much free on the disk after the copy and the converted mail.
 const SPARE_BYTES: u64 = 500 * 1024 * 1024;
@@ -541,7 +543,12 @@ fn read_dbx_tree(path: &Path, emit: &mut Emit<'_>) -> std::result::Result<Skippe
     let mut files: Vec<_> = std::fs::read_dir(path).map_err(|e| e.kind().to_string())?.flatten().map(|e| e.path()).collect();
     files.sort();
     for f in files.into_iter().filter(|f| f.extension().is_some_and(|x| x.eq_ignore_ascii_case("dbx"))) {
-        skipped.extend(read_dbx(&f, emit)?);
+        // One damaged folder file in a store folder is listed; the other folders still come in.
+        match read_dbx(&f, emit) {
+            Ok(s) => skipped.extend(s),
+            Err(e) if e == "cancelled" || e == "store" => return Err(e),
+            Err(e) => skipped.push((f.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), e)),
+        }
     }
     Ok(skipped)
 }

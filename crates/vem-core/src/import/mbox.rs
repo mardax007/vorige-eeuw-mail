@@ -19,6 +19,18 @@ pub fn read_file(path: &Path, folder: &[String], emit: &mut Emit<'_>) -> Result<
     let mut current: Option<Vec<u8>> = None;
     let mut prev_blank = true;
     let mut line = Vec::new();
+    let mut skipped = Skipped::new();
+    // Text before the first "From " line: none in a sound file. Damage at the start of the file
+    // lands here; what follows is still read.
+    let mut lost_start = false;
+    let mut empty = 0u64;
+    let mut give = |msg: Vec<u8>, empty: &mut u64| -> Result<(), String> {
+        if msg.iter().all(u8::is_ascii_whitespace) {
+            *empty += 1;
+            return Ok(());
+        }
+        emit(folder, trim_end(msg))
+    };
     loop {
         line.clear();
         let n = r.read_until(b'\n', &mut line).map_err(|e| e.kind().to_string())?;
@@ -27,21 +39,32 @@ pub fn read_file(path: &Path, folder: &[String], emit: &mut Emit<'_>) -> Result<
         }
         if prev_blank && line.starts_with(b"From ") {
             if let Some(msg) = current.take() {
-                emit(folder, trim_end(msg))?;
+                give(msg, &mut empty)?;
             }
             current = Some(Vec::new());
             prev_blank = false;
             continue;
         }
         prev_blank = line == b"\n" || line == b"\r\n";
-        if let Some(msg) = current.as_mut() {
-            msg.extend_from_slice(unquote(&line));
+        match current.as_mut() {
+            Some(msg) => msg.extend_from_slice(unquote(&line)),
+            None => lost_start |= !line.iter().all(u8::is_ascii_whitespace),
         }
     }
+    let found_any = current.is_some() || empty > 0;
     if let Some(msg) = current.take() {
-        emit(folder, trim_end(msg))?;
+        give(msg, &mut empty)?;
     }
-    Ok(Vec::new())
+    if lost_start && !found_any {
+        return Err("not an mbox file: no \"From \" line found (damaged, or another kind of file)".into());
+    }
+    if lost_start {
+        skipped.push((folder.join("/"), "the start of the file is damaged; what came before the first message is lost".into()));
+    }
+    if empty > 0 {
+        skipped.push((folder.join("/"), format!("{empty} empty message(s)")));
+    }
+    Ok(skipped)
 }
 
 /// The blank line before the next "From " belongs to the separator, not the message.

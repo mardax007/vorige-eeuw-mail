@@ -36,6 +36,8 @@ pub struct ReadStats {
 /// Signature of a folder file that holds mail (UnDBX's DBX_TYPE_EMAIL).
 const MAIL_SIGNATURE: [u8; 16] =
     [0xCF, 0xAD, 0x12, 0xFE, 0xC5, 0xFD, 0x74, 0x6F, 0x66, 0xE3, 0xD1, 0x11, 0x9A, 0x4E, 0x00, 0xC0];
+/// Why a file named .dbx is refused: its start is not an Outlook Express folder file.
+pub const NOT_A_MAIL_FOLDER: &str = "not an Outlook Express mail folder (damaged, or another kind of file)";
 const ITEM_COUNT: u64 = 0xC4;
 const INDEX_POINTER: u64 = 0xE4;
 const NODE_HEADER: u64 = 24;
@@ -49,7 +51,8 @@ const MAX_TREE_DEPTH: usize = 64;
 const SCAN_CHUNK: usize = 1 << 20;
 
 /// Read every message in the folder file and hand it to `emit` with the folder path.
-/// A file that is not a mail folder (Folders.dbx, Offline.dbx, anything else) gives 0 messages.
+/// Folders.dbx, Offline.dbx and other sound non-mail folder files give 0 messages; a file that
+/// is not a DBX at all (or whose start is damaged) is refused with `NOT_A_MAIL_FOLDER`.
 pub fn read(
     path: &Path,
     emit: &mut Emit<'_>,
@@ -59,8 +62,18 @@ pub fn read(
     let len = file.metadata().map_err(|e| format!("DBX cannot be read: {e}"))?.len();
     let mut dbx = Dbx { file: BufReader::new(file), len };
     let mut signature = [0u8; 16];
-    if len < INDEX_POINTER + 4 || dbx.read_exact_at(0, &mut signature).is_err() || signature != MAIL_SIGNATURE {
-        return Ok(stats);
+    if len < 16 || dbx.read_exact_at(0, &mut signature).is_err() {
+        return Err(NOT_A_MAIL_FOLDER.into());
+    }
+    if signature != MAIL_SIGNATURE {
+        // Folders.dbx, Offline.dbx and the like carry the same signature with another type
+        // byte: sound files that hold no mail. Anything else is damaged or not a DBX at all.
+        let mut family = signature;
+        family[4] = MAIL_SIGNATURE[4];
+        return if family == MAIL_SIGNATURE { Ok(stats) } else { Err(NOT_A_MAIL_FOLDER.into()) };
+    }
+    if len < INDEX_POINTER + 4 {
+        return Err(NOT_A_MAIL_FOLDER.into());
     }
     let folder = vec![path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()];
     let skip = |stats: &mut ReadStats, reason: &str| stats.skipped.push((folder.join("/"), reason.to_string()));
@@ -228,7 +241,12 @@ impl Dbx {
                 }
                 let start = data.len();
                 data.resize(start + f.len as usize, 0);
-                self.read_exact_at(f.offset + BLOCK_HEADER, &mut data[start..])?;
+                // A file cut short ends inside a block: that one message is damaged, the rest
+                // of the file is still recovered.
+                if self.read_exact_at(f.offset + BLOCK_HEADER, &mut data[start..]).is_err() {
+                    complete = false;
+                    break;
+                }
                 current = match f.next {
                     0 => None,
                     next => match by_offset.get(&next) {
@@ -290,7 +308,7 @@ fn looks_like_message(raw: &[u8]) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     const FOLDERS_SIGNATURE: [u8; 16] =
@@ -345,7 +363,8 @@ mod tests {
         at
     }
 
-    fn sample(messages: &[&[u8]]) -> Vec<u8> {
+    /// A self-made mail folder file holding `messages` (at most 255), reachable by its index.
+    pub(crate) fn sample(messages: &[&[u8]]) -> Vec<u8> {
         let mut buf = vec![0u8; HEADER_SIZE];
         buf[..16].copy_from_slice(&MAIL_SIGNATURE);
         let infos: Vec<usize> = messages
@@ -445,11 +464,17 @@ mod tests {
         let mut file = sample(&[SECOND]);
         file[..16].copy_from_slice(&FOLDERS_SIGNATURE);
         std::fs::write(&folders, file).unwrap();
+        let (stats, got) = read_all(&folders);
+        assert_eq!(stats.unwrap().messages, 0, "Folders.dbx is sound and holds no mail");
+        assert!(got.is_empty());
+        // Not a DBX at all, or one whose start was overwritten: refused, not "0 messages".
         let other = dir.path().join("brief.dbx");
         std::fs::write(&other, b"geen outlook express").unwrap();
-        for path in [folders, other] {
+        let empty = dir.path().join("leeg.dbx");
+        std::fs::write(&empty, b"").unwrap();
+        for path in [other, empty] {
             let (stats, got) = read_all(&path);
-            assert_eq!(stats.unwrap().messages, 0);
+            assert_eq!(stats.err().as_deref(), Some(NOT_A_MAIL_FOLDER), "{}", path.display());
             assert!(got.is_empty());
         }
     }
