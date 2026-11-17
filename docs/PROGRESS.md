@@ -68,7 +68,7 @@ Claude Code updates this file at the end of every session.
 
 ## State of the folder
 
-- Code: `crates/vem-core` (mail logic, 189 unit tests plus 24 GreenMail end-to-end tests, real-file
+- Code: `crates/vem-core` (mail logic, 189 unit tests plus 20 GreenMail end-to-end tests, real-file
   import and damaged-file tests),
   `src-tauri` (the shell, 6 tests), `src` (screens, 169 tests), `.github/workflows` (tests, draft release).
   Commands are in `CLAUDE.md`.
