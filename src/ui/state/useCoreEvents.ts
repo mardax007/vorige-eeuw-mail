@@ -9,7 +9,7 @@ interface CoreEventHandlers {
   setSyncErrors: Dispatch<SetStateAction<Record<string, VemError>>>;
   setSyncBusy: Dispatch<SetStateAction<Record<string, boolean>>>;
   showMessage: (folderId: string, messageId: string) => void;
-  composeTo: (to: Addr[]) => void;
+  composeTo: (to: Addr[], subject: string) => void;
   showError: (e: unknown) => void;
 }
 
@@ -48,7 +48,11 @@ export function useCoreEvents(handlers: CoreEventHandlers): void {
           .catch((e: unknown) => ref.current.showError(e));
       }),
     );
-    add(onEvent("open:compose", ({ to }) => ref.current.composeTo(parseAddressList(to).addresses)));
+    add(
+      onEvent("open:compose", ({ to, subject }) =>
+        ref.current.composeTo(parseAddressList(to).addresses, subject ?? ""),
+      ),
+    );
 
     return () => {
       stopped = true;

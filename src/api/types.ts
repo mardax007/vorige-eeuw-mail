@@ -260,7 +260,8 @@ export interface CoreEvents {
   "import:progress": ImportProgress;
   "outbox:changed": OutboxItem[];
   "open:message": { messageId: string };
-  "open:compose": { to: string };
+  /** A `mailto:` link in a mail: its addresses and subject, decoded (empty when it has none). */
+  "open:compose": { to: string; subject?: string };
   /** Android: a newer version is on GitHub; the screens offer "Bijwerken". */
   "update:available": UpdateOffer;
 }

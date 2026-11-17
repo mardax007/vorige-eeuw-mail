@@ -19,7 +19,7 @@ export function buildSrcdoc(html: string, allowRemoteImages: boolean, textSize: 
   const style =
     `body{font-family:"Segoe UI",system-ui,sans-serif;font-size:${textSize}px;line-height:1.5;` +
     "color:#111;background:#fff;margin:12px;overflow-wrap:anywhere}img{max-width:100%;height:auto}" +
-    "a{color:#0a3a8c}";
+    "a[href]{color:#0a3a8c}";
   return (
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${csp}">` +
@@ -30,10 +30,25 @@ export function buildSrcdoc(html: string, allowRemoteImages: boolean, textSize: 
 /** The only sandbox permission: links may ask for a new window, which the shell catches. */
 export const MAIL_SANDBOX = "allow-popups";
 
+/**
+ * On a phone. Android's WebView opens no new windows, so a link aimed at one does nothing there.
+ * Instead a tapped link may lead the app's own window away, which the shell's navigation handler
+ * refuses while it opens the link outside (the same handler as on Windows). Only a tap counts:
+ * the frame still runs no scripts, so it cannot navigate by itself.
+ */
+export const PHONE_MAIL_SANDBOX = "allow-popups allow-top-navigation-by-user-activation";
+
+/** The core gives every link target="_blank"; on a phone it becomes target="_top". */
+export function linksToTop(html: string): string {
+  return html.replace(/target="_blank"/g, 'target="_top"');
+}
+
 interface MailFrameProps {
   html: string;
   allowRemoteImages: boolean;
   textSize: number;
+  /** The Android app (AppInfo.isPhone), where links go through the app's own window. */
+  isPhoneApp?: boolean;
 }
 
 /**
@@ -42,14 +57,14 @@ interface MailFrameProps {
  * The core gives every link target="_blank", so a click becomes a new-window request; the shell denies it
  * and opens http(s) links in the system browser, or our own Write screen for mailto.
  */
-export function MailFrame({ html, allowRemoteImages, textSize }: MailFrameProps) {
+export function MailFrame({ html, allowRemoteImages, textSize, isPhoneApp = false }: MailFrameProps) {
   return (
     <iframe
       className="mail-frame"
       title={t("read.frameTitle")}
-      sandbox={MAIL_SANDBOX}
+      sandbox={isPhoneApp ? PHONE_MAIL_SANDBOX : MAIL_SANDBOX}
       referrerPolicy="no-referrer"
-      srcDoc={buildSrcdoc(html, allowRemoteImages, textSize)}
+      srcDoc={buildSrcdoc(isPhoneApp ? linksToTop(html) : html, allowRemoteImages, textSize)}
     />
   );
 }

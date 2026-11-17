@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { buildSrcdoc, MailFrame, mailCsp } from "./MailFrame";
+import { buildSrcdoc, linksToTop, MailFrame, mailCsp } from "./MailFrame";
 
 describe("MailFrame", () => {
   it("renders an iframe whose sandbox allows only popups, with a CSP in the srcdoc", () => {
@@ -28,5 +28,20 @@ describe("MailFrame", () => {
   it("allows https images only after Afbeeldingen tonen", () => {
     expect(mailCsp(false)).toBe("default-src 'none'; img-src data: cid:; style-src 'unsafe-inline'");
     expect(mailCsp(true)).toBe("default-src 'none'; img-src data: cid: https:; style-src 'unsafe-inline'");
+  });
+
+  it("on a phone lets a tapped link lead the app window, where the shell catches it", () => {
+    const html = '<a href="https://ing.nl" target="_blank" rel="noopener noreferrer">ING</a><p>target=&quot;_blank&quot;</p>';
+    render(<MailFrame html={html} allowRemoteImages={false} textSize={18} isPhoneApp />);
+    const frame = document.querySelector("iframe");
+    const sandbox = frame?.getAttribute("sandbox") ?? "";
+    expect(sandbox).toBe("allow-popups allow-top-navigation-by-user-activation");
+    expect(sandbox).not.toContain("allow-scripts");
+    expect(sandbox).not.toContain("allow-same-origin");
+    const srcdoc = frame?.getAttribute("srcdoc") ?? "";
+    expect(srcdoc).toContain('target="_top"');
+    expect(srcdoc).not.toContain('target="_blank"');
+    expect(srcdoc).toContain("target=&quot;_blank&quot;");
+    expect(linksToTop('<a target="_blank">')).toBe('<a target="_top">');
   });
 });

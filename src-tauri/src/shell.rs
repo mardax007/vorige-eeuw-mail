@@ -200,6 +200,34 @@ fn is_app_url(url: &tauri::Url) -> bool {
     }
 }
 
+/// The addresses and the subject of a `mailto:` link, decoded (RFC 6068). Other fields, such as
+/// a body, are left out: a link in a mail should not be able to write the message for the user.
+fn mailto_fields(url: &tauri::Url) -> (String, String) {
+    let to = percent_decode(url.path());
+    let subject = url.query_pairs().find(|(k, _)| k.eq_ignore_ascii_case("subject")).map(|(_, v)| v.into_owned());
+    (to, subject.unwrap_or_default())
+}
+
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| (b as char).to_digit(16);
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let (Some(h), Some(l)) = (hex(bytes[i + 1]), hex(bytes[i + 2]))
+        {
+            out.push((h * 16 + l) as u8);
+            i += 3;
+            continue;
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// A link from a mail: the web in the system browser, `mailto:` in our own Write screen.
 /// Anything else (file:, javascript:, other apps' schemes) is not followed.
 fn open_outside(app: &AppHandle, url: &tauri::Url) {
@@ -210,8 +238,8 @@ fn open_outside(app: &AppHandle, url: &tauri::Url) {
         }
         "mailto" => {
             show_main(app);
-            let to = url.path().to_string();
-            let _ = app.emit("open:compose", serde_json::json!({ "to": to }));
+            let (to, subject) = mailto_fields(url);
+            let _ = app.emit("open:compose", serde_json::json!({ "to": to, "subject": subject }));
         }
         _ => vem_core::log::event("link.refused", &[("scheme", url.scheme())]),
     }
@@ -229,7 +257,10 @@ pub fn create_main_window(app: &AppHandle, visible: bool) -> tauri::Result<()> {
             if is_app_url(url) {
                 return true;
             }
-            open_outside(&nav_app, url);
+            // Off this thread: on Android the handler runs on the UI thread, and the opener
+            // plugin waits for that same thread, which froze the app (seen on the emulator).
+            let (app, url) = (nav_app.clone(), url.clone());
+            tauri::async_runtime::spawn(async move { open_outside(&app, &url) });
             false
         })
         .on_new_window(move |url, _features| {
@@ -328,4 +359,28 @@ pub fn windows_version() -> String {
         }
     }
     std::env::consts::OS.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mailto_fields;
+
+    fn fields(link: &str) -> (String, String) {
+        mailto_fields(&tauri::Url::parse(link).unwrap())
+    }
+
+    #[test]
+    fn a_mailto_link_gives_its_address_and_subject_decoded() {
+        assert_eq!(fields("mailto:piet@example.test?subject=Hoi"), ("piet@example.test".into(), "Hoi".into()));
+        assert_eq!(
+            fields("mailto:Piet%20Test%20%3Cpiet@example.test%3E?Subject=Caf%C3%A9%20morgen"),
+            ("Piet Test <piet@example.test>".into(), "Café morgen".into())
+        );
+    }
+
+    #[test]
+    fn a_mailto_link_without_subject_and_a_body_writes_nothing_else() {
+        assert_eq!(fields("mailto:a@example.test,b@example.test?body=Stuur%20geld"), ("a@example.test,b@example.test".into(), String::new()));
+        assert_eq!(fields("mailto:a@example.test%zz"), ("a@example.test%zz".into(), String::new()));
+    }
 }

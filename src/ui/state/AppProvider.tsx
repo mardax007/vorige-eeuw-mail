@@ -117,11 +117,14 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const updateSettings = useCallback(
     async (patch: Partial<Settings>) => {
+      const before = settings;
       const next = { ...settings, ...patch };
       setSettings(next);
       try {
         await api.saveSettings(next);
       } catch (e: unknown) {
+        // The screen shows what is really stored, not a choice that was not kept.
+        setSettings(before);
         showError(e);
       }
     },
@@ -193,7 +196,7 @@ export function AppProvider({ children }: AppProviderProps) {
       setOpenMessageId(messageId);
       setView({ kind: "mail" });
     },
-    composeTo: (to) => compose(newDraft({ to })),
+    composeTo: (to, subject) => compose(newDraft({ to, subject })),
     showError,
   });
 
