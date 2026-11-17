@@ -1,11 +1,13 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "mobile",
-  "description": "Android: the notification plugin's own start script asks whether notifications are allowed; Telefoon koppelen reads the PC's code with the camera.",
+  "description": "Android: the notification plugin's own start script asks whether notifications are allowed; Telefoon koppelen reads the PC's code with the camera; the back key does what the screen's own Terug does (src/api/backButton.ts).",
   "platforms": ["android"],
   "windows": ["main"],
   "permissions": [
     "notification:allow-is-permission-granted",
+    "core:app:allow-register-listener",
+    "core:app:allow-remove-listener",
     "barcode-scanner:allow-scan",
     "barcode-scanner:allow-cancel",
     "barcode-scanner:allow-check-permissions",
