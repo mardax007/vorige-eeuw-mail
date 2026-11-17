@@ -1,5 +1,3 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -7,15 +5,11 @@ import { describe, expect, it } from "vitest";
  * This reads every screen file and flags words written straight into JSX: text between tags and
  * text in the attributes a person reads or hears (aria-label, title, placeholder, alt).
  */
-const ROOT = join(__dirname, "..");
-
-function screenFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === "test" || name === "i18n" ? [] : screenFiles(path);
-    return path.endsWith(".tsx") && !path.endsWith(".test.tsx") ? [path] : [];
-  });
-}
+const SCREENS: Record<string, string> = import.meta.glob(["../**/*.tsx", "!../**/*.test.tsx", "!../test/**"], {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
 
 /** Two or more letters in a row: a word, not a separator such as "·" or "–". */
 const WORD = /\p{L}{2,}/u;
@@ -49,11 +43,9 @@ describe("screen text", () => {
   });
 
   it("has no words written straight into a screen", () => {
-    const files = screenFiles(ROOT);
+    const files = Object.entries(SCREENS);
     expect(files.length).toBeGreaterThan(20);
-    const offenders = files.flatMap((f) =>
-      literals(readFileSync(f, "utf8")).map((text) => `${relative(ROOT, f)}: ${text}`),
-    );
+    const offenders = files.flatMap(([file, source]) => literals(source).map((text) => `${file}: ${text}`));
     expect(offenders).toEqual([]);
   });
 });
