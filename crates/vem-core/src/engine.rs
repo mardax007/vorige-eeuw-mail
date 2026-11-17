@@ -269,6 +269,13 @@ impl Engine {
             match result {
                 Ok(imap) => {
                     first_run = false;
+                    if retry != RETRY_FIRST {
+                        // The connection is back after a failure: what waits in Postvak UIT goes now.
+                        if self.store.retry_waiting_now(&id, now()).unwrap_or(0) > 0 {
+                            self.outbox_changed();
+                            self.outbox_wake.notify_one();
+                        }
+                    }
                     retry = RETRY_FIRST;
                     let _ = self.store.set_last_error(&id, None);
                     self.sink.sync_state(&id, false, None);

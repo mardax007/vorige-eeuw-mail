@@ -103,6 +103,16 @@ impl Store {
         Ok(())
     }
 
+    /// The connection is back: messages of this account that wait for a retry go now instead of
+    /// at their retry time. Returns how many.
+    pub fn retry_waiting_now(&self, account_id: &str, now: i64) -> Result<usize> {
+        Ok(self.db().execute(
+            "UPDATE outbox SET send_at = ?2
+             WHERE account_id = ?1 AND state = 'waiting' AND error_json IS NOT NULL AND send_at > ?2",
+            params![account_id, now],
+        )?)
+    }
+
     pub fn sent(&self, id: &str) -> Result<()> {
         self.db().execute("DELETE FROM outbox WHERE id = ?1", [id])?;
         Ok(())
@@ -158,5 +168,38 @@ mod tests {
         assert!(s.take_due(200).unwrap().is_some());
         s.sent(&item.id).unwrap();
         assert!(s.outbox().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_refused_message_is_kept_with_every_line_of_the_reply() {
+        let (_d, s) = store();
+        let d = Draft { account_id: "a".into(), subject: "Uitnodiging".into(), body_text: "Komt u?".into(), ..Default::default() };
+        let item = s.queue_send(&d, 100).unwrap();
+        s.take_due(100).unwrap().unwrap();
+        let reply = "550-5.1.1 The email account that you tried to reach does not exist.\r\n550-5.1.1  Please try\r\n550 5.1.1 double-checking";
+        s.send_failed(&item.id, &VemError::new(Code::SmtpCmd01).with_reply(reply.to_string()), None).unwrap();
+        let shown = s.outbox().unwrap();
+        assert_eq!(shown[0].state, OutboxState::Failed);
+        assert_eq!(shown[0].error.as_ref().unwrap().server_reply.as_deref(), Some(reply), "every line, as sent");
+        assert!(s.take_due(i64::MAX).unwrap().is_none(), "not tried again by itself");
+        let back = s.cancel_send(&item.id).unwrap();
+        assert_eq!((back.subject.as_str(), back.body_text.as_str()), ("Uitnodiging", "Komt u?"), "the message is kept");
+    }
+
+    #[test]
+    fn a_returning_connection_brings_retries_forward_only_for_that_account() {
+        let (_d, s) = store();
+        let mine = s.queue_send(&Draft { account_id: "a".into(), ..Default::default() }, 100).unwrap();
+        let other = s.queue_send(&Draft { account_id: "b".into(), ..Default::default() }, 100).unwrap();
+        let fresh = s.queue_send(&Draft { account_id: "a".into(), ..Default::default() }, 500).unwrap();
+        for _ in 0..2 {
+            let row = s.take_due(100).unwrap().unwrap();
+            s.send_failed(&row.id, &VemError::new(Code::SmtpConnect01), Some(400)).unwrap();
+        }
+        assert!(s.outbox().unwrap().iter().filter(|i| i.id != fresh.id).all(|i| i.error.is_some()));
+        let _ = other;
+        assert_eq!(s.retry_waiting_now("a", 150).unwrap(), 1, "only the failed one of account a");
+        assert_eq!(s.take_due(150).unwrap().unwrap().id, mine.id);
+        assert!(s.take_due(150).unwrap().is_none(), "b and the undo delay of the fresh one are kept");
     }
 }

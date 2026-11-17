@@ -520,3 +520,66 @@ async fn attachments_with_accents_and_replies_arrive_intact() {
     assert_eq!(parsed.references, vec![first_id]);
     e.pause().await;
 }
+
+/// A message written while the connection is down waits in Postvak UIT with the error shown, and
+/// goes once, and only once, as soon as the connection is back (not at its later retry time).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_message_written_offline_is_sent_once_when_the_connection_returns() {
+    if !server_up() {
+        return;
+    }
+    let run = uuid::Uuid::new_v4().simple().to_string();
+    let d = tempfile::tempdir().unwrap();
+    let (e, _) = engine(d.path());
+    e.start().unwrap();
+    let jan = e
+        .add_account("Jan", "jan@example.test", Secret::Password { password: "geheim".into() }, settings("jan@example.test"))
+        .await
+        .unwrap();
+    assert!(until(20, || e.store.folder_by_role(&jan.id, FolderRole::Inbox).unwrap().is_some()).await);
+
+    // The network goes away.
+    e.stop_account(&jan.id);
+    let mut off = settings("jan@example.test");
+    off.imap_port = 1;
+    off.smtp_port = 1;
+    e.store.set_account_settings(&jan.id, &off).unwrap();
+    e.start_account(&jan.id);
+    assert!(until(10, || e.store.account(&jan.id).unwrap().last_error.is_some()).await, "the mailbox notices");
+
+    let subject = format!("Offline geschreven {run}");
+    e.send(Draft {
+        account_id: jan.id.clone(),
+        to: vec![Addr::new(Some("Piet"), "piet@example.test")],
+        subject: subject.clone(),
+        body_text: "Geschreven in de trein.".into(),
+        ..Default::default()
+    })
+    .unwrap();
+    let waiting = until(15, || {
+        e.store.outbox().unwrap().iter().any(|i| {
+            i.subject == subject
+                && i.state == vem_core::model::OutboxState::Waiting
+                && i.error.as_ref().is_some_and(|x| x.code == "VEM-SMTP-CONNECT-01")
+        })
+    })
+    .await;
+    assert!(waiting, "waits in Postvak UIT with the error: {:?}", e.store.outbox().unwrap());
+
+    // The connection returns; the mailbox loop notices and Postvak UIT empties at once.
+    e.store.set_account_settings(&jan.id, &settings("jan@example.test")).unwrap();
+    e.wake(Some(&jan.id));
+    assert!(until(30, || e.store.outbox().unwrap().is_empty()).await, "sent well before the five-minute retry");
+    let mut got = Vec::new();
+    for _ in 0..40 {
+        got = piet_inbox(&subject).await;
+        if !got.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert_eq!(piet_inbox(&subject).await.len(), 1, "arrived once, and only once");
+    assert_eq!(got.len(), 1);
+    e.pause().await;
+}
