@@ -274,6 +274,19 @@ mod tests {
         assert!(missing.is_empty(), "codes not in docs/errors.md: {missing:?}");
     }
 
+    /// Searching for a code must find its public page (phase 4): run `node scripts/help-pages.mjs`
+    /// after adding a code to docs/errors.md.
+    #[test]
+    fn every_code_has_a_help_page() {
+        let help = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/help");
+        let missing: Vec<&str> = Code::ALL
+            .iter()
+            .map(|c| c.as_str())
+            .filter(|code| !std::fs::read_to_string(help.join(format!("{code}.md"))).is_ok_and(|page| page.contains(code)))
+            .collect();
+        assert!(missing.is_empty(), "no page in docs/help for: {missing:?}");
+    }
+
     #[test]
     fn masking_keeps_allowed_and_rest_of_reply() {
         let reply = "550 5.1.1 <someone@example.nl>: Recipient address rejected (from me@home.nl)";
