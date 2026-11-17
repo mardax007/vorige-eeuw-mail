@@ -124,6 +124,10 @@ Layout:
   the command-line tools, no Android Studio), Rust targets `aarch64-linux-android` and the other three.
   `scripts\androidenv.cmd` sets `ANDROID_HOME`, `NDK_HOME` and `JAVA_HOME` for one command only and
   then calls `vcenv.cmd`. The Android project is `src-tauri/gen/android` (made by `tauri android init`).
+- Android emulator (17 November 2026): AVD `vem-test` (Android 16, x86_64; build the APK with
+  `--target x86_64` for it). Started with `-writable-system` it reaches GreenMail on the PC as
+  `10.0.2.2`, with a self-made test CA and a test autoconfig host; certificates, keystore and the
+  `hosts` entry live in `F:\Projects\Mail-scratch\greenmail\tls`, outside the repository.
 
 ## Commands
 
