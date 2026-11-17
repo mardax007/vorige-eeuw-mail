@@ -14,7 +14,7 @@ import { ReadingPane } from "./ReadingPane";
 import { availableChoices, scopeFor, SearchBar, useSearch, type ScopeChoice } from "./SearchBar";
 import { useMailKeys } from "./useMailKeys";
 import { useMessages } from "./useMessages";
-import { useNarrow } from "./useNarrow";
+import { useScreenSize } from "./useNarrow";
 
 function locationTitle(location: MailLocation, folder: Folder | undefined, tagName: string | undefined): string {
   if (location.kind === "outbox") return t("folder.outbox");
@@ -31,7 +31,7 @@ function defaultChoice(choices: readonly ScopeChoice[]): ScopeChoice {
 export function MailView() {
   const app = useApp();
   const { location, locationPick, folders, accounts, tags, mailVersion, openMessageId, setOpenMessageId, showError } = app;
-  const isNarrow = useNarrow(app.settings.textSize);
+  const { isNarrow, isPhone } = useScreenSize(app.settings.textSize);
   const folder = location.kind === "folder" ? folders.find((f) => f.id === location.folderId) : undefined;
   const choices = availableChoices(location, folder);
   const locationKey = JSON.stringify(location);
@@ -39,12 +39,15 @@ export function MailView() {
   const [choice, setChoice] = useState<ScopeChoice>(defaultChoice(choices));
   const [isConfirmingEmpty, setIsConfirmingEmpty] = useState(false);
   const [exportedTo, setExportedTo] = useState<string | null>(null);
+  // On a phone the folders are a screen of their own, opened with "Mappen".
+  const [isPickingFolder, setIsPickingFolder] = useState(false);
 
   useEffect(() => {
     // Picking a folder, also the same one again, ends a search.
     setQuery("");
     setChoice(defaultChoice(availableChoices(location, folder)));
     setExportedTo(null);
+    setIsPickingFolder(false);
     // Reset only when the place changes or is picked again, not when its counts change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationKey, locationPick]);
@@ -106,6 +109,8 @@ export function MailView() {
   const isAccountNamed = folder === undefined;
   const open = (m: MessageSummary) => setOpenMessageId(m.id);
   const isOverList = isNarrow && openMessageId !== null;
+  const isFolderScreen = isPhone && isPickingFolder && !isOverList;
+  const showFolders = !isOverList && (!isPhone || isFolderScreen);
 
   const middle =
     location.kind === "outbox" && !isSearching ? (
@@ -128,9 +133,20 @@ export function MailView() {
     );
 
   return (
-    <div className={`mail-view${isNarrow ? " narrow" : ""}`}>
-      {!isOverList && <FolderPane />}
+    <div className={`mail-view${isNarrow ? " narrow" : ""}${isPhone ? " phone" : ""}`}>
+      {isFolderScreen && (
+        <button type="button" className="back-button phone-back" onClick={() => setIsPickingFolder(false)}>
+          {t("small.backToList")}
+        </button>
+      )}
+      {showFolders && <FolderPane />}
+      {!isFolderScreen && (
       <div className="mail-main">
+        {isPhone && !isOverList && (
+          <button type="button" className="folders-button" onClick={() => setIsPickingFolder(true)}>
+            {t("small.folders")}
+          </button>
+        )}
         {!isOverList && (
           <SearchBar query={query} choice={choice} choices={choices} onQuery={setQuery} onChoice={setChoice} />
         )}
@@ -158,6 +174,7 @@ export function MailView() {
           )}
         </div>
       </div>
+      )}
       {isConfirmingEmpty && (
         <ConfirmDialog
           text={t("folder.emptyTrashConfirm")}

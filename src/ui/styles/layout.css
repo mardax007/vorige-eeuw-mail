@@ -223,3 +223,63 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Phone (Android, phase 5): one part of the mail screen at a time — the folders, the list, or
+   the open message — each the full width. The buttons at the top stay, without the name. */
+.mail-view.phone {
+  flex-direction: column;
+}
+
+.mail-view.phone .folder-pane {
+  width: auto;
+  flex: 1;
+  border-right: none;
+}
+
+.folders-button {
+  align-self: flex-start;
+  margin: 8px 12px 0;
+  font-weight: 600;
+}
+
+.phone-back {
+  align-self: stretch;
+  margin: 8px 12px 0;
+}
+
+@media (max-width: 639px) {
+  .app-name {
+    display: none;
+  }
+
+  .top-right {
+    margin-left: 0;
+  }
+
+  .top-bar {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* Two even rows of buttons that fill the width, instead of three ragged ones. */
+  .top-bar .button-row {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .top-bar .button-row > button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+  }
+
+  .page-wrap {
+    padding: 8px 12px 24px;
+  }
+
+  .bottom-bars {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}

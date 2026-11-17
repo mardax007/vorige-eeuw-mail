@@ -26,6 +26,10 @@ export const nl = {
   "folder.more": "Meer mappen",
   "folder.less": "Minder mappen",
   "folder.tags": "Labels",
+
+  // Phone (one part of the mail screen at a time)
+  "small.folders": "Mappen",
+  "small.backToList": "Terug naar de berichten",
   "folder.oldMail": "Oude mail",
   "folder.unreadCount": "{count} ongelezen",
   "folder.waitingCount": "{count} wachten op versturen",

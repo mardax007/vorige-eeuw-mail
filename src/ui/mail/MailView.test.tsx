@@ -141,3 +141,33 @@ describe("search", () => {
     expect(await screen.findByRole("heading", { name: "Alle postvakken" })).toBeTruthy();
   });
 });
+
+describe("on a phone", () => {
+  it("shows one part at a time: list, Mappen, back to the list, the message with Terug", async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
+    try {
+      const user = userEvent.setup();
+      render(<App />);
+      await screen.findByRole("button", { name: /Koffie donderdag\?/ });
+      expect(screen.queryByRole("navigation", { name: "Mappen" })).toBeNull();
+
+      await user.click(screen.getByRole("button", { name: "Mappen" }));
+      await screen.findByRole("navigation", { name: "Mappen" });
+      expect(screen.queryByRole("button", { name: /Koffie donderdag\?/ })).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Terug naar de berichten" }));
+      expect(await screen.findByRole("button", { name: /Koffie donderdag\?/ })).toBeTruthy();
+
+      await user.click(screen.getByRole("button", { name: "Mappen" }));
+      await user.click(within(await screen.findByRole("navigation", { name: "Mappen" })).getByRole("button", { name: /^Alle postvakken/ }));
+      expect(await screen.findByRole("heading", { name: "Alle postvakken" })).toBeTruthy();
+      expect(screen.queryByRole("navigation", { name: "Mappen" })).toBeNull();
+
+      await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));
+      expect(await screen.findByRole("button", { name: /Terug/ })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Mappen" })).toBeNull();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+    }
+  });
+});
