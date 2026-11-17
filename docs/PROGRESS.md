@@ -7,11 +7,13 @@ Claude Code updates this file at the end of every session.
 - **Phase:** phases 1 to 4 are built in code and tested on this PC; their exit criteria that need a
   real mailbox, a real PC of a family member, GitHub or Martijn are still open (list below).
   Phase 5 (Android) started on 17 November 2026 (Martijn's go): the phone layout of the mail
-  screen is built; building an APK waits for the Android SDK and NDK on this PC (not installed;
-  a download of a few GB that Martijn approves first).
-- **Next for Claude Code:** with the SDK and NDK: `tauri android init`, the APK, then phase 5
-  tasks 3 to 5 (sign-in, TLS, keystore). Without them: phase 5 task 8 (Bijwerken button) and
-  task 7's proposal.
+  screen is built; the Android SDK and NDK are installed (Martijn approved the download) and a
+  debug APK builds (`scripts\androidenv.cmd`, CLAUDE.md Commands). Passwords on Android are
+  sealed with a key kept in the Android Keystore (task 5) and TLS uses Android's own certificate
+  check (task 4), both in code and compiled, **not yet run on a phone or emulator**.
+- **Next for Claude Code:** run the APK on an emulator (needs the emulator and a system image,
+  another download Martijn approves first) to try the keystore, TLS against GreenMail and the
+  screens; then task 3 (sign-in), task 8 (Bijwerken button) and task 7's proposal.
 - **Martijn, to unblock the rest:**
   1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
      repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
@@ -108,6 +110,7 @@ session log for 2026-11-17.)
 | 2026-11-17 | Imported a real Outlook Express DBX (fillyfoal's `Inbox.dbx`): new test `real_dbx_file_imports` over `VEM_REAL_DBX`. CI now fetches the four PSTs and the DBX into the runner temp and points the import tests at them, so a lost outlook-pst patch fails CI | The DBX fixture's two message-info blocks carry no attributes, so both entries are header-only (no body); our reader reads the signature, item count and index tree right and classifies them correctly | A truly damaged PST; the real Live Mail/providers; Martijn's items; phase 5 |
 | 2026-11-17 | Rescue-only path proven on a real PST: flipping one reserved header byte breaks outlook-pst's header CRC but not readpst, so the normal reader fails with VEM-IMPORT-READ-01 (the rescue offer) and readpst imports all 71 messages. New test `a_pst_the_normal_reader_rejects_is_read_by_rescue`, run in CI | outlook-pst checks dwCRCPartial over the header; readpst does not, so a reserved-field flip cleanly separates the two readers | The real Live Mail store/providers/sign-in; installed-build checks; Martijn's items; phase 5 |
 | 2026-11-17 | GitHub: public repository `mardax007/vorige-eeuw-mail` (GPL-3.0), Tests workflow and Pages on; first runs green, real-file tests included. Damaged data, on self-made damage (Martijn: "corrupt data to see recov"): `Store::open` refuses a damaged `index.sqlite` (`PRAGMA quick_check`, VEM-STORE-READ-01, file left as it is); a mailbox message whose `.eml` was removed or emptied is downloaded again when opened (GreenMail test), a local one reports its loss; a damaged password file gives VEM-STORE-SECRET-01; `import/corrupt_tests.rs` feeds truncated, overwritten and bit-flipped copies of the empty and Enron PST, the real and a self-made 40-message DBX, an mbox and an EML folder to the import (each must end within 2 minutes, leave the file unchanged, and import what it can or stop with a VEM-IMPORT-READ code). Phase 5 started: phone layout of the mail screen (one part at a time below 640 px) | Three import faults found and fixed: a non-DBX file "imported 0 messages" (now refused, or listed as skipped in a folder); a DBX cut inside a message block lost the whole recovery scan (now 26 of 26 whole messages back); a damaged mbox start and a cut "From " line were dropped silently or became an empty message (now listed). Bit flips and overwritten runs in the Enron PST lose at most a few messages (68 to 71 of 71). A PST cut short is lost to both readers (open items). The Live Mail message table is undocumented | Android SDK and NDK (Martijn's OK for the download), then the APK; phase 5 tasks 7 and 8 meanwhile |
+| 2026-11-17 | Android build: SDK command-line tools, platform 36, build-tools, NDK 29 in `%LOCALAPPDATA%\Android\Sdk` (Gradle added platform 37 and build-tools 36 itself; the SDK licence was accepted as part of Martijn's go), four Rust Android targets, `tauri android init`. Desktop-only parts (tray, autostart, single instance, updater, folder picker, taskbar badge) behind `cfg(desktop)`; `tauri.android.conf.json` leaves the Windows rescue tool out of the APK. Keystore-sealed password files on Android (same file layout and damage handling as DPAPI; sealing tested on Windows). `rustls-platform-verifier` Android part: Kotlin component from its Maven archive, ProGuard rule, `net::init_android()` at start. Debug APK (arm64) builds. | `JAVA_HOME` must be a real `jdk-*` folder (the `latest` link breaks Gradle); Gradle 9.6.1 runs on JDK 26. A source edit during a running Android build breaks that build. The verifier's README says group `rustls`, its archive uses `org.rustls`. | Emulator run (approval for the download), then sign-in on Android |
 
 ## Ideas parked
 

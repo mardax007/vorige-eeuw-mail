@@ -110,6 +110,26 @@ pub fn tls_config(trust: Trust) -> Result<Arc<rustls::ClientConfig>> {
     Ok(Arc::new(config))
 }
 
+/// Android: give rustls-platform-verifier the app's Java context once, before the first TLS
+/// connection, so certificates are checked by Android itself. Tauri stores the context in
+/// `ndk-context` when the app starts; the shell calls this from its setup.
+#[cfg(target_os = "android")]
+pub fn init_android() -> Result<()> {
+    let ctx = ndk_context::android_context();
+    if ctx.vm().is_null() || ctx.context().is_null() {
+        return Err(VemError::new(Code::AppCmd01).with_detail("android context missing"));
+    }
+    // SAFETY: Tauri put a valid JavaVM pointer in ndk-context at start (checked non-null).
+    let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) };
+    vm.attach_current_thread(|env| -> std::result::Result<(), jni::errors::Error> {
+        // SAFETY: a global reference to the app context, valid for the whole process; JObject
+        // does not delete it on drop, and the verifier makes its own global reference.
+        let context = unsafe { jni::objects::JObject::from_raw(env, ctx.context().cast()) };
+        rustls_platform_verifier::android::init_with_env(env, context)
+    })
+    .map_err(|e| VemError::new(Code::AppCmd01).with_detail(format!("android tls init: {e}")))
+}
+
 /// Open a TCP connection with a timeout, mapping failures to the protocol's codes.
 pub async fn tcp(host: &str, port: u16, proto: Proto) -> Result<TcpStream> {
     let addrs = match tokio::time::timeout(CONNECT_TIMEOUT, tokio::net::lookup_host((host, port)))

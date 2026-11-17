@@ -1,6 +1,7 @@
 //! The Tauri shell: one window, the icon next to the clock, notifications, starting with
 //! Windows, silent updates, and the commands the screens call. Mail logic lives in vem-core.
 
+#[cfg(windows)]
 mod badge;
 mod commands;
 mod shell;
@@ -36,18 +37,25 @@ pub const HIDDEN_ARG: &str = "--verborgen";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Windows only: one running copy, starting with Windows, silent signed updates.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| shell::show_main(app)))
+        .plugin(tauri_plugin_autostart::Builder::new().args([HIDDEN_ARG]).build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_autostart::Builder::new().args([HIDDEN_ARG]).build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             vem_core::log::init(&data);
             vem_core::log::event("app.start", &[("version", vem_core::version())]);
+            // Android checks certificates through its own Java code; set that up before any mail.
+            #[cfg(target_os = "android")]
+            vem_core::net::init_android().map_err(|e| format!("{e:?}"))?;
             let store = Arc::new(Store::open(&data).map_err(|e| format!("{e:?}"))?);
             let secrets = Arc::new(Secrets::new(&data));
             let sink = Arc::new(shell::EventSink(app.handle().clone()));
@@ -64,6 +72,7 @@ pub fn run() {
             tauri::async_runtime::block_on(async { engine.start() }).map_err(|e| format!("{e:?}"))?;
             let hidden = std::env::args().any(|a| a == HIDDEN_ARG);
             shell::create_main_window(app.handle(), !hidden)?;
+            #[cfg(desktop)]
             shell::create_tray(app.handle())?;
             shell::watch_notification_clicks(app.handle());
             shell::update_badge(app.handle());

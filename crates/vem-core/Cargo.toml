@@ -43,6 +43,14 @@ tempfile = "3.27.0"
 [target."cfg(windows)".dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Memory", "Win32_Storage_FileSystem"] }
 
+# Android: the key that seals password files lives in the Android Keystore (CLAUDE.md, Secrets).
+[target.'cfg(target_os = "android")'.dependencies]
+android-native-keyring-store = "1.0.0"
+keyring-core = "1.0.1"
+# The same jni as rustls-platform-verifier, to hand it the app context (net::init_android).
+jni = { version = "0.22.4", default-features = false }
+ndk-context = "0.1.1"
+
 [features]
 # Only for integration tests against the local throwaway test server. Never enabled by the app.
 test-support = []

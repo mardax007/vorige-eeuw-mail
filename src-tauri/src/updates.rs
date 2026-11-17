@@ -4,11 +4,13 @@
 //! being written, sent or imported. The release URL, the update key and the log-request URL
 //! come from build-time settings; a local build without them never updates.
 
+#[cfg(desktop)]
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
+#[cfg(desktop)]
 use tauri_plugin_updater::UpdaterExt;
 use vem_core::model::now;
 use vem_core::store::Store;
@@ -17,8 +19,10 @@ use crate::AppState;
 
 const FIRST_CHECK: Duration = Duration::from_secs(120);
 const CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
+#[cfg(desktop)]
 const IDLE_POLL: Duration = Duration::from_secs(60);
 /// Someone who saved a draft this recently may still be writing.
+#[cfg(desktop)]
 const WRITING_SECS: i64 = 10 * 60;
 /// "Bijgewerkt naar …" shows for one day.
 const SHOW_UPDATE_SECS: i64 = 24 * 60 * 60;
@@ -37,6 +41,7 @@ pub fn recent_update(store: &Store) -> Option<Updated> {
     (u.version == vem_core::version() && now() - u.at < SHOW_UPDATE_SECS).then_some(u)
 }
 
+#[cfg(desktop)]
 fn idle(app: &AppHandle) -> bool {
     let state = app.state::<AppState>();
     let writing = now() - state.last_draft_save.load(Ordering::Relaxed) < WRITING_SECS;
@@ -49,6 +54,8 @@ pub fn spawn(app: AppHandle) {
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
             check_log_requests(&app).await;
+            // Android never installs an update silently from outside a store (phase 5 task 8).
+            #[cfg(desktop)]
             if let Err(detail) = check_update(&app).await {
                 // A failed update goes to Martijn like any other error (docs/errors.md).
                 let e = vem_core::VemError::new(vem_core::error::Code::UpdateCmd01).with_detail(detail);
@@ -71,6 +78,7 @@ async fn check_log_requests(app: &AppHandle) {
     }
 }
 
+#[cfg(desktop)]
 async fn check_update(app: &AppHandle) -> Result<(), String> {
     let (Some(url), Some(key)) = (option_env!("VEM_UPDATE_URL"), option_env!("VEM_UPDATER_PUBKEY")) else {
         return Ok(());

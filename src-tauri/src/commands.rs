@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
+#[cfg(desktop)]
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -412,15 +413,36 @@ fn get_settings(state: State<'_, AppState>) -> R<Settings> {
 #[tauri::command]
 fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> R<()> {
     let s = state.engine.store.save_settings(&settings)?;
+    set_autostart(&app, s.start_with_windows);
+    Ok(())
+}
+
+/// Starting with Windows follows the setting. A phone has no such thing.
+#[cfg(desktop)]
+fn set_autostart(app: &AppHandle, wanted: bool) {
     let auto = app.autolaunch();
     let on = auto.is_enabled().unwrap_or(false);
-    if s.start_with_windows != on {
-        let r = if s.start_with_windows { auto.enable() } else { auto.disable() };
+    if wanted != on {
+        let r = if wanted { auto.enable() } else { auto.disable() };
         if let Err(e) = r {
             vem_core::log::event("autostart.failed", &[("detail", &e.to_string())]);
         }
     }
-    Ok(())
+}
+
+#[cfg(mobile)]
+fn set_autostart(_app: &AppHandle, _wanted: bool) {}
+
+/// A folder chosen in the system dialog. Android's file picker chooses files only; importing
+/// old mail folders is a PC task, so the phone offers none.
+#[cfg(desktop)]
+fn pick_folder(d: tauri_plugin_dialog::FileDialogBuilder<tauri::Wry>) -> Option<tauri_plugin_dialog::FilePath> {
+    d.blocking_pick_folder()
+}
+
+#[cfg(mobile)]
+fn pick_folder(_d: tauri_plugin_dialog::FileDialogBuilder<tauri::Wry>) -> Option<tauri_plugin_dialog::FilePath> {
+    None
 }
 
 // ---- import and export -------------------------------------------------------------
@@ -435,7 +457,7 @@ async fn pick_import_file(app: AppHandle, kind: ImportKind) -> R<Option<ImportSo
     let picked = tauri::async_runtime::spawn_blocking(move || {
         let d = app.dialog().file();
         match kind {
-            ImportKind::Eml | ImportKind::Wlm => d.blocking_pick_folder(),
+            ImportKind::Eml | ImportKind::Wlm => pick_folder(d),
             ImportKind::Pst => d.add_filter("Outlook", &["pst"]).blocking_pick_file(),
             ImportKind::Dbx => d.add_filter("Outlook Express", &["dbx"]).blocking_pick_file(),
             ImportKind::Mbox => d.blocking_pick_file(),
@@ -466,7 +488,7 @@ pub struct ContactsImported {
 async fn import_contacts_file(app: AppHandle, state: State<'_, AppState>, folder: bool) -> R<Option<ContactsImported>> {
     let picked = tauri::async_runtime::spawn_blocking(move || {
         let d = app.dialog().file();
-        if folder { d.blocking_pick_folder() } else { d.add_filter("vCard", &["vcf"]).blocking_pick_file() }
+        if folder { pick_folder(d) } else { d.add_filter("vCard", &["vcf"]).blocking_pick_file() }
     })
     .await
     .map_err(|e| app_error(e.to_string()))?;

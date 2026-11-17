@@ -3,9 +3,12 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem};
+#[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::NewWindowResponse;
+#[cfg(windows)]
 use tauri::image::Image;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_notification::NotificationExt;
@@ -17,6 +20,7 @@ use vem_core::model::{MessageSummary, OutboxItem};
 use crate::AppState;
 
 pub const MAIN: &str = "main";
+#[cfg(desktop)]
 const TRAY_ID: &str = "vem-tray";
 
 static QUITTING: AtomicBool = AtomicBool::new(false);
@@ -120,8 +124,11 @@ pub fn update_badge(app: &AppHandle) {
         let icon = crate::badge::pixels(count).map(|px| Image::new_owned(px, crate::badge::SIZE, crate::badge::SIZE));
         let _ = w.set_overlay_icon(icon);
     }
-    #[cfg(not(windows))]
+    #[cfg(all(desktop, not(windows)))]
     let _ = w.set_badge_count((count > 0).then_some(i64::from(count)));
+    // Android draws its own dot on the app icon from the notifications.
+    #[cfg(mobile)]
+    let _ = (w, count);
 }
 
 pub fn quitting(_app: &AppHandle) -> bool {
@@ -136,6 +143,7 @@ pub fn quit(app: &AppHandle) {
 
 pub fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(MAIN) {
+        #[cfg(desktop)]
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
@@ -220,6 +228,7 @@ fn tell_once_still_running(app: &AppHandle) {
     let _ = state.engine.store.save_settings(&s);
 }
 
+#[cfg(desktop)]
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let menu = tray_menu(app, &ShellTexts::default())?;
     let mut b = TrayIconBuilder::with_id(TRAY_ID)
@@ -243,6 +252,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
 fn tray_menu(app: &AppHandle, t: &ShellTexts) -> tauri::Result<Menu<tauri::Wry>> {
     let open = MenuItem::with_id(app, "open", if t.open.is_empty() { "Vorige Eeuw Mail" } else { &t.open }, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", if t.quit.is_empty() { "X" } else { &t.quit }, true, None::<&str>)?;
@@ -251,6 +261,7 @@ fn tray_menu(app: &AppHandle, t: &ShellTexts) -> tauri::Result<Menu<tauri::Wry>>
 
 /// The screens sent their words: rebuild the tray menu with them.
 pub fn apply_texts(app: &AppHandle, t: ShellTexts) -> tauri::Result<()> {
+    #[cfg(desktop)]
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         tray.set_menu(Some(tray_menu(app, &t)?))?;
     }

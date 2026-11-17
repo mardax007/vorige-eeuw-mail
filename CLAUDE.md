@@ -120,6 +120,10 @@ Layout:
 - Visual Studio 18 on this PC lacks the x64 libraries, so every cargo command runs through
   `scripts\vcenv.cmd`, which loads the Build Tools 2022 x64 environment first. From Git Bash:
   `cmd //c "scripts\vcenv.cmd cargo …"`.
+- Android (phase 5): SDK and NDK in `%LOCALAPPDATA%\Android\Sdk` (installed 17 November 2026 with
+  the command-line tools, no Android Studio), Rust targets `aarch64-linux-android` and the other three.
+  `scripts\androidenv.cmd` sets `ANDROID_HOME`, `NDK_HOME` and `JAVA_HOME` for one command only and
+  then calls `vcenv.cmd`. The Android project is `src-tauri/gen/android` (made by `tauri android init`).
 
 ## Commands
 
@@ -133,6 +137,7 @@ Layout:
 | Search speed on 100,000 messages | `scripts\vcenv.cmd cargo test -p vem-core --release --test search_perf -- --ignored --nocapture` |
 | The app with live reload | `scripts\vcenv.cmd npm run tauri dev` |
 | Installer (NSIS, per user) | `scripts\vcenv.cmd npm run tauri build` (output in `target\release\bundle\nsis`) |
+| Android debug APK (phone, arm64) | `scripts\androidenv.cmd npm run tauri android build -- --debug --apk --target aarch64` (output in `src-tauri\gen\android\app\build\outputs\apk`) |
 
 GreenMail is the local test mail server (IMAPS 3993, SMTPS 3465, users `jan@example.test` and
 `piet@example.test`, password `geheim`; made-up test accounts, not secrets). The jar lives outside the
