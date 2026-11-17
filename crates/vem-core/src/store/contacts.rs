@@ -65,8 +65,19 @@ impl Store {
             phone: c.phone.clone().filter(|p| !p.trim().is_empty()),
             note: c.note.clone().filter(|n| !n.trim().is_empty()),
         };
-        self.write_contact(&saved, now(), false)?;
+        self.write_contact(&saved, self.change_time(&id)?, false)?;
         Ok(saved)
+    }
+
+    /// The time a change made here is stamped with: now, but always later than the version it
+    /// replaces. A paired device whose clock runs ahead could otherwise stamp a contact in this
+    /// device's future, and the edit made here afterwards would lose the merge on both sides.
+    fn change_time(&self, id: &str) -> Result<i64> {
+        let previous: Option<i64> = self
+            .db()
+            .query_row("SELECT changed_at FROM contacts WHERE id = ?1", [id], |r| r.get(0))
+            .optional()?;
+        Ok(previous.map_or(now(), |p| now().max(p + 1)))
     }
 
     fn write_contact(&self, c: &Contact, changed_at: i64, deleted: bool) -> Result<()> {
@@ -94,7 +105,7 @@ impl Store {
     /// Deleting keeps a mark, so a paired phone learns about it.
     pub fn delete_contact(&self, id: &str) -> Result<()> {
         let c = self.contact(id)?;
-        self.write_contact(&c, now(), true)
+        self.write_contact(&c, self.change_time(id)?, true)
     }
 
     pub fn contact_by_email(&self, email: &str) -> Result<Option<Contact>> {
@@ -225,5 +236,23 @@ mod tests {
         let mut stale = s.contacts_for_sync().unwrap();
         stale.iter_mut().for_each(|x| { x.changed_at -= 100; x.contact.name = "Stale".into() });
         assert!(!s.merge_contacts(&stale).unwrap());
+    }
+
+    /// The other device's clock runs an hour ahead: what is changed here afterwards must still win
+    /// there, so a deletion on this device is not undone by the next merge.
+    #[test]
+    fn a_change_here_beats_a_version_from_a_clock_that_runs_ahead() {
+        let (_d, s) = store();
+        let ahead = now() + 3600;
+        let from_pc = SyncContact { contact: Contact { id: "p1".into(), ..c("Oma", "oma@x.nl") }, changed_at: ahead, deleted: false };
+        assert!(s.merge_contacts(std::slice::from_ref(&from_pc)).unwrap());
+        s.delete_contact("p1").unwrap();
+        let mine = s.contacts_for_sync().unwrap();
+        assert!(mine[0].deleted && mine[0].changed_at > ahead, "the deletion is newer than the PC's version");
+
+        let (_d2, pc) = store();
+        pc.merge_contacts(std::slice::from_ref(&from_pc)).unwrap();
+        assert!(pc.merge_contacts(&mine).unwrap());
+        assert!(pc.contacts("").unwrap().is_empty(), "the PC takes the deletion");
     }
 }
