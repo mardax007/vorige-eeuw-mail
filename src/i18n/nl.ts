@@ -140,6 +140,7 @@ export const nl = {
 
   // Compose
   "compose.title": "Nieuwe e-mail",
+  "compose.titleReply": "Antwoord schrijven",
   "compose.from": "Van",
   "compose.to": "Aan",
   "compose.cc": "CC",

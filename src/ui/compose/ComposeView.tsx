@@ -189,11 +189,12 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
 
   const recipientCount = parseAddressList(fields.to).addresses.length + parseAddressList(fields.cc).addresses.length;
   const problemFor = (field: AddressFieldName) => (problem?.field === field ? problem.text : null);
+  const title = initial.inReplyTo ? t("compose.titleReply") : t("compose.title");
 
   return (
-    <section className="compose" aria-label={t("compose.title")}>
+    <section className="compose" aria-label={title}>
       <header className="compose-header">
-        <h2>{t("compose.title")}</h2>
+        <h2>{title}</h2>
         <p className="save-note" role="status">
           {isSavedNoteShown ? t("compose.saved") : ""}
         </p>

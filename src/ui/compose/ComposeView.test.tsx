@@ -214,3 +214,21 @@ describe("ComposeView", () => {
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("the heading", () => {
+  it("says Nieuwe e-mail for a new mail and Antwoord schrijven for a reply", async () => {
+    const { unmount } = render(
+      <AppProvider>
+        <ComposeView initial={draft} autosaveMs={60_000} onClose={vi.fn()} />
+      </AppProvider>,
+    );
+    expect(await screen.findByRole("heading", { name: "Nieuwe e-mail" })).toBeTruthy();
+    unmount();
+    render(
+      <AppProvider>
+        <ComposeView initial={{ ...draft, subject: "Re: Koffie", inReplyTo: "<a@b>" }} autosaveMs={60_000} onClose={vi.fn()} />
+      </AppProvider>,
+    );
+    expect(await screen.findByRole("heading", { name: "Antwoord schrijven" })).toBeTruthy();
+  });
+});
