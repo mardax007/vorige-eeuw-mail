@@ -56,14 +56,18 @@ really uses), `docs/research.md` (the research pass, with sources), `docs/source
 - Hosts from our own provider table, the domain's autoconfig file or the ISPDB entry for the domain
   count as looked up. Any other host (from MX, SRV or a guess) that is not under the user's own
   domain is shown to the user for confirmation before a password goes to it.
-- Credentials and mail go only to the user's own mail provider.
+- Credentials and mail go only to the user's own mail provider, with one exception: mail kept on the
+  PC (local folders) is copied to the user's own paired phone over the home network, encrypted and
+  authenticated with the pairing key (decision 26, `docs/pc-to-phone.md`). Never a password or token.
 - Error reports, logs and wishes are sent as email through the user's own provider to Martijn's
   address only. They never contain mail content, passwords or tokens; the only addresses in them are
   the sender's and Martijn's. The user is told once that this happens.
 - Besides mail servers, the app contacts only GitHub (updates and Martijn's log requests), the
   settings lookup (the domain's autoconfig host, Thunderbird's ISPDB, DNS), Google's and Microsoft's
-  sign-in pages when the user signs in that way, Microsoft's WebView2 installer, and, when the user
-  asks, a remote image's server. Anything else is added here first.
+  sign-in pages when the user signs in that way, Microsoft's WebView2 installer, the user's own paired
+  phone or PC on the local network (a UDP broadcast to find it, then one TCP connection from the PC to
+  the phone; only private addresses; added 17 November 2026, decision 26), and, when the user asks, a
+  remote image's server. Anything else is added here first.
 
 **Showing mail**
 - HTML mail renders in a sandboxed frame: scripts off, no access to the Rust core (no Tauri IPC),

@@ -37,6 +37,11 @@ mobile support is behind its desktop support; check the current plugin list for 
    phone scans it, keeps the key in Android's keystore, and syncs contacts through the mailbox folder
    of `../sync.md`. "Koppeling verbreken" on the PC makes a new key. Test on a throwaway account.
 
+10. **Mail kept on the PC, also on the phone** (decision 26, `../pc-to-phone.md`). The PC finds the
+    paired phone on the home Wi-Fi with a sealed UDP broadcast and copies its local folders to it,
+    by itself; the phone's copy follows the PC (moves, read, star, deletions). On the phone "Oude
+    mail ophalen" offers only "Uit een ander postvak".
+
 ## Exit criteria
 
 - [ ] The APK installs on each Android phone in the inventory
@@ -48,3 +53,5 @@ mobile support is behind its desktop support; check the current plugin list for 
 - [ ] The Android signing key is backed up
 - [ ] A contact added on the PC shows on the paired phone, and one changed on the phone shows on
       the PC
+- [ ] Old mail kept only on the PC shows on the paired phone on the same Wi-Fi, without a firewall
+      question on the PC (Martijn's PC and a family phone)

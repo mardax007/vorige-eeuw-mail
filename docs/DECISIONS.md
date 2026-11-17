@@ -108,31 +108,27 @@ one by itself.
   battery-optimisation question once. It starts again after a restart of the phone and after an
   update. The proposal and the facts behind it are in `docs/background-mail.md`.
 
+- **Decision 23, source of the rescue tool: attached (Martijn, 17 November 2026).** `readpst` and
+  its DLLs are GPL and LGPL binaries from MSYS2. The release workflow attaches the MSYS2 source
+  archive of every package they come from, at exactly the shipped versions, to every release
+  (`scripts/rescue-sources.mjs`; 14 archives, about 190 MB, most of it gcc). The installer's
+  `rescue\README.txt` names those files. Before, it only pointed to MSYS2's archive, which GPL-2
+  section 3(c) allows only for non-commercial distribution.
+- **Decision 25, the QR scanner: keep the plugin (Martijn, 17 November 2026).** Every family Android
+  phone has Google Play, so the official barcode-scanner plugin (Google ML Kit through Google Play
+  services) stays. Its usage uploader to `firebaselogging.googleapis.com` stays removed from the
+  manifest. A phone without Google Play cannot read the code; that is accepted.
+- **Decision 26, the phone has all mail; heavy work on Windows (Martijn, 17 November 2026).** Files
+  from Outlook, Windows Live Mail and Outlook Express are imported on the PC only; on a phone
+  "Oude mail ophalen" offers only "Uit een ander postvak". Mail the PC keeps in local folders (it did
+  not fit in the mailbox) is copied by the PC to the paired phone over the home Wi-Fi, by itself,
+  encrypted with the pairing key (option "PC to phone over Wi-Fi", chosen over "mailbox first" and
+  "export file to phone"). The design is `docs/pc-to-phone.md`; the network hard rule in `CLAUDE.md`
+  is changed for it.
+
 ## Open
 
-Decision 6 is made (Tauri stays; see "Build choices" below).
-
-- **Question 23, source of the rescue tool (17 November 2026).** `readpst` and its DLLs are GPL and
-  LGPL binaries from MSYS2. Their README points to MSYS2's source archive
-  (https://repo.msys2.org/mingw/sources/) for the exact versions. GPL-2 section 3(c) allows passing
-  on such a pointer only for non-commercial distribution, which this family app is. The safer choice
-  is for the release workflow to also attach those source archives (a few tens of MB) to every
-  release. Martijn: pointer only, or attach the sources?
-- **Question 25, the QR scanner needs Google Play services (17 November 2026, phase 5 task 9).**
-  The official Tauri barcode-scanner plugin decodes with Google ML Kit through Google Play services.
-  A phone without them (Huawei since 2019, some de-Googled phones) cannot read the code; the
-  emulator image used here cannot either. ML Kit also queues usage events for
-  `firebaselogging.googleapis.com`; that uploader is removed from the app's manifest, so nothing is
-  sent (checked in the emulator log). The alternative is an own small scanner in Kotlin (the
-  phone's camera through CameraX, decoding with ZXing, which needs no Google services and no
-  network), about 1 to 2 days. Martijn: keep the plugin if every family Android phone has Google
-  Play (most Samsung, Motorola, Nokia, Pixel and Xiaomi phones do), or build the own scanner?
-- **Question 26, "Oude mail ophalen" on a phone (17 November 2026, design review).** Import is a
-  Windows task in the plan (phase 3: PST, DBX and Live Mail files live on the old PC). On a phone
-  the page still shows under Meer mappen. A file chosen there arrives as an Android `content://`
-  address, which the import does not read, and the computer search finds nothing. Import from
-  another added mailbox does work on a phone. Martijn: hide the page on a phone, keep it with only
-  "from another mailbox", or make file import work there too (about a day)?
+Decision 6 is made (Tauri stays; see "Build choices" below). No open questions.
 
 ## Build choices (16 November 2026, Claude Code; Martijn may overrule any of them)
 

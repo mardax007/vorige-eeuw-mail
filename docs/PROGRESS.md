@@ -23,8 +23,12 @@ Claude Code updates this file at the end of every session.
   file cache emptied (target 200 ms); the slowest family phone is still to be measured. The
   hostile HTML set passes on Android (emulator, 17 November). A second design review of every
   screen (ux-engine, Windows and phone) is done and its findings fixed (session log).
+  Martijn answered the last three questions on 17 November 2026: the rescue tool's sources are
+  attached to every release (decision 23), every family phone has Google Play (25), and mail kept
+  on the PC reaches the paired phone over the home Wi-Fi (26, task 10, `docs/pc-to-phone.md`),
+  built and tested between this PC and the emulator. No open questions are left.
 - **Next for Claude Code:** nothing can move without Martijn now: every open exit criterion needs a
-  real mailbox, a family PC or phone, GitHub secrets or an answer (questions 23, 25 and 26).
+  real mailbox, a family PC or phone, or GitHub secrets.
   Small screen items left from the review: a link from the import result to the imported mail,
   results tied to the file they belong to, and a "Gemeld aan Martijn" mark in the error box.
 - **Martijn, to unblock the rest:**
@@ -38,8 +42,8 @@ Claude Code updates this file at the end of every session.
      and give Claude Code a real old PST and DBX file to import into a local account.
   5. Take the screenshots for `docs/install.md`.
   6. Say whether the envelope icon and mbox import may stay (`DECISIONS.md`, "Build choices").
-  7. Answer question 23 in `DECISIONS.md`: GPL source of the bundled rescue tool, pointer only or
-     attached to every release.
+  7. At the first release, check that the rescue tool's source archives (about 190 MB) are
+     attached to the draft (decision 23); the release workflow uploads them.
   8. Make the Android signing key and put it in the secrets (`docs/release.md`, "Once", step 3).
      Keep it in the backup: a lost key means every family phone reinstalls.
   9. Phase 5 task 8: the free limited-distribution account at Google before 2027, with each family
@@ -47,15 +51,18 @@ Claude Code updates this file at the end of every session.
   10. On each family phone's make, switch on "Nieuwe mail direct melden", answer Android's battery
       question with Toestaan, leave the phone for an hour and send it a mail: makers' battery rules
       decide whether the service survives (dontkillmyapp.com lists extra steps per make).
-  11. Answer question 25 (the QR scanner needs Google Play services) and fill in which family
-      phones are Android, and their make, in `docs/family-inventory.md`.
+  11. Fill in which family phones are Android, and their make, in `docs/family-inventory.md`.
   12. Pair a real phone with your PC once ("Telefoon koppelen" on both) and check a contact goes
       both ways; the emulator cannot read a QR code.
   13. Run the search speed test on the slowest family phone (USB debugging on, then the two
       commands in `CLAUDE.md`, "The same on a phone or the emulator", with the arm64 target). It
       writes 100 MB in the phone's temporary folder for about ten minutes; the last line says
       "slowest search". Send Claude Code the output.
-  14. Answer question 26 in `DECISIONS.md`: "Oude mail ophalen" on a phone.
+  14. Mail from the PC on the phone (task 10): with the phone paired and both on the home Wi-Fi,
+      import some old mail on your PC and wait two minutes with the app open on the phone. Check
+      that Windows asked nothing about the firewall and that the folders show on the phone. Also
+      remove the two leftover firewall rules named "tcplisten.exe" (Windows Defender Firewall,
+      Inbound rules) from a test of 17 November; that program is gone.
   15. A debug APK shows a white page for about 8 seconds at start on the emulator before the
       list; check whether the release APK on a real phone does the same.
 
@@ -178,3 +185,4 @@ Things that came up but are not in the current phase. Do not build them without 
 - Read aloud (C5), "This is spam" (C8), photo view (C9), conversations (C10), readable invites
   (C11), backup of everything (C14): candidates not chosen yet.
 | 2026-11-17 | Hostile HTML set on Android: `tests/fixtures/hostile.html` (every trick from phase 1) and `tests/hostile_html.rs` through the sanitiser; on the emulator the whole chain (sanitiser, sandboxed frame, CSP) loaded nothing, ran nothing and reached nothing, remote pictures only after "Afbeeldingen tonen". Fixed on the way: style attributes could keep `url()`/`expression()` and links to localhost passed the sanitiser; a link tapped on a phone did nothing (Android's WebView has no new windows: on a phone the frame now lets a tapped link through to the shell) and then froze the app (the shell opened the browser on Android's UI thread; now off it). Verified on the emulator: a web link opens the browser, `mailto:` opens Write with its subject, no freeze. Second design review of every screen (ux-engine, three reports) and its findings fixed: Android back key (`src/api/backButton.ts`: an open message, the folder screen, a page, Write, an open contact, setup steps; never while a contact is edited); open message on a phone with the sender first and buttons two by two, no Afdrukken; attachments saved on Android (they silently were not: `tauri-plugin-fs` writes the `content://` place) with "… is opgeslagen."; ConfirmDialog keeps focus inside and returns it; folders behind Meer mappen stay open when one is shown; labels: Enter makes one, Klaar keeps a typed one; contact editor, setup and password problems under their field with focus there, no double save; loading and failed states for search, contacts and import sources; sticky Versturen bar; signature saved on leaving the field; settings spring back when not stored; phone texts in Help; the report note waits for a mailbox; paired phone shown on the PC | Android's WebView ignores `target=_blank` in a sandboxed frame and has no popup window, so the shell's navigation handler never saw the tap. wry runs that handler on Android's UI thread, where the opener plugin waits for the same thread: a dead-lock that Android reports as "not responding". The save dialog's answer on Android is a `content://` address that `into_path()` refuses | Martijn's items; questions 23, 25, 26 |
+| 2026-11-17 | Martijn's answers to 23, 25 and 26. 23: `scripts/rescue-sources.mjs` fetches the MSYS2 source archive of every package the rescue tool comes from (package base read from pacman's database) and the release workflow attaches them to the draft. 25: Google Play on every phone, so the QR scanner stays. 26, task 10: mail kept on the PC reaches the paired phone over the home Wi-Fi (`docs/pc-to-phone.md`, module `vem-core/src/lan`): the PC sends a sealed UDP find packet, the phone answers and listens on TCP, the PC connects and sends what the phone lacks, framed with XChaCha20-Poly1305 under a session key from the pairing key. The phone's copy follows the PC (moves, read, star, deletions); on the phone "Oude mail ophalen" offers only another mailbox. Codes `VEM-LAN-COPY-01`, `VEM-LAN-SPACE-01`. CLAUDE.md network rules amended | Windows' firewall asks nothing for a program that only sends and connects out; a listening PC would have shown the question to every family member. A unicast reply to a subnet broadcast can come in from WSL's adapter, so the PC sends to every private network's broadcast address. On the emulator (UDP redirect and TCP forward) 41 messages in two copied local accounts arrived with folder, date and star, and the second look said "up to date" without a connection | Martijn: a real phone on the home Wi-Fi (list item 14) |
