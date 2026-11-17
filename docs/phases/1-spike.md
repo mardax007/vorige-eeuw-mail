@@ -115,7 +115,8 @@ Spike code may be rough, but it lives in the intended layout so that what works 
 - [ ] The core connects, signs in and stores a secret on an Android phone
 - [ ] The hostile HTML sample loads nothing, runs nothing and cannot reach the core
 - [ ] A real PST is read with the right counts, and three messages open as `.eml` elsewhere
-- [ ] Search times over 100,000 messages are recorded for all three levels
+- [x] Search times over 100,000 messages are recorded for all three levels (`search_perf`, PC and
+      Android emulator, 17 November 2026; docs/PROGRESS.md)
 - [ ] Capabilities, quota and folder names of each real account are written down
 - [ ] Sent-copy behaviour, keyword support and connection limit are known per provider, from
       throwaway accounts only

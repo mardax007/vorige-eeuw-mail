@@ -127,6 +127,12 @@ Decision 6 is made (Tauri stays; see "Build choices" below).
   phone's camera through CameraX, decoding with ZXing, which needs no Google services and no
   network), about 1 to 2 days. Martijn: keep the plugin if every family Android phone has Google
   Play (most Samsung, Motorola, Nokia, Pixel and Xiaomi phones do), or build the own scanner?
+- **Question 26, "Oude mail ophalen" on a phone (17 November 2026, design review).** Import is a
+  Windows task in the plan (phase 3: PST, DBX and Live Mail files live on the old PC). On a phone
+  the page still shows under Meer mappen. A file chosen there arrives as an Android `content://`
+  address, which the import does not read, and the computer search finds nothing. Import from
+  another added mailbox does work on a phone. Martijn: hide the page on a phone, keep it with only
+  "from another mailbox", or make file import work there too (about a day)?
 
 ## Build choices (16 November 2026, Claude Code; Martijn may overrule any of them)
 
@@ -225,6 +231,17 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
   mappen), and Afsluiten moved from the top bar to the bottom of Instellingen (the icon next to the
   clock keeps it too). The list of skipped import folders is copied with "Lijst kopiëren", because
   the app has no command to save a file. Martijn may want these placed differently.
+- **Second design review (17 November 2026, ux-engine, all screens, Windows and phone).** Changes
+  that alter what the user sees: on a phone the open message shows who wrote it before the buttons,
+  the buttons two by two, and no Afdrukken (Android has no print dialog behind it); Android's back
+  key does what the screen's own Terug does (and nothing while a contact is being edited, so typed
+  text is never lost); in "Klopt dit?" for an unknown server, "Nee, stoppen" comes first and
+  neither answer is the big blue button; a typed label name is made when Klaar is pressed; a
+  signature is saved when the field is left; a setting that could not be stored springs back.
+- **`tauri-plugin-fs` in the shell (17 November 2026).** "Opslaan" of an attachment on Android
+  gets a `content://` address from the save screen, which plain file writing cannot open, so the
+  file was silently not written. The fs plugin opens such an address; the screens get no fs
+  permission, only the Rust command uses it.
 
 ## Hard-rule changes P1–P3 (accepted 16 November 2026)
 
@@ -256,3 +273,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-17 | Four real public PSTs imported; outlook-pst vendored and patched (six fixes) so it reads them; PST password check verified on a real protected file |
 | 2026-11-17 | Android backup off: mail stays on the phone, no Google Drive backup and no phone-to-phone transfer (Martijn) |
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |
+| 2026-11-17 | Second design review recorded under Build choices; `tauri-plugin-fs` for saving attachments on Android; question 26 (import on a phone) added |

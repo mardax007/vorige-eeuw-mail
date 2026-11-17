@@ -20,9 +20,13 @@ Claude Code updates this file at the end of every session.
   the app closed; it ran on the emulator through Doze, a reboot and an update
   (`docs/background-mail.md`). Not yet on a real phone. Task 6: search on 100,000 messages over
   three mailboxes and 30 folders takes at most 46 ms on the emulator at every level, also with its
-  file cache emptied (target 200 ms); the slowest family phone is still to be measured.
-- **Next for Claude Code:** the phase 5 exit criteria that need no phone in hand (the hostile HTML
-  set on Android); then Martijn's items.
+  file cache emptied (target 200 ms); the slowest family phone is still to be measured. The
+  hostile HTML set passes on Android (emulator, 17 November). A second design review of every
+  screen (ux-engine, Windows and phone) is done and its findings fixed (session log).
+- **Next for Claude Code:** nothing can move without Martijn now: every open exit criterion needs a
+  real mailbox, a family PC or phone, GitHub secrets or an answer (questions 23, 25 and 26).
+  Small screen items left from the review: a link from the import result to the imported mail,
+  results tied to the file they belong to, and a "Gemeld aan Martijn" mark in the error box.
 - **Martijn, to unblock the rest:**
   1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
      repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
@@ -51,6 +55,9 @@ Claude Code updates this file at the end of every session.
       commands in `CLAUDE.md`, "The same on a phone or the emulator", with the arm64 target). It
       writes 100 MB in the phone's temporary folder for about ten minutes; the last line says
       "slowest search". Send Claude Code the output.
+  14. Answer question 26 in `DECISIONS.md`: "Oude mail ophalen" on a phone.
+  15. A debug APK shows a white page for about 8 seconds at start on the emulator before the
+      list; check whether the release APK on a real phone does the same.
 
 ## State of the folder
 
@@ -170,3 +177,4 @@ Things that came up but are not in the current phase. Do not build them without 
 - Automatic tagging rules (left out of version 1 on purpose; see `features.md`, "Out").
 - Read aloud (C5), "This is spam" (C8), photo view (C9), conversations (C10), readable invites
   (C11), backup of everything (C14): candidates not chosen yet.
+| 2026-11-17 | Hostile HTML set on Android: `tests/fixtures/hostile.html` (every trick from phase 1) and `tests/hostile_html.rs` through the sanitiser; on the emulator the whole chain (sanitiser, sandboxed frame, CSP) loaded nothing, ran nothing and reached nothing, remote pictures only after "Afbeeldingen tonen". Fixed on the way: style attributes could keep `url()`/`expression()` and links to localhost passed the sanitiser; a link tapped on a phone did nothing (Android's WebView has no new windows: on a phone the frame now lets a tapped link through to the shell) and then froze the app (the shell opened the browser on Android's UI thread; now off it). Verified on the emulator: a web link opens the browser, `mailto:` opens Write with its subject, no freeze. Second design review of every screen (ux-engine, three reports) and its findings fixed: Android back key (`src/api/backButton.ts`: an open message, the folder screen, a page, Write, an open contact, setup steps; never while a contact is edited); open message on a phone with the sender first and buttons two by two, no Afdrukken; attachments saved on Android (they silently were not: `tauri-plugin-fs` writes the `content://` place) with "… is opgeslagen."; ConfirmDialog keeps focus inside and returns it; folders behind Meer mappen stay open when one is shown; labels: Enter makes one, Klaar keeps a typed one; contact editor, setup and password problems under their field with focus there, no double save; loading and failed states for search, contacts and import sources; sticky Versturen bar; signature saved on leaving the field; settings spring back when not stored; phone texts in Help; the report note waits for a mailbox; paired phone shown on the PC | Android's WebView ignores `target=_blank` in a sandboxed frame and has no popup window, so the shell's navigation handler never saw the tap. wry runs that handler on Android's UI thread, where the opener plugin waits for the same thread: a dead-lock that Android reports as "not responding". The save dialog's answer on Android is a `content://` address that `into_path()` refuses | Martijn's items; questions 23, 25, 26 |

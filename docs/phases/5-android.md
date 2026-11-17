@@ -41,7 +41,9 @@ mobile support is behind its desktop support; check the current plugin list for 
 
 - [ ] The APK installs on each Android phone in the inventory
 - [ ] Reading, searching and sending work on a phone
-- [ ] The hostile HTML set passes on Android
+- [x] The hostile HTML set passes on Android (emulator, 17 November 2026: nothing ran, loaded or
+      reached the log servers; remote pictures only after "Afbeeldingen tonen"; a web link opens the
+      browser, `mailto:` opens Write with address and subject)
 - [ ] An update APK installs over the old one and keeps the accounts
 - [ ] The Android signing key is backed up
 - [ ] A contact added on the PC shows on the paired phone, and one changed on the phone shows on
