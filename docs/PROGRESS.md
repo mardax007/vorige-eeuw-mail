@@ -18,8 +18,11 @@ Claude Code updates this file at the end of every session.
   the emulator, but the emulator cannot read a code). Task 7 is built as Martijn chose (decision
   24, option 2): "Nieuwe mail direct melden" keeps a foreground service watching for new mail with
   the app closed; it ran on the emulator through Doze, a reboot and an update
-  (`docs/background-mail.md`). Not yet on a real phone.
-- **Next for Claude Code:** task 6 (search speed on a phone).
+  (`docs/background-mail.md`). Not yet on a real phone. Task 6: search on 100,000 messages over
+  three mailboxes and 30 folders takes at most 46 ms on the emulator at every level, also with its
+  file cache emptied (target 200 ms); the slowest family phone is still to be measured.
+- **Next for Claude Code:** the phase 5 exit criteria that need no phone in hand (the hostile HTML
+  set on Android); then Martijn's items.
 - **Martijn, to unblock the rest:**
   1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
      repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
@@ -44,6 +47,10 @@ Claude Code updates this file at the end of every session.
       phones are Android, and their make, in `docs/family-inventory.md`.
   12. Pair a real phone with your PC once ("Telefoon koppelen" on both) and check a contact goes
       both ways; the emulator cannot read a QR code.
+  13. Run the search speed test on the slowest family phone (USB debugging on, then the two
+      commands in `CLAUDE.md`, "The same on a phone or the emulator", with the arm64 target). It
+      writes 100 MB in the phone's temporary folder for about ten minutes; the last line says
+      "slowest search". Send Claude Code the output.
 
 ## State of the folder
 
@@ -55,7 +62,9 @@ Claude Code updates this file at the end of every session.
   of it is the rescue tool in `rescue\`). The built app starts and shows the Dutch first-run screen.
 - MSYS2 with `mingw-w64-ucrt-x86_64-libpst` is installed on this PC (`C:\msys64`);
   `scripts/rescue-tool.mjs` copies the rescue tool from there before every `tauri dev` and `tauri build`.
-- Search on 100,000 messages: 10 to 16 ms; a folder's first page 0.2 ms (target 200 ms).
+- Search on 100,000 messages over three mailboxes and 30 folders, at all three levels: at most
+  32 ms on this PC and 46 ms on the Android emulator from an emptied file cache; a folder's first
+  page 0.3 ms (target 200 ms).
 
 ### Built and tested
 
@@ -137,6 +146,7 @@ session log for 2026-11-17.)
 | 2026-11-17 | Android backup off (Martijn). Task 3: sign-in on Android; Gmail takes an app password on a phone, Microsoft keeps the browser sign-in, the page after sign-in says to open the app again. Task 8: "Bijwerken" on a phone. The app reads `android.json` next to `latest.json` (15 s after start, then every six hours), shows "Er is een nieuwe versie", downloads the APK from `https://github.com/` only, checks it with the updater key (minisign, the same key as Windows) and opens Android's install screen through a FileProvider (`ApkInstaller.kt`, JNI). Release workflow: an Android job builds the signed APK, signs the update and adds the APK and `android.json` to the draft (not yet run); `scripts/android-release.mjs` writes `android.json`; release notes now come from `release-notes.md`. `docs/release.md` and `docs/install.md` have the Android steps. On the emulator, with a throwaway key and a test HTTPS server standing in for github.com: offer shown, 674 MB debug APK fetched and checked, Android's install screen opened | Latest.json's notes were written when the workflow ran, so editing the draft's text (the old step 3) never reached the apps. Tauri's Android context is the Application object, whose class comes from the framework's loader, so app classes must be loaded through `Context.getClassLoader()`. With `MSYS_NO_PATHCONV=1` set, `cmd //c` from Git Bash opens an idle shell and the build silently does nothing. On a touch screen a tapped button keeps its hover look, which made the disabled "Bijwerken" unreadable | Task 7 proposal, task 9, task 6; Martijn's items |
 | 2026-11-17 | Task 9, contacts on the phone: the phone side of "Telefoon koppelen" ("Code scannen" with the camera through Tauri's official barcode-scanner plugin, a full-screen Stoppen over the camera picture, a camera "no" explained with "Instellingen openen", "Koppeling verbreken"); the core takes the PC's code (`pair_from_code`, new codes VEM-PAIR-READ-01 and VEM-PAIR-FIND-01) and links the phone's own mailbox with the same address; a GreenMail test pairs two devices and sends changes both ways, and a new code locks the old key out. A change made in the same second as the other device's now still wins (`changed_at` always moves forward). The contacts folder "Vorige Eeuw Mail" no longer shows in the folder list (`sync.md`), and the screens reload the folder list when a folder comes or goes. A phone names its local drafts group "Op deze telefoon". Task 7: proposal written (`docs/background-mail.md`), open question 24 | On the emulator the camera screen and Stoppen work. Stoppen showed "[object Object]" at first: Tauri's mobile plugins reject with a plain `{message}` object, which `toVemError` now reads. A Stoppen in the first seconds left the camera on, because the plugin switches it on only once Android's camera service has started; the app now stops it again after 1.5, 5 and 10 s. The plugin's decoder is Google ML Kit, which needs Google Play services and queues usage events for `firebaselogging.googleapis.com`; that uploader is removed in the app's manifest (the log then says "Transport backend 'cct' is not registered"); question 25 | Task 6; Martijn's items 10–12 |
 | 2026-11-17 | Task 7 built, Martijn's choice option 2 (decision 24): "Nieuwe mail direct melden" in Instellingen (phone only, off by default) starts an own `specialUse` foreground service in a separate process `:mail` that runs the Rust core headless (`android_mail.rs`, Kotlin `MailService`, `MailAlarm`, `MailBoot`, `MailCore`). Only one process works on the mailboxes at a time: two lock files (`vem_core::handoff`, unit tests), the engine can pause and start again (`Engine::pause`, GreenMail test), and the app's process works only while its screen is visible. On a phone the app's process now ends with its screen. Notification texts reach the service through the index. Emulator: hand-over both ways, a notification from the service, mail in forced deep Doze, restart after a reboot and after a reinstall, switch off stops everything, reopening shows the screen (no white page) with the mail the service fetched | Tauri's `app_local_data_dir` on Android is the app's data folder itself (no identifier added, unlike its doc comment). Android raises a foreground service's lowest-importance channel to "low". `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED` may start a `specialUse` service (only some types are barred). Tauri's notification plugin starts the app's process at boot for its own receiver; that process runs no setup and takes no turn | Task 6; Martijn's item 10 (try it on each family make) |
+| 2026-11-17 | Task 6, search speed on a phone: `search_perf` now spreads 100,000 messages over three mailboxes with ten folders each and times all three levels ("alle mail", "dit postvak", "deze map"), each query twice, failing on anything over 200 ms; `VEM_PERF_DIR` keeps its index for a second run. `scripts/ndklinkers.cmd` sets the NDK compilers for plain cargo on Android targets; the test builds for arm64 and x86_64 and runs on the emulator through `adb` (CLAUDE.md, Commands). Emulator: building the index 363 s; searches in a fresh process at most 19 ms, from an emptied file cache at most 46 ms, and in the same process after a minute's rest at most 21 ms. PC: at most 32 ms | Searching in the first seconds after writing 100 MB took up to 473 ms on the emulator, also for a word with no hits; after a minute's rest or in a new process it was 21 ms, so the time went to the disk writing the new index back, not to the query. A real phone after a big first sync can see the same for a moment. `adb push` does not always keep the execute bit | Hostile HTML set on Android; Martijn's item 13 (the slowest family phone) |
 
 ## Ideas parked
 
