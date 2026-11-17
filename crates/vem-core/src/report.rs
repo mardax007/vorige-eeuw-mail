@@ -14,7 +14,21 @@ use crate::store::Store;
 /// Martijn's report address, set at build time from the `VEM_SUPPORT_ADDRESS` secret.
 /// Without it (a local build) reports are only written to the log.
 pub fn support_address() -> Option<&'static str> {
+    #[cfg(feature = "test-support")]
+    if let Some(a) = TEST_SUPPORT_ADDRESS.get() {
+        return Some(a);
+    }
     option_env!("VEM_SUPPORT_ADDRESS").filter(|a| compose::valid_email(a))
+}
+
+/// Tests only (the app never enables `test-support`): a GreenMail address stands in for
+/// Martijn's, so reports, wishes and log answers can be followed to an inbox.
+#[cfg(feature = "test-support")]
+static TEST_SUPPORT_ADDRESS: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+
+#[cfg(feature = "test-support")]
+pub fn set_test_support_address(address: &'static str) {
+    let _ = TEST_SUPPORT_ADDRESS.set(address);
 }
 
 pub const SUBJECT_PREFIX: &str = "[Vorige Eeuw Mail]";

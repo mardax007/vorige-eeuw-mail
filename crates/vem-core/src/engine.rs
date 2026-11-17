@@ -496,7 +496,6 @@ impl Engine {
             .or_else(|| accounts.into_iter().find(|a| a.kind == AccountKind::Imap))
     }
 
-    /// Tell Martijn about an error the user saw (within the daily limits).
     /// Queues a report about `e` for Martijn, within the daily limits. Returns whether one was
     /// queued, so the screen can say "Martijn krijgt hier vanzelf bericht van" only when true.
     pub async fn report(&self, account_id: Option<&str>, e: &VemError) -> bool {
