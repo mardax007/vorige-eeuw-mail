@@ -139,6 +139,8 @@ Layout:
 | Rust core with the local test mail server | start GreenMail (below), then `scripts\vcenv.cmd cargo test -p vem-core --features test-support` |
 | Lint | `scripts\vcenv.cmd cargo clippy -p vem-core -p vem --all-targets --features vem-core/test-support` |
 | Search speed on 100,000 messages | `scripts\vcenv.cmd cargo test -p vem-core --release --test search_perf -- --ignored --nocapture` |
+| The same on a phone or the emulator | `scripts\androidenv.cmd scripts\ndklinkers.cmd cargo test -p vem-core --release --test search_perf --no-run --target aarch64-linux-android` (`x86_64-linux-android` for the emulator), `adb push` the executable it prints to `/data/local/tmp/search_perf`, then `adb shell "cd /data/local/tmp && chmod 755 search_perf && TMPDIR=/data/local/tmp VEM_PERF_DIR=/data/local/tmp/perfdb ./search_perf --ignored --nocapture"` (`VEM_PERF_DIR` keeps the index, so a second run only searches; delete the folder afterwards) |
+| Lint for Android | `scripts\androidenv.cmd scripts\ndklinkers.cmd cargo clippy -p vem --target aarch64-linux-android -- -D warnings` |
 | The app with live reload | `scripts\vcenv.cmd npm run tauri dev` |
 | Installer (NSIS, per user) | `scripts\vcenv.cmd npm run tauri build` (output in `target\release\bundle\nsis`) |
 | Android debug APK (phone, arm64) | `scripts\androidenv.cmd npm run tauri android build -- --debug --apk --target aarch64` (output in `src-tauri\gen\android\app\build\outputs\apk`) |
