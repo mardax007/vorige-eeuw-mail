@@ -72,14 +72,15 @@ function NewPassword({ account }: { account: Account }) {
         label={t("settings.newPassword", { account: account.displayName })}
         hint={t("settings.newPasswordHint")}
         value={password}
-        autoComplete="new-password"
+        autoComplete="current-password"
         isDisabled={phase === "busy"}
+        problem={problem}
         onChange={(value) => {
           setPassword(value);
+          setProblem(null);
           if (phase === "done") setPhase("idle");
         }}
       />
-      {problem && <p className="form-problem" role="alert">{problem}</p>}
       {error && <ErrorBox error={error} onClose={() => setError(null)} />}
       <div className="button-row">
         <button type="submit" disabled={phase === "busy"}>{t("settings.savePassword")}</button>

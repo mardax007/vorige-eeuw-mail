@@ -38,6 +38,21 @@ describe("Contactpersonen", () => {
     expect(await screen.findByRole("button", { name: "E-mail sturen" })).toBeTruthy();
   });
 
+  it("puts a wrong address under its own field and goes there", async () => {
+    const user = await openContacts();
+    await user.click(screen.getByRole("button", { name: "Nieuwe contactpersoon" }));
+    await user.type(screen.getByLabelText("Naam"), "Kees");
+    const address = screen.getByLabelText("E-mailadres 1");
+    await user.type(address, "kees@");
+    await user.click(screen.getByRole("button", { name: "Opslaan" }));
+    const problem = await screen.findByRole("alert");
+    expect(address.getAttribute("aria-describedby")).toBe(problem.id);
+    await new Promise((r) => requestAnimationFrame(r));
+    expect(document.activeElement).toBe(address);
+    await user.type(address, "x.nl");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("tells a search without match apart from an empty list", async () => {
     const user = await openContacts();
     await user.type(screen.getByLabelText("Zoek een naam of adres"), "xyz");

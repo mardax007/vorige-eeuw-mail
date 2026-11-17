@@ -79,13 +79,16 @@ export function CredentialsStep({
       }}
     >
       {settings.signIn === "google" && <p className="calm-line">{t("setup.googleAppPassword")}</p>}
-      {problem && <p className="form-problem" role="alert">{problem}</p>}
       <PasswordField
         id="setup-password"
         label={t("setup.password")}
         value={password}
         autoComplete="current-password"
-        onChange={setPassword}
+        problem={problem}
+        onChange={(value) => {
+          setPassword(value);
+          setProblem(null);
+        }}
       />
       <div className="button-row">
         <button type="submit" className="primary" disabled={isBusy}>

@@ -82,6 +82,10 @@ export function AccountSettings({ account }: AccountSettingsProps) {
             setSignature(e.target.value);
             setIsSaved(false);
           }}
+          // Leaving the field keeps what was typed, also without pressing the button.
+          onBlur={() => {
+            if (signature !== (account.signature ?? "")) void saveSignature();
+          }}
         />
       </div>
       <div className="button-row">

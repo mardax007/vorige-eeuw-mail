@@ -77,7 +77,8 @@ const UNREADABLE = "VEM-IMPORT-READ-01";
 export function ImportView() {
   const { accounts, showError, reload, go } = useApp();
   const mail = mailAccounts(accounts);
-  const [sources, setSources] = useState<ImportSource[]>([]);
+  // null while the computer is still being searched.
+  const [sources, setSources] = useState<ImportSource[] | null>(null);
   const [choice, setChoiceState] = useState<ImportChoice | null>(null);
   const [password, setPassword] = useState("");
   const [passwordProblem, setPasswordProblem] = useState<string | null>(null);
@@ -101,7 +102,13 @@ export function ImportView() {
   const needsPassword = choice?.kind === "file" && choice.source.protected === true;
 
   useEffect(() => {
-    api.findImportSources().then(setSources).catch(showError);
+    api
+      .findImportSources()
+      .then(setSources)
+      .catch((e: unknown) => {
+        setSources([]);
+        showError(e);
+      });
     api.rescueAvailable().then(setCanRescue).catch(() => setCanRescue(false));
   }, [showError]);
 
@@ -161,9 +168,10 @@ export function ImportView() {
       <h2>{t("import.title")}</h2>
 
       <h3>{t("import.found")}</h3>
-      {sources.length === 0 && <p>{t("import.none")}</p>}
+      {sources === null && <p role="status">{t("import.searching")}</p>}
+      {sources?.length === 0 && <p>{t("import.none")}</p>}
       <ul className="plain-list">
-        {sources.map((s) => (
+        {(sources ?? []).map((s) => (
           <li key={s.path} className="attachment-row">
             <span>{s.label}{s.size ? ` (${formatBytes(s.size)})` : ""}</span>
             <button
@@ -233,6 +241,7 @@ export function ImportView() {
         >
           {t("import.start")}
         </button>
+        {!choice && <span className="hint">{t("import.chooseFirst")}</span>}
       </div>
 
       {job.progress && <ImportProgressView progress={job.progress} />}

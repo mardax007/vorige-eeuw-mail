@@ -9,7 +9,8 @@ import { useApp } from "../state/AppContext";
 
 /** Help: a wish to Martijn, the help report, and the note about help from afar. */
 export function HelpView() {
-  const { showError } = useApp();
+  const { showError, appInfo } = useApp();
+  const isPhone = appInfo?.isPhone === true;
   const [wish, setWish] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
@@ -47,26 +48,46 @@ export function HelpView() {
       <h3>{t("help.wish")}</h3>
       <div className="form-row">
         <label htmlFor="wish-text">{t("help.wishText")}</label>
-        <textarea id="wish-text" rows={5} value={wish} onChange={(e) => setWish(e.target.value)} />
+        <textarea
+          id="wish-text"
+          rows={5}
+          value={wish}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={problem ? "wish-problem" : undefined}
+          onChange={(e) => {
+            setWish(e.target.value);
+            setProblem(null);
+            setIsSent(false);
+          }}
+        />
+        {problem && (
+          <p className="form-problem" id="wish-problem" role="alert">
+            {problem}
+          </p>
+        )}
       </div>
-      {problem && <p className="form-problem" role="alert">{problem}</p>}
       {wishError && <ErrorBox error={wishError} onClose={() => setWishError(null)} />}
       <div className="button-row">
         <button type="button" className="primary" onClick={sendWish} disabled={isSending}>
-          {t("help.wishSend")}
+          {isSending ? t("general.saving") : t("help.wishSend")}
         </button>
-        {isSent && <span role="status">{t("help.wishSent")}</span>}
+        <span role="status">{isSent ? t("help.wishSent") : ""}</span>
       </div>
 
       <h3>{t("help.report")}</h3>
-      <p>{t("help.reportText")}</p>
+      <p>{isPhone ? t("help.reportTextPhone") : t("help.reportText")}</p>
       <div className="button-row">
         <button type="button" onClick={copyReport}>{t("help.report")}</button>
         <CopyNoteText result={reportNote.result} copiedText={t("help.reportCopied")} />
       </div>
 
-      <h3>{t("help.remote")}</h3>
-      <p>{t("help.remoteText")}</p>
+      {/* Snelle hulp is a Windows program; a phone has nothing like it. */}
+      {!isPhone && (
+        <>
+          <h3>{t("help.remote")}</h3>
+          <p>{t("help.remoteText")}</p>
+        </>
+      )}
 
       <h3>{t("help.noticeTitle")}</h3>
       <p>{t("help.notice")}</p>

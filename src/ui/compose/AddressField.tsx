@@ -1,4 +1,4 @@
-import { useEffect, useState, type Ref } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { api } from "../../api/client";
 import type { Addr, Contact } from "../../api/types";
 import { t } from "../../i18n";
@@ -23,12 +23,15 @@ function suggestionsFrom(contacts: readonly Contact[], typed: string): Addr[] {
   return contacts
     .flatMap((c) => c.emails.map((email) => ({ name: c.name, email })))
     .filter((a) => a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q))
+    // An address typed in full needs no suggestion of itself.
+    .filter((a) => a.email.toLowerCase() !== q)
     .slice(0, MAX_SUGGESTIONS);
 }
 
 /** An address box that suggests contacts while typing. */
 export function AddressField({ id, label, value, onChange, problem = null, inputRef }: AddressFieldProps) {
   const [suggestions, setSuggestions] = useState<Addr[]>([]);
+  const rowRef = useRef<HTMLDivElement>(null);
   const typed = lastToken(value);
   const problemId = `${id}-problem`;
 
@@ -58,20 +61,39 @@ export function AddressField({ id, label, value, onChange, problem = null, input
   const pick = (addr: Addr) => {
     onChange(replaceLastToken(value, addr));
     setSuggestions([]);
+    // Back in the box, ready for the next address.
+    requestAnimationFrame(() => document.getElementById(id)?.focus());
   };
 
   return (
-    <div className="form-row">
+    <div
+      className="form-row"
+      ref={rowRef}
+      onBlur={(e) => {
+        // Leaving the box and its suggestions closes them; moving between the two does not.
+        if (!rowRef.current?.contains(e.relatedTarget as Node | null)) setSuggestions([]);
+      }}
+    >
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
         ref={inputRef}
         type="text"
+        inputMode="email"
         autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={value}
         aria-invalid={problem ? true : undefined}
         aria-describedby={problem ? problemId : undefined}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && suggestions.length > 0) {
+            e.stopPropagation();
+            setSuggestions([]);
+          }
+        }}
       />
       {problem && (
         <p id={problemId} className="form-problem" role="alert">

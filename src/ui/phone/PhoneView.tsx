@@ -86,8 +86,14 @@ function PcCode() {
   return (
     <section className="page phone">
       <h2>{t("phone.title")}</h2>
+      {/* Once the phone has scanned it, the code has done its work: say so instead. */}
+      {isPaired && (
+        <p className="calm-line" role="status">
+          {t("phone.pcLinked")}
+        </p>
+      )}
       <p>{t("phone.text")}</p>
-      {qrSvg && <img className="qr" src={qrImageSrc(qrSvg)} alt={t("phone.qrAlt")} />}
+      {qrSvg && !isPaired && <img className="qr" src={qrImageSrc(qrSvg)} alt={t("phone.qrAlt")} />}
       <div className="button-row">
         <button type="button" className="primary" onClick={makeCode}>{t("phone.make")}</button>
         {isPaired && <button type="button" onClick={unpair}>{t("phone.unpair")}</button>}

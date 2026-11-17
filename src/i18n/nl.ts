@@ -59,6 +59,8 @@ export const nl = {
 
   // Message list
   "list.empty": "Er staan geen berichten in deze map.",
+  "list.emptySyncing": "De mail wordt opgehaald. Dit kan even duren.",
+  "list.emptyTag": "Nog geen berichten met dit label. Open een bericht en kies Label om het toe te voegen.",
   "list.loading": "Berichten worden geladen…",
   "list.more": "Meer berichten laden",
   "list.important": "Belangrijk",
@@ -82,6 +84,7 @@ export const nl = {
   "search.results": "Zoekresultaten",
   "search.none": "Niets gevonden voor “{query}”.",
   "search.busy": "Bezig met zoeken…",
+  "search.failed": "Zoeken lukte niet. Bovenaan staat wat er misging.",
   "search.where.hit": "{account} · {folder}",
 
   // Reading pane
@@ -105,6 +108,7 @@ export const nl = {
   "read.attachments": "Bijlagen",
   "read.open": "Openen",
   "read.save": "Opslaan",
+  "read.saved": "{name} is opgeslagen.",
   "read.nothingOpen": "Kies links een bericht om het te lezen.",
   "read.loading": "Bericht wordt geopend…",
   "read.frameTitle": "Inhoud van het bericht",
@@ -152,6 +156,7 @@ export const nl = {
   "compose.body": "Bericht",
   "compose.attach": "Bijlage toevoegen",
   "compose.removeAttachment": "Weghalen",
+  "compose.removeAttachmentNamed": "{name} weghalen",
   "compose.shrinkPhotos": "Foto's kleiner maken",
   "compose.send": "Versturen",
   "compose.close": "Sluiten",
@@ -202,6 +207,9 @@ export const nl = {
   "contacts.write": "E-mail sturen",
   "contacts.recent": "Recente mail",
   "contacts.noRecent": "Nog geen mail met deze persoon.",
+  "contacts.loadFailed": "De contactpersonen konden niet geladen worden. Bovenaan staat wat er misging.",
+  "contacts.recentLoading": "De mail met deze persoon wordt gezocht…",
+  "contacts.recentFailed": "De mail met deze persoon kon niet gevonden worden. Bovenaan staat wat er misging.",
   "contacts.needName": "Vul een naam in.",
 
   // Account setup
@@ -221,7 +229,9 @@ export const nl = {
   "setup.confirmYes": "Ja, doorgaan",
   "setup.confirmNo": "Nee, stoppen",
   "setup.cancel": "Annuleren",
-  "setup.missingNameEmail": "Vul uw naam en uw e-mailadres in.",
+  "setup.missingName": "Vul uw naam in.",
+  "setup.missingEmail": "Vul uw e-mailadres in.",
+  "setup.badEmail": "Dit is geen volledig e-mailadres. Het ziet eruit als naam@voorbeeld.nl.",
   "setup.missingPassword": "Vul het wachtwoord in.",
   "setup.add": "Postvak toevoegen",
   "setup.back": "Ander adres",
@@ -241,6 +251,7 @@ export const nl = {
   "settings.larger": "A+  Groter",
   "settings.preview": "Zo ziet de tekst van uw berichten eruit.",
   "settings.sizeNow": "Nu: {size}",
+  "settings.sizeNowNormal": "Nu: {size} (gewoon)",
   "settings.notifications": "Melding bij nieuwe mail",
   "settings.startWithWindows": "Starten met Windows",
   "settings.backgroundMail": "Nieuwe mail direct melden",
@@ -284,6 +295,8 @@ export const nl = {
   "help.report": "Hulprapport kopiëren",
   "help.reportText": "Werkt e-mail zelf niet? Druk op de knop en plak het rapport (Ctrl+V) in een bericht of chat aan Martijn.",
   "help.reportCopied": "Het hulprapport staat klaar om te plakken.",
+  "help.reportTextPhone":
+    "Werkt e-mail zelf niet? Druk op de knop. Houd daarna uw vinger op het tekstvak van een bericht of chat aan Martijn en kies Plakken.",
   "help.remote": "Hulp op afstand",
   "help.remoteText": "Martijn kan met Snelle hulp van Windows op uw scherm meekijken. Hij belt u dan eerst zelf en geeft u een code om in te typen. Belt, mailt of sms't iemand anders u met zo'n code, of vraagt iemand om mee te kijken: hang op en typ niets in. Dat is oplichting.",
   "help.noticeTitle": "Als er iets misgaat",
@@ -294,6 +307,8 @@ export const nl = {
   "import.title": "Oude mail ophalen",
   "import.found": "Gevonden op deze computer",
   "import.none": "Er is geen oude mail gevonden op de gewone plekken.",
+  "import.searching": "De computer wordt doorzocht naar oude mail…",
+  "import.chooseFirst": "Kies eerst hierboven wat u wilt ophalen.",
   "import.choose": "Kiezen",
   "import.chosen": "Gekozen: {label}",
   "import.rescued": "Dit bestand is op een andere manier gelezen. Daarbij is misschien niet bewaard wat u al gelezen had.",
@@ -364,6 +379,7 @@ export const nl = {
   "phone.linking": "De telefoon wordt gekoppeld.",
   "phone.linked": "De telefoon is gekoppeld. Uw contactpersonen komen er zo op.",
   "phone.isLinked": "Deze telefoon is gekoppeld met uw computer.",
+  "phone.pcLinked": "Er is een telefoon gekoppeld. Uw contactpersonen staan ook op die telefoon.",
   "phone.cameraDenied":
     "Vorige Eeuw Mail mag de camera niet gebruiken. Tik op Instellingen openen, kies Machtigingen en zet Camera aan. Kom dan terug en tik op Code scannen.",
   "phone.openSettings": "Instellingen openen",

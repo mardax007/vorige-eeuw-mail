@@ -101,7 +101,13 @@ legend {
   max-width: 60em;
 }
 
+/* Versturen and Sluiten stay in view while a long message is typed. */
 .compose-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper);
+  padding: 4px 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -117,7 +123,7 @@ legend {
 /* A fixed place for "Opgeslagen in Concepten.", so the fields do not jump when it comes and goes. */
 .save-note {
   flex: 1;
-  min-width: 14em;
+  min-width: min(14em, 100%);
   min-height: 1.5em;
   margin: 0;
 }

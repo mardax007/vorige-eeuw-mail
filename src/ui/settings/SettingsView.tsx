@@ -50,7 +50,9 @@ export function SettingsView() {
         <button type="button" onClick={() => setSize(size + TEXT_STEP)} disabled={size >= MAX_TEXT_SIZE}>
           {t("settings.larger")}
         </button>
-        <span>{t("settings.sizeNow", { size })}</span>
+        <span role="status">
+          {size === MIN_TEXT_SIZE ? t("settings.sizeNowNormal", { size }) : t("settings.sizeNow", { size })}
+        </span>
       </div>
       <p className="text-preview" style={{ fontSize: `${size}px` }}>
         {t("settings.preview")}

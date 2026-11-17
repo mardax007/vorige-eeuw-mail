@@ -5,6 +5,7 @@ import type { Draft, VemError } from "../../api/types";
 import { t } from "../../i18n";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { ErrorBox } from "../common/ErrorBox";
+import { useBackStep } from "../common/useBackStep";
 import { fileName } from "../format";
 import { mailAccounts } from "../folders";
 import { useApp } from "../state/AppContext";
@@ -85,6 +86,8 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
   const update = (patch: Partial<Fields>) => {
     setFields((f) => ({ ...f, ...patch }));
     setVersion((v) => v + 1);
+    // A problem under a field goes away as soon as that field is changed.
+    setProblem((p) => (p && p.field in patch ? null : p));
   };
 
   const buildDraft = useCallback(
@@ -138,6 +141,10 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
     isClosing.current = false;
     setIsCloseRefused(true);
   };
+  // Android's back key is Sluiten: the text is kept in Concepten first, never thrown away.
+  useBackStep(true, () => {
+    if (!isSending) void handleClose();
+  }, 1);
 
   const addAttachments = async () => {
     try {
@@ -256,7 +263,11 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
             {fields.attachments.map((path, i) => (
               <li key={`${path}-${i}`} className="attachment-row">
                 <span>{fileName(path)}</span>
-                <button type="button" onClick={() => update({ attachments: fields.attachments.filter((_, j) => j !== i) })}>
+                <button
+                  type="button"
+                  aria-label={t("compose.removeAttachmentNamed", { name: fileName(path) })}
+                  onClick={() => update({ attachments: fields.attachments.filter((_, j) => j !== i) })}
+                >
                   {t("compose.removeAttachment")}
                 </button>
               </li>

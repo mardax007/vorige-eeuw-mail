@@ -4,6 +4,7 @@ import type { Contact, MessageSummary } from "../../api/types";
 import { t } from "../../i18n";
 import { BackToMail } from "../common/BackToMail";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { useBackStep } from "../common/useBackStep";
 import { shortDate } from "../format";
 import { useApp } from "../state/AppContext";
 import { ContactEditor } from "./ContactEditor";
@@ -22,15 +23,19 @@ export function ContactsView() {
   const [query, setQuery] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
   const [mode, setMode] = useState<Mode>({ kind: "list" });
-  const [recent, setRecent] = useState<MessageSummary[]>([]);
+  // null while it loads; "failed" when it could not (the error stands at the top).
+  const [recent, setRecent] = useState<MessageSummary[] | null | "failed">(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       setContacts(byName(await api.listContacts(query)));
+      setHasLoadError(false);
     } catch (e: unknown) {
+      setHasLoadError(true);
       showError(e);
     } finally {
       setIsLoading(false);
@@ -43,10 +48,11 @@ export function ContactsView() {
 
   const show = async (contact: Contact) => {
     setMode({ kind: "show", contact });
-    setRecent([]);
+    setRecent(null);
     try {
       setRecent(await api.contactMessages(contact.id));
     } catch (e: unknown) {
+      setRecent("failed");
       showError(e);
     }
   };
@@ -78,15 +84,26 @@ export function ContactsView() {
     go({ kind: "mail" });
   };
 
+  // Annuleren while editing: back to the contact, or to the list for a new one.
+  const stepBack = () => {
+    if (mode.kind === "edit" && mode.contact.id) setMode({ kind: "show", contact: mode.contact });
+    else setMode({ kind: "list" });
+  };
+  // Android's back key: on an open contact it is Terug. While editing it does nothing, so a slip
+  // of the thumb never throws away what was typed (and never closes the app).
+  useBackStep(
+    mode.kind !== "list",
+    () => {
+      if (mode.kind === "show") setMode({ kind: "list" });
+    },
+    2,
+  );
+
   if (mode.kind === "edit") {
     return (
       <section className="page">
         <h2>{mode.contact.id ? mode.contact.name : t("contacts.new")}</h2>
-        <ContactEditor
-          contact={mode.contact}
-          onSave={save}
-          onCancel={() => (mode.contact.id ? setMode({ kind: "show", contact: mode.contact }) : setMode({ kind: "list" }))}
-        />
+        <ContactEditor contact={mode.contact} onSave={save} onCancel={stepBack} />
       </section>
     );
   }
@@ -109,12 +126,14 @@ export function ContactsView() {
             </button>
           )}
           <button type="button" onClick={() => setMode({ kind: "edit", contact: c })}>{t("contacts.edit")}</button>
-          <button type="button" onClick={() => setIsConfirming(true)}>{t("contacts.delete")}</button>
+          <button type="button" className="danger-outline" onClick={() => setIsConfirming(true)}>{t("contacts.delete")}</button>
         </div>
         <h3>{t("contacts.recent")}</h3>
-        {recent.length === 0 && <p>{t("contacts.noRecent")}</p>}
+        {recent === null && <p role="status">{t("contacts.recentLoading")}</p>}
+        {recent === "failed" && <p>{t("contacts.recentFailed")}</p>}
+        {Array.isArray(recent) && recent.length === 0 && <p>{t("contacts.noRecent")}</p>}
         <ul className="plain-list">
-          {recent.map((m) => (
+          {(Array.isArray(recent) ? recent : []).map((m) => (
             <li key={m.id}>
               <button type="button" className="list-button" onClick={() => openMessage(m)}>
                 {shortDate(m.date)} · {m.subject || t("list.noSubject")}
@@ -148,7 +167,13 @@ export function ContactsView() {
         <input id="contact-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       {isLoading && contacts.length === 0 && <p role="status">{t("contacts.loading")}</p>}
-      {!isLoading && contacts.length === 0 && (
+      {!isLoading && hasLoadError && contacts.length === 0 && (
+        <div className="button-row">
+          <p>{t("contacts.loadFailed")}</p>
+          <button type="button" onClick={() => void load()}>{t("list.retry")}</button>
+        </div>
+      )}
+      {!isLoading && !hasLoadError && contacts.length === 0 && (
         <p>{query.trim() === "" ? t("contacts.empty") : t("contacts.none", { query: query.trim() })}</p>
       )}
       <ul className="plain-list">
