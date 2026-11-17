@@ -215,6 +215,36 @@ describe("ComposeView", () => {
   });
 });
 
+describe("addresses from Contactpersonen", () => {
+  it("suggests the right contact from part of a name, also for a second address", async () => {
+    const { user } = renderCompose();
+    const to = (await screen.findByLabelText("Aan")) as HTMLInputElement;
+    await user.type(to, "kees");
+    const list = await screen.findByRole("list", { name: "Voorstellen uit Contactpersonen" });
+    const offered = Array.from(list.querySelectorAll("button")).map((b) => b.textContent);
+    expect(offered).toHaveLength(2);
+    expect(offered.every((o) => o?.includes("Kees Jansen"))).toBe(true);
+    await user.click(screen.getByRole("button", { name: /kees\.jansen@voorbeeld\.nl/ }));
+    expect(to.value).toContain("kees.jansen@voorbeeld.nl");
+    expect(screen.queryByRole("list", { name: "Voorstellen uit Contactpersonen" })).toBeNull();
+
+    await user.type(to, "Bakk");
+    await user.click(await screen.findByRole("button", { name: /sanne\.bakker@voorbeeld\.nl/ }));
+    expect(to.value).toContain("kees.jansen@voorbeeld.nl");
+    expect(to.value).toContain("sanne.bakker@voorbeeld.nl");
+  });
+
+  it("closes the suggestions with Escape and keeps what was typed", async () => {
+    const { user } = renderCompose();
+    const to = (await screen.findByLabelText("Aan")) as HTMLInputElement;
+    await user.type(to, "anne");
+    await screen.findByRole("list", { name: "Voorstellen uit Contactpersonen" });
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("list", { name: "Voorstellen uit Contactpersonen" })).toBeNull();
+    expect(to.value).toBe("anne");
+  });
+});
+
 describe("the heading", () => {
   it("says Nieuwe e-mail for a new mail and Antwoord schrijven for a reply", async () => {
     const { unmount } = render(
