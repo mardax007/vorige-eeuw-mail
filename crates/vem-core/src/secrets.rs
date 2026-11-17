@@ -32,6 +32,7 @@ impl std::fmt::Debug for Secret {
 }
 
 /// Mixed into DPAPI so another program of the same user cannot decrypt our files by accident.
+#[cfg(windows)]
 const ENTROPY: &[u8] = b"tech.mardax.vem/secrets/v1";
 
 pub struct Secrets {
@@ -94,15 +95,113 @@ fn unprotect(sealed: &[u8]) -> Result<Vec<u8>> {
     dpapi::call(sealed, false)
 }
 
-#[cfg(not(windows))]
+/// Android: the file holds the secret sealed with an AES key that lives in the Android Keystore
+/// (made on first use, never leaves the keystore). Same file layout as Windows, so the damage
+/// handling and tests above hold on both.
+#[cfg(target_os = "android")]
+fn protect(plain: &[u8]) -> Result<Vec<u8>> {
+    keystore::seal(plain)
+}
+
+#[cfg(target_os = "android")]
+fn unprotect(sealed: &[u8]) -> Result<Vec<u8>> {
+    keystore::open(sealed)
+}
+
+#[cfg(not(any(windows, target_os = "android")))]
 fn protect(_plain: &[u8]) -> Result<Vec<u8>> {
-    // Android keeps secrets in the keystore through the shell; the core has no fallback.
+    // Only Windows and Android are targets (CLAUDE.md, Stack); no plain-text fallback.
     Err(VemError::new(Code::StoreSecret01).with_detail("unsupported"))
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "android")))]
 fn unprotect(_sealed: &[u8]) -> Result<Vec<u8>> {
     Err(VemError::new(Code::StoreSecret01).with_detail("unsupported"))
+}
+
+/// Sealing with a 32-byte key (XChaCha20-Poly1305, random nonce in front). Used on Android with
+/// the key from the keystore; plain Rust, so the tests run it on Windows too.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+mod sealing {
+    use chacha20poly1305::aead::{Aead, KeyInit};
+    use chacha20poly1305::{XChaCha20Poly1305, XNonce};
+
+    use crate::error::{Code, Result, VemError};
+
+    const NONCE: usize = 24;
+
+    pub fn seal(key: &[u8; 32], plain: &[u8]) -> Result<Vec<u8>> {
+        let nonce: [u8; NONCE] = rand::random();
+        let ct = XChaCha20Poly1305::new(key.into())
+            .encrypt(&XNonce::from(nonce), plain)
+            .map_err(|_| VemError::new(Code::StoreSecret01).with_detail("protect"))?;
+        let mut out = nonce.to_vec();
+        out.extend_from_slice(&ct);
+        Ok(out)
+    }
+
+    pub fn open(key: &[u8; 32], sealed: &[u8]) -> Result<Vec<u8>> {
+        let unprotect = || VemError::new(Code::StoreSecret01).with_detail("unprotect");
+        if sealed.len() < NONCE {
+            return Err(unprotect());
+        }
+        let (n, ct) = sealed.split_at(NONCE);
+        let mut nonce = [0u8; NONCE];
+        nonce.copy_from_slice(n);
+        XChaCha20Poly1305::new(key.into()).decrypt(&XNonce::from(nonce), ct).map_err(|_| unprotect())
+    }
+}
+
+/// The sealing key, kept in the Android Keystore through `android-native-keyring-store`
+/// (SharedPreferences encrypted with a key that never leaves the keystore). Made once, on the
+/// first password saved; Tauri sets up the Android context the crate needs.
+#[cfg(target_os = "android")]
+mod keystore {
+    use std::sync::Mutex;
+
+    use android_native_keyring_store::by_store::store::Store;
+    use keyring_core::api::CredentialStoreApi;
+
+    use crate::error::{Code, Result, VemError};
+
+    const SERVICE: &str = "tech.mardax.vem";
+    const USER: &str = "secrets-key-v1";
+
+    /// Held after the first read; the lock also stops two threads from each making a key.
+    static KEY: Mutex<Option<[u8; 32]>> = Mutex::new(None);
+
+    fn failed(step: &'static str) -> VemError {
+        // Only a fixed word: the keystore's own error text never reaches a report.
+        VemError::new(Code::StoreSecret01).with_detail(step)
+    }
+
+    fn key() -> Result<[u8; 32]> {
+        let mut held = KEY.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(k) = *held {
+            return Ok(k);
+        }
+        let store = Store::new().map_err(|_| failed("keystore"))?;
+        let entry = store.build(SERVICE, USER, None).map_err(|_| failed("keystore"))?;
+        let key = match entry.get_secret() {
+            Ok(bytes) => <[u8; 32]>::try_from(bytes.as_slice()).map_err(|_| failed("keystore key"))?,
+            Err(keyring_core::Error::NoEntry) => {
+                let k: [u8; 32] = rand::random();
+                entry.set_secret(&k).map_err(|_| failed("keystore"))?;
+                k
+            }
+            Err(_) => return Err(failed("keystore")),
+        };
+        *held = Some(key);
+        Ok(key)
+    }
+
+    pub fn seal(plain: &[u8]) -> Result<Vec<u8>> {
+        super::sealing::seal(&key()?, plain)
+    }
+
+    pub fn open(sealed: &[u8]) -> Result<Vec<u8>> {
+        super::sealing::open(&key()?, sealed)
+    }
 }
 
 #[cfg(windows)]
@@ -196,6 +295,25 @@ mod tests {
         }
         s.put("acc1", &Secret::Password { password: "nieuw".into() }).unwrap();
         assert_eq!(s.get("acc1").unwrap(), Some(Secret::Password { password: "nieuw".into() }), "typing it again repairs it");
+    }
+
+    /// The Android sealing: a round trip works, the password is not on disk in the clear, and a
+    /// damaged copy or another key is refused instead of read as a wrong password.
+    #[test]
+    fn the_android_sealing_refuses_damage_and_other_keys() {
+        let key: [u8; 32] = rand::random();
+        let plain = br#"{"kind":"password","password":"Zomer2026!geheim"}"#;
+        let sealed = sealing::seal(&key, plain).unwrap();
+        assert!(!sealed.windows(6).any(|w| w == b"geheim"));
+        assert_eq!(sealing::open(&key, &sealed).unwrap(), plain);
+        let mut flipped = sealed.clone();
+        let last = flipped.len() - 1;
+        flipped[last] ^= 1;
+        let other: [u8; 32] = rand::random();
+        for (k, s) in [(&key, flipped), (&key, sealed[..10].to_vec()), (&key, Vec::new()), (&other, sealed.clone())] {
+            let err = sealing::open(k, &s).expect_err("not read as a secret");
+            assert_eq!(err.code(), Some(Code::StoreSecret01));
+        }
     }
 
     #[test]
