@@ -30,6 +30,8 @@ client_secret*.json
 testdata/real/
 # Generated, made-up samples may be committed, only from here:
 !testdata/samples/**
+# The empty example file of the vendored outlook-pst (no mail in it)
+!vendor/outlook-pst/examples/Empty.pst
 
 # Local app data
 *.sqlite

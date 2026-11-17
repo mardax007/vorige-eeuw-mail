@@ -758,17 +758,11 @@ pub(crate) mod tests {
         assert_eq!(password_crc(&empty_pst()).unwrap(), None, "Outlook's empty example file has no password");
     }
 
+    /// The empty example file that ships with outlook-pst, in our vendored copy.
     pub(crate) fn empty_pst() -> std::path::PathBuf {
-        let home = std::env::var_os("CARGO_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| {
-            std::path::PathBuf::from(std::env::var_os("USERPROFILE").or(std::env::var_os("HOME")).unwrap()).join(".cargo")
-        });
-        let registry = home.join("registry").join("src");
-        std::fs::read_dir(&registry)
-            .expect("cargo registry")
-            .filter_map(|e| e.ok())
-            .map(|e| e.path().join("outlook-pst-1.2.0").join("examples").join("Empty.pst"))
-            .find(|p| p.is_file())
-            .expect("Empty.pst from the outlook-pst crate")
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/outlook-pst/examples/Empty.pst");
+        assert!(p.is_file(), "Empty.pst from the vendored outlook-pst");
+        p
     }
 
     #[test]

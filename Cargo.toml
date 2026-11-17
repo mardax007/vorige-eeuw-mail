@@ -2,6 +2,11 @@
 resolver = "3"
 members = ["crates/vem-core", "src-tauri"]
 
+# outlook-pst 1.2.0 with three fixes that let it read real PST files it refused; see
+# vendor/outlook-pst/VEM-PATCHES.md.
+[patch.crates-io]
+outlook-pst = { path = "vendor/outlook-pst" }
+
 [profile.release]
 codegen-units = 1
 lto = true
