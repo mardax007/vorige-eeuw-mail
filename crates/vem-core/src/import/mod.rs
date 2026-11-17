@@ -850,12 +850,38 @@ mod tests {
         assert!(folders.iter().any(|f| f.path == vec!["Familie", "Kerst"]));
         let first = r.folder.expect("the report names where the mail went");
         assert!(folders.iter().any(|f| f.id == crate::store::folders::folder_key(first)), "a folder of this account");
-        let hits = s.search("kerstdiner", &crate::model::SearchScope::All, 10).unwrap();
-        assert_eq!(hits.len(), 1);
+        // Found at all three levels: alle mail, dit postvak, deze map.
+        use crate::model::SearchScope;
+        let kerst = folders.iter().find(|f| f.path == vec!["Familie", "Kerst"]).unwrap().id.clone();
+        for scope in [SearchScope::All, SearchScope::Account { account_id: acc.id.clone() }, SearchScope::Folder { folder_id: kerst }] {
+            assert_eq!(s.search("kerstdiner", &scope, 10).unwrap().len(), 1, "{scope:?}");
+        }
 
         let r = run(&s, "j2", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!((r.added, r.already_there), (0, 2), "a second import adds nothing twice");
         assert_eq!(r.folder, None, "nothing new, nothing to open");
+    }
+
+    #[test]
+    fn an_import_cut_off_halfway_goes_on_without_doubles() {
+        let (_d, s) = store();
+        let src = tempfile::tempdir().unwrap();
+        for i in 0..120 {
+            std::fs::write(src.path().join(format!("{i:03}.eml")), eml(&format!("Brief {i}"), &format!("b{i}"))).unwrap();
+        }
+        let source = ImportSource { kind: ImportKind::Eml, path: src.path().to_string_lossy().into(), size: None, label: "Brieven".into(), protected: false };
+
+        // The PC is shut down at the first progress event (after 50 messages).
+        let stop = AtomicBool::new(false);
+        let first = run(&s, "j1", &source, &ImportTarget::Local, &|_| stop.store(true, Ordering::Relaxed), &stop).unwrap();
+        assert!(first.added >= 50 && first.added < 120, "cut off: {}", first.added);
+
+        let second = run(&s, "j2", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(second.already_there, first.added, "what came in the first time is not copied again");
+        assert_eq!(first.added + second.added, 120);
+        let acc = s.local_account("Brieven").unwrap();
+        let in_store: usize = s.folders(Some(&acc.id)).unwrap().iter().map(|f| f.total as usize).sum();
+        assert_eq!(in_store, 120, "every letter once");
     }
 
     #[test]
