@@ -44,3 +44,5 @@ Elke melding in het programma heeft een code die begint met VEM. Klik op de code
 | [VEM-APP-CMD-01](VEM-APP-CMD-01.md) | Er ging iets onverwachts mis. |
 
 [Hulp op afstand](hulp-op-afstand.md)
+
+[Privacy](../privacy.md)
