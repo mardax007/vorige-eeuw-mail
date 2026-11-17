@@ -263,6 +263,10 @@ pub struct Settings {
     pub shrink_photos: bool,
     pub report_notice_shown: bool,
     pub tray_notice_shown: bool,
+    /// Android: a background service keeps watching for new mail (decision 24). Off by default;
+    /// settings saved before it existed lack the field.
+    #[serde(default)]
+    pub background_mail: bool,
 }
 
 impl Default for Settings {
@@ -275,6 +279,7 @@ impl Default for Settings {
             shrink_photos: true,
             report_notice_shown: false,
             tray_notice_shown: false,
+            background_mail: false,
         }
     }
 }

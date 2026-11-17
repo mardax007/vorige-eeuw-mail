@@ -13,6 +13,9 @@ export const nl = {
   "shell.newMail": "Nieuwe e-mail",
   "shell.newMailMany": "{count} nieuwe e-mails",
   "shell.stillRunning": "Vorige Eeuw Mail blijft nieuwe mail ophalen. U vindt het rechtsonder bij de klok.",
+  "shell.watching": "Vorige Eeuw Mail kijkt of er nieuwe mail is",
+  "shell.watchingChannel": "Kijken naar nieuwe mail",
+  "shell.newMailChannel": "Nieuwe mail",
 
   // Folders
   "folder.inbox": "Postvak IN",
@@ -240,6 +243,9 @@ export const nl = {
   "settings.sizeNow": "Nu: {size}",
   "settings.notifications": "Melding bij nieuwe mail",
   "settings.startWithWindows": "Starten met Windows",
+  "settings.backgroundMail": "Nieuwe mail direct melden",
+  "settings.backgroundMailHint":
+    "De telefoon kijkt dan steeds of er nieuwe mail is, ook als dit programma dicht is. Bovenaan staat dan altijd een melding. Android vraagt één keer of het programma op de achtergrond mag werken: kies Toestaan.",
   "settings.undoSend": "Wachttijd voor versturen (om nog te kunnen terughalen)",
   "settings.undoSendOff": "Niet wachten",
   "settings.undoSendSeconds": "{seconds} seconden",

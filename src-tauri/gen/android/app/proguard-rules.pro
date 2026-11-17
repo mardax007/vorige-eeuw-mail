@@ -23,3 +23,8 @@
 -keep, includedescriptorclasses class org.rustls.platformverifier.** { *; }
 # "Bijwerken": Rust calls ApkInstaller.install through JNI (src-tauri/src/updates.rs).
 -keep class tech.mardax.vem.ApkInstaller { *; }
+# "Nieuwe mail direct melden": native methods and the calls back from Rust
+# (src-tauri/src/android_mail.rs).
+-keep class tech.mardax.vem.MailCore { *; }
+-keep class tech.mardax.vem.MailService { *; }
+-keep class tech.mardax.vem.MailService$Companion { *; }

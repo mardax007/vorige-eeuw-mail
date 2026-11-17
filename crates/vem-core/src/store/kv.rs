@@ -194,6 +194,19 @@ mod tests {
     }
 
     #[test]
+    fn settings_saved_before_background_mail_existed_still_load() {
+        let (_d, s) = store();
+        let old = serde_json::json!({
+            "textSize": 22, "notifications": true, "startWithWindows": true, "undoSendSeconds": 10,
+            "shrinkPhotos": true, "reportNoticeShown": true, "trayNoticeShown": false
+        });
+        s.kv_set("settings", &old).unwrap();
+        let st = s.settings().unwrap();
+        assert_eq!(st.text_size, 22, "the saved settings, not the defaults");
+        assert!(!st.background_mail);
+    }
+
+    #[test]
     fn undo_token_is_single_use() {
         let (_d, s) = store();
         let t = s.put_undo(&vec![1, 2, 3]).unwrap();

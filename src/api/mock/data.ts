@@ -87,6 +87,7 @@ export const sampleSettings: Settings = {
   shrinkPhotos: true,
   reportNoticeShown: false,
   trayNoticeShown: false,
+  backgroundMail: false,
 };
 
 /** One sample message: folder, sender, subject, body, hours ago, extras. */

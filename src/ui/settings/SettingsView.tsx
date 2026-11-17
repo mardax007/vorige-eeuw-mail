@@ -12,12 +12,20 @@ interface ToggleProps {
   label: string;
   isOn: boolean;
   onChange: (on: boolean) => void;
+  /** The id of a text that explains the setting. */
+  describedBy?: string;
 }
 
-function Toggle({ id, label, isOn, onChange }: ToggleProps) {
+function Toggle({ id, label, isOn, onChange, describedBy }: ToggleProps) {
   return (
     <label className="check-row" htmlFor={id}>
-      <input id={id} type="checkbox" checked={isOn} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        id={id}
+        type="checkbox"
+        checked={isOn}
+        aria-describedby={describedBy}
+        onChange={(e) => onChange(e.target.checked)}
+      />
       {label}
     </label>
   );
@@ -54,6 +62,20 @@ export function SettingsView() {
         isOn={settings.notifications}
         onChange={(on) => void updateSettings({ notifications: on })}
       />
+      {appInfo?.isPhone && (
+        <>
+          <Toggle
+            id="set-background"
+            label={t("settings.backgroundMail")}
+            isOn={settings.backgroundMail}
+            onChange={(on) => void updateSettings({ backgroundMail: on })}
+            describedBy="set-background-hint"
+          />
+          <p className="hint" id="set-background-hint">
+            {t("settings.backgroundMailHint")}
+          </p>
+        </>
+      )}
       {!appInfo?.isPhone && (
         <Toggle
           id="set-start"

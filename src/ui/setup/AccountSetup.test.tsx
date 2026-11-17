@@ -132,6 +132,9 @@ describe("shell texts", () => {
       newMail: "Nieuwe e-mail",
       newMailMany: "{count} nieuwe e-mails",
       stillRunning: "Vorige Eeuw Mail blijft nieuwe mail ophalen. U vindt het rechtsonder bij de klok.",
+      watching: "Vorige Eeuw Mail kijkt of er nieuwe mail is",
+      watchingChannel: "Kijken naar nieuwe mail",
+      newMailChannel: "Nieuwe mail",
     });
   });
 

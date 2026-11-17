@@ -4,6 +4,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- "Bijwerken" opens Android's install screen for a newer version (phase 5 task 8). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- "Nieuwe mail direct melden" (decision 24): a foreground service that keeps the mailbox
+         connection open, an alarm that wakes it, and a start after a restart or an update. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -40,6 +48,31 @@
             android:name="android.support.FILE_PROVIDER_PATHS"
             android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Decision 24. Its own process: the app's process may end with its screen while this
+             one keeps working; they hand the mailboxes over through lock files. -->
+        <service
+            android:name=".MailService"
+            android:process=":mail"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the IMAP connection to the user's own mail provider open (IMAP IDLE) so new mail is shown when it arrives. The app is a mail client without a server of its own, so there is no push message to wait for. Switched on by the user in the app's settings." />
+        </service>
+        <receiver
+            android:name=".MailAlarm"
+            android:process=":mail"
+            android:exported="false" />
+        <receiver
+            android:name=".MailBoot"
+            android:process=":mail"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- The QR scanner (barcode-scanner plugin, Google ML Kit) queues usage events for
              firebaselogging.googleapis.com through Google's datatransport. That host is not on

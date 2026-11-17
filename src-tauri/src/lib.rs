@@ -1,6 +1,8 @@
 //! The Tauri shell: one window, the icon next to the clock, notifications, starting with
 //! Windows, silent updates, and the commands the screens call. Mail logic lives in vem-core.
 
+#[cfg(target_os = "android")]
+mod android_mail;
 #[cfg(windows)]
 mod badge;
 mod commands;
@@ -75,6 +77,21 @@ pub fn run() {
                 last_import: Mutex::new(None),
                 android_update: Mutex::new(None),
             });
+            // On a phone the background service may be working on the mailboxes; the app takes
+            // over from it first (decision 24).
+            #[cfg(target_os = "android")]
+            {
+                let handle = app.handle().clone();
+                let reload = move || {
+                    let state = handle.state::<AppState>();
+                    let sink = shell::EventSink(handle.clone());
+                    for a in state.engine.store.accounts().unwrap_or_default() {
+                        vem_core::engine::Sink::mail_changed(&sink, &a.id, None);
+                    }
+                };
+                android_mail::attach(engine.clone(), data.clone(), Box::new(reload));
+            }
+            #[cfg(not(target_os = "android"))]
             tauri::async_runtime::block_on(async { engine.start() }).map_err(|e| format!("{e:?}"))?;
             let hidden = std::env::args().any(|a| a == HIDDEN_ARG);
             shell::create_main_window(app.handle(), !hidden)?;
@@ -90,11 +107,17 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("the app could not start")
         .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
-                // Closing the window keeps the app next to the clock; only "Afsluiten" ends it.
-                if code.is_none() && !shell::quitting(app) {
-                    api.prevent_exit();
-                }
+            // Closing the window keeps the app next to the clock; only "Afsluiten" ends it. A
+            // phone lets the app end with its screen: Android brings it back fresh, and new mail
+            // in between is the background service's work (decision 24).
+            #[cfg(desktop)]
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = event
+                && code.is_none()
+                && !shell::quitting(app)
+            {
+                api.prevent_exit();
             }
+            #[cfg(mobile)]
+            let _ = (app, event);
         });
 }

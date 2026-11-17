@@ -10,6 +10,9 @@ export function shellTexts(): ShellTexts {
     newMail: t("shell.newMail"),
     newMailMany: t("shell.newMailMany"),
     stillRunning: t("shell.stillRunning"),
+    watching: t("shell.watching"),
+    watchingChannel: t("shell.watchingChannel"),
+    newMailChannel: t("shell.newMailChannel"),
   };
 }
 

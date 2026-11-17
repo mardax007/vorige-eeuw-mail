@@ -207,7 +207,7 @@ fn open_installer(path: &std::path::Path) -> Result<(), String> {
 
 /// `throwable.toString()`, or None when even that fails.
 #[cfg(target_os = "android")]
-fn java_text(env: &mut jni::Env<'_>, throwable: &jni::objects::JObject<'_>) -> Option<String> {
+pub(crate) fn java_text(env: &mut jni::Env<'_>, throwable: &jni::objects::JObject<'_>) -> Option<String> {
     let text = env
         .call_method(throwable, jni::jni_str!("toString"), jni::jni_sig!("()Ljava/lang/String;"), &[])
         .ok()?

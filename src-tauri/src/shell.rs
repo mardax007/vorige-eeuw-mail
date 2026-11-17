@@ -25,16 +25,36 @@ const TRAY_ID: &str = "vem-tray";
 
 static QUITTING: AtomicBool = AtomicBool::new(false);
 
+/// Key in the index's key-value table under which the shell texts are kept.
+pub const SHELL_TEXTS_KEY: &str = "shell_texts";
+
 /// The few words the shell shows itself (tray menu, notifications). The screens send them from
 /// the Dutch catalogue at start (`set_shell_texts`), so no screen text lives in Rust.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct ShellTexts {
     pub open: String,
     pub quit: String,
     pub new_mail: String,
     pub new_mail_many: String,
     pub still_running: String,
+    /// Android: the permanent notification while the background service watches (decision 24).
+    pub watching: String,
+    /// Android: the names of the two notification channels, shown in the phone's settings.
+    pub watching_channel: String,
+    pub new_mail_channel: String,
+}
+
+/// Title and body of the notification about new mail. One message names its sender and
+/// subject; several give the count.
+pub fn new_mail_text(t: &ShellTexts, messages: &[MessageSummary]) -> (String, String) {
+    if let [m] = messages {
+        let who = m.from.name.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| m.from.email.clone());
+        let title = if t.new_mail.is_empty() { who.clone() } else { t.new_mail.clone() };
+        (title, format!("{who}: {}", m.subject))
+    } else {
+        (t.new_mail_many.replace("{count}", &messages.len().to_string()), String::new())
+    }
 }
 
 pub struct EventSink(pub AppHandle);
@@ -82,13 +102,7 @@ fn notify_new_mail(app: &AppHandle, messages: &[MessageSummary]) {
     let t = texts(app);
     // A single message opens itself when the notification is clicked; several open Postvak IN.
     let target = (messages.len() == 1).then(|| messages[0].id.clone());
-    let (title, body) = if messages.len() == 1 {
-        let m = &messages[0];
-        let who = m.from.name.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| m.from.email.clone());
-        (if t.new_mail.is_empty() { who.clone() } else { t.new_mail.clone() }, format!("{who}: {}", m.subject))
-    } else {
-        (t.new_mail_many.replace("{count}", &messages.len().to_string()), String::new())
-    };
+    let (title, body) = new_mail_text(&t, messages);
     let mut b = app.notification().builder().title(title).body(body);
     if let Some(id) = target {
         b = b.extra(OPEN_MESSAGE, id);
@@ -155,6 +169,8 @@ pub fn update_badge(app: &AppHandle) {
     let _ = (w, count);
 }
 
+/// A phone ends with its screen anyway, so only the PC asks (lib.rs).
+#[cfg(desktop)]
 pub fn quitting(_app: &AppHandle) -> bool {
     QUITTING.load(Ordering::SeqCst)
 }
@@ -288,6 +304,11 @@ pub fn apply_texts(app: &AppHandle, t: ShellTexts) -> tauri::Result<()> {
     #[cfg(desktop)]
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         tray.set_menu(Some(tray_menu(app, &t)?))?;
+    }
+    // Kept in the index too: Android's background service has no screens to ask (decision 24).
+    let store = &app.state::<AppState>().engine.store;
+    if let Err(e) = store.kv_set(SHELL_TEXTS_KEY, &t) {
+        vem_core::log::error("shell.texts_not_saved", &e);
     }
     *app.state::<AppState>().texts.lock().unwrap_or_else(|e| e.into_inner()) = t;
     Ok(())

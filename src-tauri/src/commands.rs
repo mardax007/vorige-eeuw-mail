@@ -424,8 +424,16 @@ fn get_settings(state: State<'_, AppState>) -> R<Settings> {
 
 #[tauri::command]
 fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> R<()> {
+    let before = state.engine.store.settings()?;
     let s = state.engine.store.save_settings(&settings)?;
     set_autostart(&app, s.start_with_windows);
+    #[cfg(target_os = "android")]
+    if s.background_mail != before.background_mail {
+        let dir = tauri::Manager::path(&app).app_local_data_dir().map_err(|e| app_error(e.to_string()))?;
+        crate::android_mail::set_background(&dir, s.background_mail);
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = before;
     Ok(())
 }
 

@@ -86,6 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shrinkPhotos: true,
   reportNoticeShown: false,
   trayNoticeShown: false,
+  backgroundMail: false,
 };
 
 export const MIN_TEXT_SIZE = 18;

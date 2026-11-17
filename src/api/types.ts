@@ -181,6 +181,8 @@ export interface Settings {
   reportNoticeShown: boolean;
   /** Set once the user has been told that closing keeps the app next to the clock. */
   trayNoticeShown: boolean;
+  /** Android: keep watching for new mail with the app closed (decision 24). Off by default. */
+  backgroundMail: boolean;
 }
 
 export type ImportKind = "pst" | "wlm" | "dbx" | "eml" | "mbox";
@@ -290,6 +292,11 @@ export interface ShellTexts {
   newMailMany: string;
   /** Said once, the first time the window is closed. */
   stillRunning: string;
+  /** Android: the permanent notification while the phone watches for new mail. */
+  watching: string;
+  /** Android: the names of the two kinds of notification, shown in the phone's settings. */
+  watchingChannel: string;
+  newMailChannel: string;
 }
 
 /** How an account signs in (ServerSettings.signIn). Added by the screens. */

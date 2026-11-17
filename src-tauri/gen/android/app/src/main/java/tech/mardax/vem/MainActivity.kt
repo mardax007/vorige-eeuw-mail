@@ -24,4 +24,17 @@ class MainActivity : TauriActivity() {
       WindowInsetsCompat.CONSUMED
     }
   }
+
+  // "Nieuwe mail direct melden" (decision 24): while the screen is visible the app works on the
+  // mailboxes itself; when it goes, the background service takes over.
+  override fun onStart() {
+    super.onStart()
+    MailCore.uiForeground()
+    if (MailService.isOn(this)) MailService.start(this)
+  }
+
+  override fun onStop() {
+    MailCore.uiBackground()
+    super.onStop()
+  }
 }
