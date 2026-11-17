@@ -95,6 +95,12 @@ one by itself.
   made only for this, and receiving it is set up at Martijn's mail domain (Martijn).
 - **Decision 22, Android updates:** the app checks GitHub and shows one "Bijwerken" button that opens
   Android's own install screen.
+- **Android backup: off (Martijn, 17 November 2026).** Mail stays on the phone: the app's folder
+  goes neither into the Google Drive backup nor to another phone in a phone-to-phone transfer
+  (`android:allowBackup="false"` plus exclude-everything rules in `res/xml/data_extraction_rules.xml`
+  and `backup_rules.xml`, since some makers keep phone-to-phone transfer on despite `allowBackup`).
+  On a new phone each mailbox fetches its mail again; mail imported only into a local folder on the
+  phone does not move along.
 
 ## Open
 
@@ -195,4 +201,5 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-17 | MX/SRV lookup built; readpst chosen as rescue tool; PST password checked |
 | 2026-11-17 | readpst from MSYS2 bundled in the installer (Martijn said yes to installing it); question 23 added |
 | 2026-11-17 | Four real public PSTs imported; outlook-pst vendored and patched (six fixes) so it reads them; PST password check verified on a real protected file |
+| 2026-11-17 | Android backup off: mail stays on the phone, no Google Drive backup and no phone-to-phone transfer (Martijn) |
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |
