@@ -151,6 +151,8 @@ export interface VemError {
   serverReply?: string | null;
   /** Extra plain data for the sentence, for example a host name. */
   detail?: string | null;
+  /** A report about this error went to Martijn's queue. */
+  reported?: boolean;
 }
 
 export interface ServerSettings {
@@ -221,6 +223,10 @@ export interface ImportProgress {
   rescued?: boolean;
   /** Filled only in the final event (finished = true). */
   skipped: ImportSkip[];
+  /** The file or mailbox this import reads, as the screen named it. */
+  source?: string | null;
+  /** Final event only: the folder the first new message went into. */
+  folderId?: string | null;
 }
 
 /** Contacts read from vCard files (Windows Live Mail's export). */

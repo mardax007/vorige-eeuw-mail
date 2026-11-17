@@ -4,7 +4,7 @@ import { useCopyNote, type CopyResult } from "./useCopyNote";
 
 interface ErrorBoxProps {
   error: VemError;
-  /** True once reports to Martijn are built and this error was reported. */
+  /** Says Martijn hears of it; by default when the core queued a report about this error. */
   isReported?: boolean;
   onClose?: () => void;
 }
@@ -37,7 +37,7 @@ export function CopyNoteText({ result, copiedText = t("error.copied") }: CopyNot
 }
 
 /** One error, as docs/errors.md says: what happened, what to do, the exact words, the code. */
-export function ErrorBox({ error, isReported = false, onClose }: ErrorBoxProps) {
+export function ErrorBox({ error, isReported = error.reported === true, onClose }: ErrorBoxProps) {
   const rawNote = useCopyNote();
   const martijnNote = useCopyNote();
   const { sentence, next } = errorText(error.code);

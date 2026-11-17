@@ -75,7 +75,7 @@ const UNREADABLE = "VEM-IMPORT-READ-01";
 
 /** "Oude mail ophalen": choose a file, folder or old mailbox, choose where it goes, watch it come in. */
 export function ImportView() {
-  const { accounts, showError, reload, go, appInfo } = useApp();
+  const { accounts, showError, reload, go, appInfo, setLocation } = useApp();
   // Decision 26: files from Outlook and Windows Live Mail are brought in on the PC only.
   const isPhone = appInfo?.isPhone === true;
   const mail = mailAccounts(accounts);
@@ -155,6 +155,11 @@ export function ImportView() {
     } finally {
       setIsStarting(false);
     }
+  };
+
+  const openFolder = (folderId: string) => {
+    setLocation({ kind: "folder", folderId });
+    go({ kind: "mail" });
   };
 
   const offerRescue =
@@ -253,7 +258,7 @@ export function ImportView() {
         {!choice && <span className="hint">{t("import.chooseFirst")}</span>}
       </div>
 
-      {job.progress && <ImportProgressView progress={job.progress} />}
+      {job.progress && <ImportProgressView progress={job.progress} onOpen={openFolder} />}
       {offerRescue && (
         <div className="button-row">
           <p className="calm-line">{t("import.rescue.text")}</p>

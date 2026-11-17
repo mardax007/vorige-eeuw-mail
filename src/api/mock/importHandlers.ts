@@ -30,6 +30,10 @@ interface ImportRun {
   /** The import stops at once with this error (a damaged file). */
   error?: VemError;
   skipped: ImportSkip[];
+  /** The file or mailbox, as the screen named it. */
+  source: string;
+  /** The folder the new mail went into. */
+  folderId?: string;
   /** Set for a file import: the kept copy that shows under Originele bestanden. */
   original?: { label: string; size: number };
 }
@@ -43,7 +47,7 @@ function runImport(store: MockStore, jobId: string, run: ImportRun): void {
   if (run.error) {
     const error = run.error;
     store.later(IMPORT_START_MS, () =>
-      report(store, { jobId, done: 0, total: null, currentFolder: null, finished: true, error, alreadyThere: 0, skipped: [] }),
+      report(store, { jobId, done: 0, total: null, currentFolder: null, finished: true, error, alreadyThere: 0, skipped: [], source: run.source }),
     );
     return;
   }
@@ -61,6 +65,8 @@ function runImport(store: MockStore, jobId: string, run: ImportRun): void {
       allMarkedRead: finished && (run.allMarkedRead ?? false),
       rescued: finished && (run.rescued ?? false),
       skipped: finished ? run.skipped : [],
+      source: run.source,
+      folderId: finished ? (run.folderId ?? null) : null,
     });
     if (finished) {
       const original = run.original;
@@ -85,7 +91,7 @@ function startJob(store: MockStore, run: ImportRun): string {
   const last = store.get().lastImport;
   if (last && !last.finished) throw mockError("VEM-APP-CMD-01", undefined, "an import is already running");
   const jobId = store.nextId("job");
-  report(store, { jobId, done: 0, total: null, currentFolder: null, finished: false, error: null, alreadyThere: 0, skipped: [] });
+  report(store, { jobId, done: 0, total: null, currentFolder: null, finished: false, error: null, alreadyThere: 0, skipped: [], source: run.source });
   runImport(store, jobId, run);
   return jobId;
 }
@@ -135,6 +141,8 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
       const damaged = source.label === "Kapot.pst" && !rescue;
       return startJob(store, {
         error: damaged ? mockError("VEM-IMPORT-READ-01", undefined, "PST cannot be read: invalid block") : undefined,
+        source: source.label,
+        folderId: "f-l-inbox",
         rescued: rescue,
         folders: ["Postvak IN", "Verzonden items"],
         alreadyThere: 0,
@@ -153,6 +161,7 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
         throw mockError("VEM-APP-CMD-01", undefined, "source and target are the same mailbox");
       }
       return startJob(store, {
+        source: accounts.find((a) => a.id === sourceAccountId)?.displayName ?? "",
         folders: ["INBOX", "Sent"],
         alreadyThere: 12,
         skipped: [{ folder: "Archief/2009", reason: "SELECT failed: NO Mailbox is locked" }],

@@ -281,9 +281,10 @@ impl Engine {
                 }
                 Err(e) => {
                     log::error("sync.failed", &e);
+                    let reported = self.report(Some(&id), &e).await;
+                    let e = e.with_reported(reported);
                     let _ = self.store.set_last_error(&id, Some(&e));
                     self.sink.sync_state(&id, false, Some(e.clone()));
-                    self.report(Some(&id), &e).await;
                     tokio::select! {
                         _ = tokio::time::sleep(retry) => {}
                         _ = wake.notified() => {}
@@ -423,8 +424,8 @@ impl Engine {
                     log::error("send.failed", &e);
                     let retry = matches!(e.code(), Some(Code::SmtpConnect01) | Some(Code::SmtpTls01))
                         .then(|| now() + SEND_RETRY_SECS);
-                    let _ = self.store.send_failed(&row.id, &e, retry);
-                    self.report(Some(&row.account_id), &e).await;
+                    let reported = self.report(Some(&row.account_id), &e).await;
+                    let _ = self.store.send_failed(&row.id, &e.with_reported(reported), retry);
                 }
             }
             self.outbox_changed();
@@ -496,19 +497,25 @@ impl Engine {
     }
 
     /// Tell Martijn about an error the user saw (within the daily limits).
-    pub async fn report(&self, account_id: Option<&str>, e: &VemError) {
+    /// Queues a report about `e` for Martijn, within the daily limits. Returns whether one was
+    /// queued, so the screen can say "Martijn krijgt hier vanzelf bericht van" only when true.
+    pub async fn report(&self, account_id: Option<&str>, e: &VemError) -> bool {
         if report::support_address().is_none() {
-            return;
+            return false;
         }
-        let Some(sender) = self.report_sender(account_id) else { return };
+        let Some(sender) = self.report_sender(account_id) else { return false };
         let earlier = match report::admit(&self.store, &e.code) {
             Ok(Some(n)) => n,
-            _ => return,
+            _ => return false,
         };
         let from = Addr::new(Some(sender.display_name.as_str()), &sender.email);
-        if let Ok(Some(d)) = report::error_report(&self.store, &self.facts, &from, &sender.id, e, earlier) {
-            self.queue_report(d);
-            self.outbox_wake.notify_one();
+        match report::error_report(&self.store, &self.facts, &from, &sender.id, e, earlier) {
+            Ok(Some(d)) => {
+                self.queue_report(d);
+                self.outbox_wake.notify_one();
+                true
+            }
+            _ => false,
         }
     }
 

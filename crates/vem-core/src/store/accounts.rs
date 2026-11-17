@@ -31,11 +31,13 @@ struct StoredError {
     code: String,
     server_reply: Option<String>,
     detail: Option<String>,
+    #[serde(default)]
+    reported: bool,
 }
 
 impl From<StoredError> for VemError {
     fn from(s: StoredError) -> Self {
-        VemError { code: s.code, server_reply: s.server_reply, detail: s.detail, kind: None }
+        VemError { code: s.code, server_reply: s.server_reply, detail: s.detail, kind: None, reported: s.reported }
     }
 }
 
@@ -126,6 +128,7 @@ impl Store {
             code: e.code.clone(),
             server_reply: e.server_reply.clone(),
             detail: e.detail.clone(),
+            reported: e.reported,
         });
         self.db().execute(
             "UPDATE accounts SET last_error_json = ?2 WHERE id = ?1",
@@ -222,11 +225,13 @@ mod tests {
     fn errors_and_quota_round_trip() {
         let (_d, s) = store();
         let a = s.add_account("Jan", "jan@x.nl", AccountKind::Imap, None).unwrap();
-        let e = crate::VemError::new(crate::Code::ImapLogin01).with_reply("a1 NO nope");
+        let e = crate::VemError::new(crate::Code::ImapLogin01).with_reply("a1 NO nope").with_reported(true);
         s.set_last_error(&a.id, Some(&e)).unwrap();
         s.set_quota(&a.id, Some(&crate::model::Quota { used_kb: 10, limit_kb: Some(100) })).unwrap();
         let a = s.account(&a.id).unwrap();
-        assert_eq!(a.last_error.unwrap().server_reply.as_deref(), Some("a1 NO nope"));
+        let stored = a.last_error.unwrap();
+        assert_eq!(stored.server_reply.as_deref(), Some("a1 NO nope"));
+        assert!(stored.reported, "the screen still says Martijn hears of it after a restart");
         assert_eq!(a.quota.unwrap().limit_kb, Some(100));
     }
 

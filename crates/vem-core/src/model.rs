@@ -345,6 +345,10 @@ pub struct ImportProgress {
     /// Only in the last event: what was left out, by folder, with a short technical reason
     /// (shown under "Details" and in the saved list, like a server reply).
     pub skipped: Vec<ImportSkip>,
+    /// What this import reads from, as the screen named it: the result stays with its file.
+    pub source: Option<String>,
+    /// Only in the last event: the folder the first new message went into, for "bekijken".
+    pub folder_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

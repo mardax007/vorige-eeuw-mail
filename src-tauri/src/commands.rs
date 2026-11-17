@@ -180,8 +180,8 @@ fn list_messages(state: State<'_, AppState>, folder_id: String, offset: u32, lim
 async fn get_message(state: State<'_, AppState>, message_id: String, show_remote_images: bool) -> R<MessageDetail> {
     let id = parse_message_key(&message_id)?;
     if let Err(e) = state.engine.ensure_body(id).await {
-        state.engine.report(None, &e).await;
-        return Err(e);
+        let reported = state.engine.report(None, &e).await;
+        return Err(e.with_reported(reported));
     }
     actions::message_detail(&state.engine.store, &message_id, show_remote_images)
 }
@@ -541,7 +541,8 @@ fn start_import(
         Some(true) => Some(import::rescue::tool().ok_or_else(|| app_error("the rescue tool is not installed"))?),
         _ => None,
     };
-    spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| match &tool {
+    let label = source.label.clone();
+    spawn_import(app, &state, label, target.clone(), move |engine, job, emit, cancel| match &tool {
         Some(tool) => import::run_rescue(&engine.store, job, &source, &target, emit, cancel, tool),
         None => import::run(&engine.store, job, &source, &target, emit, cancel),
     })
@@ -556,7 +557,8 @@ fn rescue_available() -> bool {
 /// "Uit een ander postvak": download the old mailbox's mail (read-only), then copy it.
 #[tauri::command]
 fn import_from_account(app: AppHandle, state: State<'_, AppState>, source_account_id: String, target: ImportTarget) -> R<String> {
-    spawn_import(app, &state, target.clone(), move |engine, job, emit, cancel| {
+    let label = state.engine.store.account(&source_account_id)?.display_name;
+    spawn_import(app, &state, label, target.clone(), move |engine, job, emit, cancel| {
         emit(ImportProgress { job_id: job.to_string(), ..Default::default() });
         tauri::async_runtime::block_on(engine.download_bodies(&source_account_id, cancel))?;
         import::account::run(&engine.store, job, &source_account_id, &target, emit, cancel)
@@ -567,6 +569,7 @@ fn import_from_account(app: AppHandle, state: State<'_, AppState>, source_accoun
 fn spawn_import(
     app: AppHandle,
     state: &AppState,
+    source: String,
     target: ImportTarget,
     work: impl FnOnce(&Engine, &str, &dyn Fn(ImportProgress), &AtomicBool) -> vem_core::Result<import::ImportReport> + Send + 'static,
 ) -> R<String> {
@@ -583,7 +586,9 @@ fn spawn_import(
     let engine = state.engine.clone();
     let job2 = job.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        // Every event names its source, so the screen shows a result only next to its own file.
         let emit = |p: ImportProgress| {
+            let p = ImportProgress { source: Some(source.clone()), ..p };
             if let Some(state) = tauri::Manager::try_state::<AppState>(&app) {
                 *state.last_import.lock().unwrap_or_else(|e| e.into_inner()) = Some(p.clone());
             }
@@ -594,7 +599,9 @@ fn spawn_import(
             Ok(r) => (r, None),
             Err(e) => {
                 vem_core::log::error("import.failed", &e);
-                (import::ImportReport::default(), Some(e))
+                // Reported before the last event, so the screen can say whether Martijn hears of it.
+                let reported = tauri::async_runtime::block_on(engine.report(None, &e));
+                (import::ImportReport::default(), Some(e.with_reported(reported)))
             }
         };
         let skipped = report.skipped.iter().map(|(folder, reason)| ImportSkip { folder: folder.clone(), reason: reason.clone() }).collect();
@@ -603,12 +610,13 @@ fn spawn_import(
             done: report.added,
             total: Some(report.added),
             finished: true,
-            error: error.clone(),
+            error,
             already_there: report.already_there,
             contacts_added: report.contacts,
             all_marked_read: report.all_marked_read,
             rescued: report.rescued,
             skipped,
+            folder_id: report.folder.map(vem_core::store::folders::folder_key),
             ..Default::default()
         });
         if let ImportTarget::Mailbox { account_id } = &target {
@@ -617,9 +625,6 @@ fn spawn_import(
         let accounts = engine.store.accounts().unwrap_or_default();
         for a in accounts {
             let _ = app.emit("mail:changed", serde_json::json!({ "accountId": a.id, "folderId": null }));
-        }
-        if let Some(e) = error {
-            tauri::async_runtime::block_on(engine.report(None, &e));
         }
         if let Some(state) = tauri::Manager::try_state::<AppState>(&app) {
             state.imports.lock().unwrap_or_else(|e| e.into_inner()).remove(&job2);

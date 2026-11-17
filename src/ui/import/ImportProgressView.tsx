@@ -5,6 +5,13 @@ import { useCopyNote } from "../common/useCopyNote";
 
 interface ImportProgressViewProps {
   progress: ImportProgress;
+  /** Opens the folder the new mail went into. */
+  onOpen: (folderId: string) => void;
+}
+
+/** Which file or mailbox the progress or result is about, so an old result never reads as a new one. */
+function SourceLine({ source }: { source?: string | null }) {
+  return source ? <p className="calm-line">{t("import.resultFor", { source })}</p> : null;
 }
 
 function progressText(p: ImportProgress): string {
@@ -43,10 +50,11 @@ function SkippedDetails({ skipped }: { skipped: readonly ImportSkip[] }) {
 }
 
 /** Progress while an import runs; when it is done, what came in, what was there already and what was left out. */
-export function ImportProgressView({ progress }: ImportProgressViewProps) {
+export function ImportProgressView({ progress, onOpen }: ImportProgressViewProps) {
   if (!progress.finished) {
     return (
       <div className="import-progress" role="status">
+        <SourceLine source={progress.source} />
         <progress max={progress.total ?? undefined} value={progress.done} />
         <p>{progressText(progress)}</p>
         {progress.currentFolder && <p>{t("import.folder", { folder: progress.currentFolder })}</p>}
@@ -55,6 +63,7 @@ export function ImportProgressView({ progress }: ImportProgressViewProps) {
   }
   return (
     <div className="import-progress">
+      <SourceLine source={progress.source} />
       {progress.error ? (
         <ErrorBox error={progress.error} />
       ) : (
@@ -66,6 +75,11 @@ export function ImportProgressView({ progress }: ImportProgressViewProps) {
       {(progress.contactsAdded ?? 0) > 0 && <p>{t("import.contactsAdded", { count: progress.contactsAdded ?? 0 })}</p>}
       {progress.allMarkedRead && <p>{t("import.allMarkedRead")}</p>}
       {progress.rescued && !progress.error && <p>{t("import.rescued")}</p>}
+      {progress.folderId && (
+        <div className="button-row">
+          <button type="button" onClick={() => onOpen(progress.folderId ?? "")}>{t("import.open")}</button>
+        </div>
+      )}
       {progress.skipped.length > 0 && <SkippedDetails skipped={progress.skipped} />}
     </div>
   );

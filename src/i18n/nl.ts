@@ -339,6 +339,8 @@ export const nl = {
   "import.folder": "Nu bij: {folder}",
   "import.done": "Klaar. {done} berichten opgehaald.",
   "import.doneSkipped": "Klaar. {done} berichten opgehaald, {skipped} overgeslagen.",
+  "import.resultFor": "Uit: {source}",
+  "import.open": "Opgehaalde mail bekijken",
   "import.alreadyThere": "{count} berichten stonden er al en zijn niet nog eens neergezet.",
   "import.contactsAdded": "Uit Outlook toegevoegd aan Contactpersonen: {count}.",
   "import.contacts.title": "Contactpersonen uit Windows Live Mail",

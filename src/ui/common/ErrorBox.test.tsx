@@ -25,6 +25,13 @@ describe("ErrorBox", () => {
     expect(screen.getByText("Code: VEM-SMTP-LOGIN-01")).toBeTruthy();
   });
 
+  it("says Martijn hears of it only when the core reported it", () => {
+    const { rerender } = render(<ErrorBox error={{ code: "VEM-SMTP-LOGIN-01", reported: true }} />);
+    expect(screen.getByText("Martijn krijgt hier vanzelf bericht van.")).toBeTruthy();
+    rerender(<ErrorBox error={{ code: "VEM-SMTP-LOGIN-01" }} />);
+    expect(screen.queryByText("Martijn krijgt hier vanzelf bericht van.")).toBeNull();
+  });
+
   it("labels local error text as Details", () => {
     render(<ErrorBox error={{ code: "VEM-STORE-WRITE-01", detail: "Er is onvoldoende schijfruimte. (os error 112)" }} />);
     expect(screen.getByText("Details:")).toBeTruthy();

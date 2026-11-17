@@ -58,6 +58,7 @@ impl Store {
                         server_reply: v["serverReply"].as_str().map(str::to_string),
                         detail: v["detail"].as_str().map(str::to_string),
                         kind: None,
+                        reported: v["reported"].as_bool().unwrap_or(false),
                     }),
                 })
             })?
@@ -94,7 +95,7 @@ impl Store {
     /// Back to waiting after a failure, with the error shown and a later retry time.
     pub fn send_failed(&self, id: &str, error: &VemError, retry_at: Option<i64>) -> Result<()> {
         let state = if retry_at.is_some() { OutboxState::Waiting } else { OutboxState::Failed };
-        let err = serde_json::json!({"code": error.code, "serverReply": error.server_reply, "detail": error.detail});
+        let err = serde_json::json!({"code": error.code, "serverReply": error.server_reply, "detail": error.detail, "reported": error.reported});
         self.db().execute(
             "UPDATE outbox SET state = ?2, error_json = ?3, send_at = COALESCE(?4, send_at) WHERE id = ?1",
             params![id, state_str(state), err.to_string(), retry_at],

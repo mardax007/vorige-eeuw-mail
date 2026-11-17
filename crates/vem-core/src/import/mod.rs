@@ -44,6 +44,8 @@ pub struct ImportReport {
     /// Read with the rescue tool: what was read and what not may be lost.
     pub rescued: bool,
     pub skipped: Vec<(String, String)>,
+    /// The folder the first new message went into: the screen offers to open it.
+    pub folder: Option<i64>,
 }
 
 /// Size of a file, or of every file below a folder.
@@ -283,6 +285,7 @@ impl Sink<'_> {
             self.store.push_op(&self.account_id, &op)?;
         }
         self.report.added += 1;
+        self.report.folder.get_or_insert(folder);
         Ok(())
     }
 }
@@ -842,11 +845,14 @@ mod tests {
         let folders = s.folders(Some(&acc.id)).unwrap();
         assert!(folders.iter().any(|f| f.role == Some(FolderRole::Inbox)));
         assert!(folders.iter().any(|f| f.path == vec!["Familie", "Kerst"]));
+        let first = r.folder.expect("the report names where the mail went");
+        assert!(folders.iter().any(|f| f.id == crate::store::folders::folder_key(first)), "a folder of this account");
         let hits = s.search("kerstdiner", &crate::model::SearchScope::All, 10).unwrap();
         assert_eq!(hits.len(), 1);
 
         let r = run(&s, "j2", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!((r.added, r.already_there), (0, 2), "a second import adds nothing twice");
+        assert_eq!(r.folder, None, "nothing new, nothing to open");
     }
 
     #[test]

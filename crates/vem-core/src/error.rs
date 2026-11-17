@@ -152,6 +152,13 @@ pub struct VemError {
     pub detail: Option<String>,
     #[serde(skip)]
     pub kind: Option<Code>,
+    /// A report about this error went to Martijn's queue: the screen says he hears of it.
+    #[serde(skip_serializing_if = "is_false")]
+    pub reported: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl VemError {
@@ -161,6 +168,7 @@ impl VemError {
             server_reply: None,
             detail: None,
             kind: Some(code),
+            reported: false,
         }
     }
 
@@ -174,6 +182,12 @@ impl VemError {
 
     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
         self.detail = Some(detail.into());
+        self
+    }
+
+    /// Marks that a report about this error was queued for Martijn.
+    pub fn with_reported(mut self, reported: bool) -> Self {
+        self.reported = reported;
         self
     }
 
@@ -283,5 +297,7 @@ mod tests {
             json,
             r#"{"code":"VEM-IMAP-LOGIN-01","serverReply":"NO [AUTHENTICATIONFAILED] x"}"#
         );
+        let reported = serde_json::to_string(&e.with_reported(true)).unwrap();
+        assert!(reported.ends_with(r#","reported":true}"#), "{reported}");
     }
 }

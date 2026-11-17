@@ -138,6 +138,17 @@ describe("what the import says at the end", () => {
     expect(screen.queryByText(/staan alle opgehaalde berichten op gelezen/)).toBeNull();
   });
 
+  it("names its file and opens the folder the mail went into", async () => {
+    const user = await openImport();
+    await user.click(within(accountRow(/^Outlook.pst/)).getByRole("button", { name: "Kiezen" }));
+    await user.click(screen.getByRole("button", { name: "Ophalen" }));
+    const open = await screen.findByRole("button", { name: "Opgehaalde mail bekijken" }, { timeout: 5000 });
+    expect(screen.getByText("Uit: Outlook.pst")).toBeTruthy();
+    await user.click(open);
+    expect(await screen.findByRole("heading", { name: "Postvak IN" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Oude mail ophalen" })).toBeNull();
+  });
+
   it("says Windows Live Mail mail came in as read", async () => {
     const user = await openImport();
     await user.click(screen.getByRole("button", { name: "Windows Live Mail" }));
