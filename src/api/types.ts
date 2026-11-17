@@ -247,6 +247,8 @@ export interface AppInfo {
   /** Set for one day after an update. */
   updatedTo?: string | null;
   whatsNew?: string[] | null;
+  /** The Android app: no "Starten met Windows". */
+  isPhone?: boolean;
 }
 
 /** Events the core sends to the screens. */

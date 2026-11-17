@@ -122,3 +122,18 @@ describe("settings page", () => {
     expect(document.querySelector(".top-bar")?.textContent).not.toContain("Afsluiten");
   });
 });
+
+describe("Instellingen on a phone", () => {
+  it("has no Starten met Windows", async () => {
+    const real = api.appInfo;
+    vi.spyOn(api, "appInfo").mockImplementation(async () => ({ ...(await real()), isPhone: true }));
+    await openSettings();
+    expect(screen.queryByLabelText("Starten met Windows")).toBeNull();
+    expect(screen.getByLabelText("Melding bij nieuwe mail")).toBeTruthy();
+  });
+
+  it("has Starten met Windows on a PC", async () => {
+    await openSettings();
+    expect(screen.getByLabelText("Starten met Windows")).toBeTruthy();
+  });
+});

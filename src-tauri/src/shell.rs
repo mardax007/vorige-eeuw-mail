@@ -115,6 +115,30 @@ pub fn watch_notification_clicks(app: &AppHandle) {
     });
 }
 
+/// Android 13 and later show notifications only after the person allows them once. Asked when
+/// there is an account to bring mail for (at start, and right after adding one), never on the
+/// welcome screen. Windows needs no question, so this does nothing there.
+pub fn ask_notification_permission(app: &AppHandle) {
+    #[cfg(mobile)]
+    {
+        use tauri::plugin::PermissionState;
+        let has_account = app.state::<AppState>().engine.store.accounts().map(|a| !a.is_empty()).unwrap_or(false);
+        if !has_account {
+            return;
+        }
+        let handle = app.clone();
+        // The plugin call waits for Android's dialog, so it runs off the main thread.
+        tauri::async_runtime::spawn_blocking(move || {
+            let n = handle.notification();
+            if matches!(n.permission_state(), Ok(PermissionState::Prompt | PermissionState::PromptWithRationale)) {
+                let _ = n.request_permission();
+            }
+        });
+    }
+    #[cfg(desktop)]
+    let _ = app;
+}
+
 /// The unread count of every Postvak IN as a small number on the taskbar icon.
 pub fn update_badge(app: &AppHandle) {
     let Some(w) = app.get_webview_window(MAIN) else { return };

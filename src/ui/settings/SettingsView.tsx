@@ -25,7 +25,7 @@ function Toggle({ id, label, isOn, onChange }: ToggleProps) {
 
 /** "Instellingen": the few settings there are, on one page. */
 export function SettingsView() {
-  const { settings, updateSettings, accounts, go, showError } = useApp();
+  const { settings, updateSettings, accounts, go, showError, appInfo } = useApp();
   const size = settings.textSize;
   const setSize = (next: number) =>
     void updateSettings({ textSize: Math.min(MAX_TEXT_SIZE, Math.max(MIN_TEXT_SIZE, next)) });
@@ -54,12 +54,14 @@ export function SettingsView() {
         isOn={settings.notifications}
         onChange={(on) => void updateSettings({ notifications: on })}
       />
-      <Toggle
-        id="set-start"
-        label={t("settings.startWithWindows")}
-        isOn={settings.startWithWindows}
-        onChange={(on) => void updateSettings({ startWithWindows: on })}
-      />
+      {!appInfo?.isPhone && (
+        <Toggle
+          id="set-start"
+          label={t("settings.startWithWindows")}
+          isOn={settings.startWithWindows}
+          onChange={(on) => void updateSettings({ startWithWindows: on })}
+        />
+      )}
       <Toggle
         id="set-shrink"
         label={t("settings.shrinkPhotos")}

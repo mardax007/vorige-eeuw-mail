@@ -51,6 +51,7 @@ pub struct AppInfo {
     version: String,
     updated_to: Option<String>,
     whats_new: Option<Vec<String>>,
+    is_phone: bool,
 }
 
 #[tauri::command]
@@ -60,6 +61,7 @@ fn app_info(state: State<'_, AppState>) -> R<AppInfo> {
         version: vem_core::version().to_string(),
         updated_to: u.as_ref().map(|u| u.version.clone()),
         whats_new: u.map(|u| u.notes),
+        is_phone: cfg!(mobile),
     })
 }
 
@@ -82,6 +84,7 @@ async fn lookup_settings(email: String) -> R<ServerSettings> {
 
 #[tauri::command]
 async fn add_account(
+    app: AppHandle,
     state: State<'_, AppState>,
     display_name: String,
     email: String,
@@ -89,14 +92,18 @@ async fn add_account(
     settings: ServerSettings,
 ) -> R<Account> {
     let secret = vem_core::secrets::Secret::Password { password };
-    state.engine.add_account(&display_name, &email, secret, settings).await
+    let account = state.engine.add_account(&display_name, &email, secret, settings).await?;
+    crate::shell::ask_notification_permission(&app);
+    Ok(account)
 }
 
 /// "Inloggen met Google / Microsoft": the browser opens, the user signs in there.
 #[tauri::command]
 async fn add_account_oauth(app: AppHandle, state: State<'_, AppState>, display_name: String, email: String, settings: ServerSettings, done_page: String) -> R<Account> {
     let secret = oauth_secret(&app, &state, settings.sign_in, &email, &done_page).await?;
-    state.engine.add_account(&display_name, &email, secret, settings).await
+    let account = state.engine.add_account(&display_name, &email, secret, settings).await?;
+    crate::shell::ask_notification_permission(&app);
+    Ok(account)
 }
 
 /// Opens the browser for Google or Microsoft and waits for the sign-in, at most five minutes,

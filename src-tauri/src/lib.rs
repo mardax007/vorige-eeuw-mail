@@ -75,6 +75,7 @@ pub fn run() {
             #[cfg(desktop)]
             shell::create_tray(app.handle())?;
             shell::watch_notification_clicks(app.handle());
+            shell::ask_notification_permission(app.handle());
             shell::update_badge(app.handle());
             updates::spawn(app.handle().clone());
             Ok(())
