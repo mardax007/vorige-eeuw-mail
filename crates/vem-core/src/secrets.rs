@@ -177,6 +177,27 @@ mod tests {
         s.delete("acc1").unwrap();
     }
 
+    /// A damaged or emptied password file gives VEM-STORE-SECRET-01 (the screen then asks for
+    /// the password again), never a panic and never a wrong password sent to the server.
+    #[test]
+    fn a_damaged_secret_file_asks_for_the_password_again() {
+        let d = tempfile::tempdir().unwrap();
+        let s = Secrets::new(d.path());
+        s.put("acc1", &Secret::Password { password: "Zomer2026!geheim".into() }).unwrap();
+        let path = d.path().join("secrets/acc1.bin");
+        let good = std::fs::read(&path).unwrap();
+        let mut flipped = good.clone();
+        let mid = flipped.len() / 2;
+        flipped[mid] ^= 0x40;
+        for damaged in [flipped, good[..good.len() / 2].to_vec(), Vec::new(), b"geen geheim".to_vec()] {
+            std::fs::write(&path, &damaged).unwrap();
+            let err = s.get("acc1").expect_err("a damaged file is not read as a secret");
+            assert_eq!(err.code(), Some(Code::StoreSecret01));
+        }
+        s.put("acc1", &Secret::Password { password: "nieuw".into() }).unwrap();
+        assert_eq!(s.get("acc1").unwrap(), Some(Secret::Password { password: "nieuw".into() }), "typing it again repairs it");
+    }
+
     #[test]
     fn debug_hides_values() {
         let s = Secret::OAuth { access_token: "ya29.abc".into(), refresh_token: Some("1//r".into()), expires_at: 0 };
