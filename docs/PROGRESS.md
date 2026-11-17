@@ -39,10 +39,10 @@ Claude Code updates this file at the end of every session.
   3. Google: the Cloud project `vorige-eeuw-mail` (External, consent screen "Vorige Eeuw Mail")
      and its "Desktop app" client exist since 17 November 2026. Put the client id and secret in
      `VEM_GOOGLE_CLIENT_ID` and `VEM_GOOGLE_CLIENT_SECRET` (`gh secret set VEM_GOOGLE_CLIENT_ID -R
-     mardax007/vorige-eeuw-mail` asks for the value). The project is still in *testing*: before a
-     family member signs in, fill in a home page and a privacy policy link on the Branding page and
-     press "Publish app" on the Audience page (`PLAN.md`, Google sign-in: testing status signs out
-     every seven days). An Android-type client needs the Android signing key first (step 8).
+     mardax007/vorige-eeuw-mail` asks for the value). The project is "In production", unverified
+     (one warning screen, at most 100 users ever), with the help pages as home page and
+     `docs/privacy.md` as privacy policy, on the authorised domain `mardax007.github.io`. An
+     Android-type client needs the Android signing key first (step 8).
      Microsoft: skipped, nobody in `family-inventory.md` uses Outlook.com, and the registration
      needs an Azure sign-up with a card check (`PLAN.md`, Microsoft).
   4. Try the app against your own Solcon mailbox and a throwaway Gmail account (read-only first),
