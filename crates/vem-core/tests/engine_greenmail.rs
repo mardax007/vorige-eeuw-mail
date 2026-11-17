@@ -339,3 +339,184 @@ async fn a_paused_engine_does_nothing_and_catches_up_after_start() {
     assert!(until(20, || piet.store.outbox().unwrap().is_empty()).await, "and sends what waited");
     assert!(piet_sink.errors.lock().unwrap().is_empty(), "no errors: {:?}", piet_sink.errors.lock().unwrap());
 }
+
+/// Every file below `dir`, recursively.
+fn files_below(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            out.extend(files_below(&path));
+        } else {
+            out.push(path);
+        }
+    }
+    out
+}
+
+/// After a restart with the network off the app still opens, lists, reads and searches the mail it
+/// had; the password survives the restart; and no file of the app (index, log, message files,
+/// settings) holds the password in plain text, in UTF-8 or UTF-16.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn after_a_restart_mail_reads_offline_and_no_file_holds_the_password() {
+    if !server_up() {
+        return;
+    }
+    let run = uuid::Uuid::new_v4().simple().to_string();
+    let subject = format!("Offline {run}");
+    let mut raw = vem_core::imap::Imap::connect(&vem_core::imap::ImapConfig {
+        host: "127.0.0.1".into(),
+        port: 3993,
+        security: Security::Tls,
+        username: "jan@example.test".into(),
+        auth: vem_core::imap::Auth::Password("geheim".into()),
+        trust: Trust::AcceptAnyLocalTestServer,
+    })
+    .await
+    .unwrap();
+    let msg = format!("From: Oma <oma@example.test>\r\nSubject: {subject}\r\nMessage-ID: <{run}@x>\r\nDate: Tue, 17 Nov 2026 10:00:00 +0100\r\n\r\nLees mij zonder net {run}\r\n");
+    raw.append("INBOX", false, false, msg.as_bytes()).await.unwrap();
+    raw.logout().await;
+
+    let d = tempfile::tempdir().unwrap();
+    vem_core::log::init(d.path());
+    let (e, sink) = engine(d.path());
+    e.start().unwrap();
+    let jan = e
+        .add_account("Jan", "jan@example.test", Secret::Password { password: "geheim".into() }, settings("jan@example.test"))
+        .await
+        .unwrap();
+    let find = |store: &Store| -> Option<i64> {
+        let inbox = store.folder_by_role(&jan.id, FolderRole::Inbox).ok()??;
+        store.messages_in_folder(inbox, 0, 1000).ok()?.into_iter().find(|m| m.subject == subject).map(|m| m.id.parse().unwrap())
+    };
+    assert!(until(30, || find(&e.store).is_some()).await, "synced; errors: {:?}", sink.errors.lock().unwrap());
+    let id = find(&e.store).unwrap();
+    e.ensure_body(id).await.unwrap();
+    e.pause().await;
+    drop(e);
+
+    // The restart, with the mail server out of reach.
+    let store = Store::open(d.path()).unwrap();
+    let mut off = store.account(&jan.id).unwrap().settings.unwrap();
+    off.imap_port = 1;
+    off.smtp_port = 1;
+    store.set_account_settings(&jan.id, &off).unwrap();
+    drop(store);
+    let (e, _) = engine(d.path());
+    e.start().unwrap();
+    assert_eq!(find(&e.store), Some(id), "the list is there");
+    e.ensure_body(id).await.expect("opening a message needs no server");
+    let body = e.store.read_eml(id).unwrap().expect("its text is on disk");
+    assert!(String::from_utf8_lossy(&body).contains(&format!("Lees mij zonder net {run}")));
+    let hits = e.store.search(&run, &vem_core::model::SearchScope::All, 10).unwrap();
+    assert_eq!(hits.len(), 1, "search works offline");
+    match Secrets::new(d.path()).get(&jan.id).unwrap() {
+        Some(Secret::Password { password }) => assert_eq!(password, "geheim", "the password survives a restart"),
+        other => panic!("no password after a restart: {}", other.is_some()),
+    }
+    e.pause().await;
+
+    let utf16: Vec<u8> = "geheim".encode_utf16().flat_map(u16::to_le_bytes).collect();
+    let files = files_below(d.path());
+    assert!(files.iter().any(|f| f.extension().is_some_and(|x| x == "log")), "a log was written");
+    for f in files {
+        let bytes = std::fs::read(&f).unwrap_or_default();
+        let holds = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+        assert!(!holds(b"geheim") && !holds(&utf16), "the password in plain text in {}", f.display());
+    }
+}
+
+/// Piet's messages whose subject contains `marker`, raw, read straight from GreenMail.
+async fn piet_inbox(marker: &str) -> Vec<Vec<u8>> {
+    let mut imap = vem_core::imap::Imap::connect(&vem_core::imap::ImapConfig {
+        host: "127.0.0.1".into(),
+        port: 3993,
+        security: Security::Tls,
+        username: "piet@example.test".into(),
+        auth: vem_core::imap::Auth::Password("geheim".into()),
+        trust: Trust::AcceptAnyLocalTestServer,
+    })
+    .await
+    .unwrap();
+    imap.open("INBOX", true).await.unwrap();
+    let found = imap
+        .fetch("1:*", true)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|m| m.raw)
+        .filter(|raw| vem_core::parse::parse(raw).subject.contains(marker))
+        .collect();
+    imap.logout().await;
+    found
+}
+
+/// A message with an attachment whose name has accents arrives with that name and the same bytes;
+/// a reply to it carries In-Reply-To and References, so other programs thread it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn attachments_with_accents_and_replies_arrive_intact() {
+    if !server_up() {
+        return;
+    }
+    let run = uuid::Uuid::new_v4().simple().to_string();
+    let d = tempfile::tempdir().unwrap();
+    let (e, sink) = engine(d.path());
+    e.start().unwrap();
+    let jan = e
+        .add_account("Jan", "jan@example.test", Secret::Password { password: "geheim".into() }, settings("jan@example.test"))
+        .await
+        .unwrap();
+    let files = tempfile::tempdir().unwrap();
+    let pdf = files.path().join("Recept crème brûlée — één.pdf");
+    let bytes: Vec<u8> = (0..70_000u32).map(|i| (i * 7 % 251) as u8).collect();
+    std::fs::write(&pdf, &bytes).unwrap();
+
+    let first = Draft {
+        account_id: jan.id.clone(),
+        to: vec![Addr::new(Some("Piet"), "piet@example.test")],
+        subject: format!("Recept {run}"),
+        body_text: "Zie bijlage.".into(),
+        attachments: vec![pdf.to_string_lossy().into_owned()],
+        ..Default::default()
+    };
+    e.send(first).unwrap();
+    let mut got = Vec::new();
+    for _ in 0..60 {
+        got = piet_inbox(&format!("Recept {run}")).await;
+        if !got.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    assert_eq!(got.len(), 1, "arrived once; errors: {:?}", sink.errors.lock().unwrap());
+    let parsed = vem_core::parse::parse(&got[0]);
+    assert_eq!(parsed.attachments.len(), 1);
+    assert_eq!(parsed.attachments[0].name, "Recept crème brûlée — één.pdf");
+    assert_eq!(vem_core::parse::attachment_bytes(&got[0], 0).unwrap(), bytes, "the same bytes");
+    let first_id = parsed.message_id.clone().expect("a Message-ID");
+
+    let reply = Draft {
+        account_id: jan.id.clone(),
+        to: vec![Addr::new(Some("Piet"), "piet@example.test")],
+        subject: format!("Re: Recept {run}"),
+        body_text: "Nog een vraag.".into(),
+        in_reply_to: Some(first_id.clone()),
+        references: vec![first_id.clone()],
+        ..Default::default()
+    };
+    e.send(reply).unwrap();
+    let mut replies = Vec::new();
+    for _ in 0..60 {
+        replies = piet_inbox(&format!("Re: Recept {run}")).await;
+        if !replies.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    assert_eq!(replies.len(), 1);
+    let parsed = vem_core::parse::parse(&replies[0]);
+    assert_eq!(parsed.in_reply_to.as_deref(), Some(first_id.as_str()));
+    assert_eq!(parsed.references, vec![first_id]);
+    e.pause().await;
+}
