@@ -43,6 +43,7 @@ And:
 | `STORE` | The local index and message files |
 | `UPDATE` | Checking for and installing updates |
 | `PAIR` | Linking a phone: reading the code the PC shows (stage `READ`) and finding its mailbox on the phone (`FIND`) |
+| `LAN` | Copying the mail kept on the PC to the paired phone over the home network (`docs/pc-to-phone.md`) |
 | `REPORT` | Sending error reports, logs and wishes to Martijn, and reading log requests |
 | `APP` | The app itself: an unexpected internal error |
 
@@ -57,7 +58,8 @@ And:
 Areas without a network connection (`IMPORT`, `STORE`) use a short stage name of their own:
 `READ` (reading a file), `WRITE` (writing the index or a file), `SPACE` (not enough room on the disk
 or in the mailbox) and `SECRET` (the encrypted password file). The area `APP` is the app itself
-(an unexpected internal error).
+(an unexpected internal error). `LAN` uses `COPY` (finding the phone, the connection, the copy
+itself) and `SPACE` (not enough room on the phone).
 
 Which code owns a failure: the protocol in use when it happened. A token refused by the IMAP server
 is `IMAP-LOGIN`; `AUTH` covers only the sign-in flow before any mail server is involved. A host
@@ -148,5 +150,7 @@ The screen labels are "De server zei" and, when no server was involved, "Details
 | `VEM-UPDATE-GET-01` | De nieuwe versie kon niet opgehaald worden. | Probeer het later nog eens met Bijwerken. Lukt het steeds niet, vraag het dan aan Martijn. | phase 5 (Android) |
 | `VEM-PAIR-READ-01` | Deze code is geen koppelcode van Vorige Eeuw Mail. | Kies op de computer Telefoon koppelen en Code maken, en scan die nieuwe code. | phase 5 (Android) |
 | `VEM-PAIR-FIND-01` | Het postvak van deze code staat nog niet op deze telefoon. | Voeg eerst op deze telefoon het postvak toe dat bij Details staat, en scan de code daarna opnieuw. | phase 5 (Android) |
+| `VEM-LAN-COPY-01` | De mail van de computer kon niet naar de telefoon gekopieerd worden. | U hoeft niets te doen; het programma probeert het straks opnieuw als de computer en de telefoon op hetzelfde wifi zitten. | phase 5 (Android) |
+| `VEM-LAN-SPACE-01` | Er is niet genoeg ruimte op deze telefoon voor de mail van de computer. | Maak ruimte vrij op de telefoon, bijvoorbeeld door oude foto's of apps te verwijderen. Daarna gaat het vanzelf verder. | phase 5 (Android) |
 | `VEM-REPORT-CMD-01` | Uw bericht aan Martijn kon niet verstuurd worden. | Probeer het straks opnieuw. | phases 1-4 |
 | `VEM-APP-CMD-01` | Er ging iets onverwachts mis. | Probeer het nog eens. Blijft dit komen, vraag het dan aan Martijn. | phases 1-4 |

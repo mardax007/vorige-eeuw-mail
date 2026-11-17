@@ -6,6 +6,7 @@ mod accounts;
 pub mod contacts;
 pub mod folders;
 pub mod kv;
+pub mod lan;
 pub mod messages;
 mod outbox;
 mod search;
@@ -145,6 +146,19 @@ CREATE TABLE IF NOT EXISTS originals (
     path TEXT NOT NULL,
     size INTEGER NOT NULL,
     imported_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lan_accounts (
+    pc_account TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lan_messages (
+    pc_account TEXT NOT NULL,
+    pc_id INTEGER NOT NULL,
+    message_id INTEGER,
+    folder TEXT NOT NULL,
+    unread INTEGER NOT NULL,
+    important INTEGER NOT NULL,
+    PRIMARY KEY (pc_account, pc_id)
 );
 CREATE TABLE IF NOT EXISTS kv (
     key TEXT PRIMARY KEY,

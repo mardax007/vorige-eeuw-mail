@@ -43,6 +43,8 @@ pub enum Code {
     UpdateGet01,
     PairRead01,
     PairFind01,
+    LanCopy01,
+    LanSpace01,
     ReportCmd01,
     AppCmd01,
 }
@@ -83,6 +85,8 @@ impl Code {
         Code::UpdateGet01,
         Code::PairRead01,
         Code::PairFind01,
+        Code::LanCopy01,
+        Code::LanSpace01,
         Code::ReportCmd01,
         Code::AppCmd01,
     ];
@@ -123,6 +127,8 @@ impl Code {
             Code::UpdateGet01 => "VEM-UPDATE-GET-01",
             Code::PairRead01 => "VEM-PAIR-READ-01",
             Code::PairFind01 => "VEM-PAIR-FIND-01",
+            Code::LanCopy01 => "VEM-LAN-COPY-01",
+            Code::LanSpace01 => "VEM-LAN-SPACE-01",
             Code::ReportCmd01 => "VEM-REPORT-CMD-01",
             Code::AppCmd01 => "VEM-APP-CMD-01",
         }

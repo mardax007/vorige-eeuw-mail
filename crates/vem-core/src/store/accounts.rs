@@ -169,7 +169,14 @@ impl Store {
     pub fn local_account(&self, label: &str) -> Result<Account> {
         let existing: Option<String> = self
             .db()
-            .query_row("SELECT id FROM accounts WHERE kind = 'local' AND display_name = ?1", [label], |r| r.get(0))
+            // A copy of a PC's local folders (docs/pc-to-phone.md) is not where this device's own
+            // imports go: the PC may remove that copy.
+            .query_row(
+                "SELECT id FROM accounts WHERE kind = 'local' AND display_name = ?1
+                 AND id NOT IN (SELECT account_id FROM lan_accounts)",
+                [label],
+                |r| r.get(0),
+            )
             .optional()?;
         match existing {
             Some(id) => self.account(&id),

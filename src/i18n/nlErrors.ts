@@ -143,6 +143,14 @@ export const nlErrors = {
     sentence: "Het postvak van deze code staat nog niet op deze telefoon.",
     next: "Voeg eerst op deze telefoon het postvak toe dat bij Details staat, en scan de code daarna opnieuw.",
   },
+  "VEM-LAN-COPY-01": {
+    sentence: "De mail van de computer kon niet naar de telefoon gekopieerd worden.",
+    next: "U hoeft niets te doen; het programma probeert het straks opnieuw als de computer en de telefoon op hetzelfde wifi zitten.",
+  },
+  "VEM-LAN-SPACE-01": {
+    sentence: "Er is niet genoeg ruimte op deze telefoon voor de mail van de computer.",
+    next: "Maak ruimte vrij op de telefoon, bijvoorbeeld door oude foto's of apps te verwijderen. Daarna gaat het vanzelf verder.",
+  },
   "VEM-REPORT-CMD-01": {
     sentence: "Uw bericht aan Martijn kon niet verstuurd worden.",
     next: "Probeer het straks opnieuw.",

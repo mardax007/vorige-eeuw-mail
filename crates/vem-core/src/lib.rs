@@ -9,6 +9,7 @@ pub mod error;
 pub mod handoff;
 pub mod imap;
 pub mod import;
+pub mod lan;
 pub mod log;
 pub mod lookup;
 pub mod net;

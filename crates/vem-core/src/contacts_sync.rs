@@ -36,7 +36,8 @@ pub struct PairCode {
     pub key: String,
 }
 
-fn key(secrets: &Secrets) -> Result<Option<[u8; 32]>> {
+/// The pairing key, also used to copy the PC's local folders to the phone (docs/pc-to-phone.md).
+pub(crate) fn key(secrets: &Secrets) -> Result<Option<[u8; 32]>> {
     match secrets.get(SECRET_NAME)? {
         Some(Secret::SyncKey { key }) if key.len() == 32 => {
             let mut k = [0u8; 32];
