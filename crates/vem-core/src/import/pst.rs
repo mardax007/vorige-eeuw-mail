@@ -879,6 +879,19 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn outlook_categories_become_tags_with_state_and_accents_kept() {
+        let mut it = item();
+        it.categories = vec!["Familie".into(), "Rekeningen 2026".into(), "Één keer".into()];
+        it.unread = true;
+        it.flagged = true;
+        let (raw, meta) = crate::import::meta::take(build(&it));
+        assert_eq!(meta.tags, vec!["Familie", "Rekeningen 2026", "Één keer"]);
+        assert!(meta.unread && meta.important);
+        let m = mail_parser::MessageParser::default().parse(&raw).expect("parses");
+        assert_eq!(m.subject(), Some("Verjaardag van José"), "the message itself is unchanged");
+    }
+
+    #[test]
     fn attached_message_is_message_rfc822() {
         let inner = build(&item());
         let mut it = item();
