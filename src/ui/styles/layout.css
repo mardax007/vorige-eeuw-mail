@@ -177,6 +177,20 @@
   border: 2px solid var(--accent);
 }
 
+/* On a phone the PC-copy line comes and goes by itself; over the bottom of the screen it does
+   not push the list or a button away from under a finger. */
+@media (max-width: 767px) {
+  .notice-bar.pc-copy {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    margin: 0 8px max(8px, env(safe-area-inset-bottom));
+    box-shadow: 0 2px 12px rgb(0 0 0 / 25%);
+  }
+}
+
 .update-line {
   display: flex;
   flex-wrap: wrap;

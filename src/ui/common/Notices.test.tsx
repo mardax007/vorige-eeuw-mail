@@ -156,6 +156,31 @@ describe("mail from the PC on the phone", () => {
     expect(screen.getByText("De mail van de computer staat nu ook op deze telefoon.")).toBeTruthy();
   });
 
+  it("takes the count away when the copy breaks off", async () => {
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Mappen" });
+    await waitFor(() => {
+      getMockBackend().events.emit("lan:phone", { kind: "progress", done: 75, total: 4500 });
+      expect(screen.getByText(/75 van 4\.500/)).toBeTruthy();
+    });
+    act(() => getMockBackend().events.emit("lan:phone", { kind: "stopped" }));
+    expect(screen.queryByText(/75 van 4\.500/)).toBeNull();
+  });
+
+  it("says a full phone once, not at every try of the PC", async () => {
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Mappen" });
+    const text = "Er is niet genoeg ruimte op deze telefoon voor de mail van de computer.";
+    await waitFor(() => {
+      getMockBackend().events.emit("lan:phone", { kind: "failed", error: { code: "VEM-LAN-SPACE-01" } });
+      expect(screen.getByText(text)).toBeTruthy();
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Sluiten" }));
+    act(() => getMockBackend().events.emit("lan:phone", { kind: "failed", error: { code: "VEM-LAN-SPACE-01" } }));
+    expect(screen.queryByText(text)).toBeNull();
+  });
+
   it("says only a full phone as an error", async () => {
     render(<App />);
     await screen.findByRole("navigation", { name: "Mappen" });

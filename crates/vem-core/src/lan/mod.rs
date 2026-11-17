@@ -75,6 +75,8 @@ pub struct LastCopy {
 pub enum PhoneEvent {
     Progress { done: u32, total: u32 },
     Done { received: u32, removed: u32 },
+    /// The copy broke off (Wi-Fi gone, PC asleep); it starts again with the next find.
+    Stopped,
     Failed { error: VemError },
 }
 
@@ -243,6 +245,8 @@ pub async fn serve(
                         // phone needs the user.
                         if error.code() == Some(Code::LanSpace01) {
                             on(PhoneEvent::Failed { error });
+                        } else {
+                            on(PhoneEvent::Stopped);
                         }
                     }
                 }

@@ -280,6 +280,7 @@ export interface CoreEvents {
 export type PcCopyEvent =
   | { kind: "progress"; done: number; total: number }
   | { kind: "done"; received: number; removed: number }
+  | { kind: "stopped" }
   | { kind: "failed"; error: VemError };
 
 /** When the phone last had all mail kept on this PC; `at` in seconds since 1970. */

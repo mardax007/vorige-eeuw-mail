@@ -253,6 +253,8 @@ export function UpdateOfferBar() {
 
 /** How long "De mail van de computer staat nu ook op deze telefoon." stays. */
 export const PC_COPY_DONE_MS = 6000;
+/** Just over the core's wait for one step of the copy (60 s). */
+export const PC_COPY_STALL_MS = 70_000;
 
 type PcCopyLine = { kind: "progress"; done: number; total: number } | { kind: "done" };
 
@@ -263,15 +265,22 @@ type PcCopyLine = { kind: "progress"; done: number; total: number } | { kind: "d
 export function PcCopyBar() {
   const { showError } = useApp();
   const [line, setLine] = useState<PcCopyLine | null>(null);
+  // The PC tries again every 90 seconds; a full phone is said once, until a copy succeeds.
+  const spaceShown = useRef(false);
 
   useEffect(() => {
     let alive = true;
     const listening = onEvent("lan:phone", (e) => {
       if (!alive) return;
       if (e.kind === "progress") setLine({ kind: "progress", done: e.done, total: e.total });
-      else if (e.kind === "done") setLine(e.received > 0 ? { kind: "done" } : null);
+      else if (e.kind === "done") {
+        spaceShown.current = false;
+        setLine(e.received > 0 ? { kind: "done" } : null);
+      } else if (e.kind === "stopped") setLine(null);
       else {
         setLine(null);
+        if (spaceShown.current) return;
+        spaceShown.current = true;
         showError(e.error);
       }
     });
@@ -281,16 +290,20 @@ export function PcCopyBar() {
     };
   }, [showError]);
 
-  const isDone = line?.kind === "done";
+  // Done goes away after a few seconds; a count that stops moving (the phone left the house
+  // before the core noticed) goes away too, instead of claiming mail is still coming.
   useEffect(() => {
-    if (!isDone) return;
-    const timer = setTimeout(() => setLine(null), PC_COPY_DONE_MS);
+    if (!line) return;
+    const wait = line.kind === "done" ? PC_COPY_DONE_MS : PC_COPY_STALL_MS;
+    const timer = setTimeout(() => setLine(null), wait);
     return () => clearTimeout(timer);
-  }, [isDone]);
+  }, [line]);
 
   if (!line) return null;
+  // Only the start and the end are read out, not every count in between.
+  const isStart = line.kind === "progress" && line.done === 0;
   return (
-    <div className="notice-bar calm" role="status">
+    <div className="notice-bar calm pc-copy" role="status" aria-live={line.kind === "done" || isStart ? "polite" : "off"}>
       <span>
         {line.kind === "progress"
           ? t("lan.progress", { done: line.done.toLocaleString(locale), total: line.total.toLocaleString(locale) })
