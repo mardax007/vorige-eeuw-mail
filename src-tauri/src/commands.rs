@@ -525,30 +525,67 @@ pub struct ContactsImported {
 /// None when the user closed the dialog.
 #[tauri::command]
 async fn import_contacts_file(app: AppHandle, state: State<'_, AppState>, folder: bool) -> R<Option<ContactsImported>> {
+    let app_for_read = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         let d = app.dialog().file();
         if folder { pick_folder(d) } else { d.add_filter("vCard", &["vcf"]).blocking_pick_file() }
     })
     .await
     .map_err(|e| app_error(e.to_string()))?;
-    let Some(path) = picked.and_then(|p| p.into_path().ok()) else { return Ok(None) };
-    let (found, added) = import::import_vcards(&state.engine.store, &path)?;
+    let Some(picked) = picked else { return Ok(None) };
+    let (found, added) = match picked.clone().into_path() {
+        Ok(path) => import::import_vcards(&state.engine.store, &path)?,
+        // Android's pick screen hands back a content:// address: read it through the fs plugin
+        // into a temporary copy, which the import then reads as an ordinary file.
+        Err(_) => {
+            let copy = std::env::temp_dir().join(format!("vem-contacts-{}.vcf", uuid::Uuid::new_v4().simple()));
+            copy_picked(&app_for_read, picked, &copy)?;
+            let result = import::import_vcards(&state.engine.store, &copy);
+            let _ = std::fs::remove_file(&copy);
+            result?
+        }
+    };
     Ok(Some(ContactsImported { found, added }))
+}
+
+/// A file the user picked, copied to `to`. Works for a Windows path and for a content:// address.
+fn copy_picked(app: &AppHandle, picked: tauri_plugin_dialog::FilePath, to: &std::path::Path) -> R<()> {
+    use tauri_plugin_fs::FsExt;
+    let unreadable = |e: std::io::Error| VemError::new(Code::ImportRead01).with_detail(e.kind().to_string());
+    let mut options = tauri_plugin_fs::OpenOptions::new();
+    options.read(true);
+    let mut from = app.fs().open(picked, options).map_err(unreadable)?;
+    let mut out = std::fs::File::create(to).map_err(|e| VemError::new(Code::StoreWrite01).with_detail(e.to_string()))?;
+    std::io::copy(&mut from, &mut out).map_err(unreadable)?;
+    Ok(())
 }
 
 /// The whole address book as one .vcf file where the user chooses. The path, or None when the
 /// dialog was closed.
 #[tauri::command]
 async fn export_contacts(app: AppHandle, state: State<'_, AppState>, file_name: String) -> R<Option<String>> {
+    use std::io::Write;
+    use tauri_plugin_fs::FsExt;
+    let name = format!("{}.vcf", parse::safe_file_name(&file_name));
+    let dialog_app = app.clone();
+    let dialog_name = name.clone();
     let target = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog().file().set_file_name(format!("{}.vcf", parse::safe_file_name(&file_name))).add_filter("vCard", &["vcf"]).blocking_save_file()
+        dialog_app.dialog().file().set_file_name(dialog_name).add_filter("vCard", &["vcf"]).blocking_save_file()
     })
     .await
     .map_err(|e| app_error(e.to_string()))?;
-    let Some(path) = target.and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    let Some(target) = target else { return Ok(None) };
+    // On the PC the full path; on Android the save screen gives a content:// address, which
+    // means nothing to the user, so the screen names the file instead.
+    let shown = target.clone().into_path().map(|p| p.to_string_lossy().into_owned()).unwrap_or(name);
     let text = import::vcard::write(&state.engine.store.contacts("")?);
-    std::fs::write(&path, text).map_err(|e| VemError::new(Code::StoreWrite01).with_detail(e.to_string()))?;
-    Ok(Some(path.to_string_lossy().into_owned()))
+    let failed = |e: std::io::Error| VemError::new(Code::StoreWrite01).with_detail(e.to_string());
+    let mut options = tauri_plugin_fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    let mut file = app.fs().open(target, options).map_err(failed)?;
+    file.write_all(text.as_bytes()).map_err(failed)?;
+    file.flush().map_err(failed)?;
+    Ok(Some(shown))
 }
 
 #[tauri::command]
