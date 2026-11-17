@@ -15,6 +15,16 @@ async function openContacts() {
 }
 
 describe("Contactpersonen", () => {
+  it("saves the address book as a file and adds people from one", async () => {
+    const user = await openContacts();
+    await user.click(screen.getByRole("button", { name: "Opslaan als bestand" }));
+    expect(await screen.findByText("Opgeslagen in C:\\Users\\Ria\\Documents\\Contactpersonen.vcf")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Truus de Wit/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Toevoegen uit een bestand" }));
+    expect(await screen.findByRole("button", { name: /Truus de Wit/ })).toBeTruthy();
+    expect(screen.getByText("Toegevoegd aan Contactpersonen: 1.")).toBeTruthy();
+  });
+
   it("has one back button to the mail on the list", async () => {
     await openContacts();
     expect(screen.getAllByRole("button", { name: /Terug/ }).map((b) => b.textContent)).toEqual(["← Terug naar de mail"]);

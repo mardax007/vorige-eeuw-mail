@@ -211,6 +211,11 @@ export const nl = {
   "contacts.recentLoading": "De mail met deze persoon wordt gezocht…",
   "contacts.recentFailed": "De mail met deze persoon kon niet gevonden worden. Bovenaan staat wat er misging.",
   "contacts.needName": "Vul een naam in.",
+  "contacts.file.title": "Contactpersonen in een bestand",
+  "contacts.file.text": "Bewaar alle contactpersonen in één bestand, bijvoorbeeld voor een ander e-mailprogramma of uw telefoon. Zo'n bestand (.vcf) kunt u hier ook weer toevoegen.",
+  "contacts.file.save": "Opslaan als bestand",
+  "contacts.file.add": "Toevoegen uit een bestand",
+  "contacts.file.saved": "Opgeslagen in {path}",
 
   // Account setup
   "setup.title": "Postvak toevoegen",

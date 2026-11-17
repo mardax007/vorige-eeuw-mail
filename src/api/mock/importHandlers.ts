@@ -7,6 +7,7 @@ type ImportCommands =
   | "find_import_sources"
   | "pick_import_file"
   | "import_contacts_file"
+  | "export_contacts"
   | "start_import"
   | "rescue_available"
   | "import_from_account"
@@ -125,6 +126,7 @@ export function createImportHandlers(store: MockStore): Pick<CommandHandlers, Im
       }));
       return { found: 2, added: known ? 1 : 2 };
     },
+    export_contacts: ({ fileName }) => `C:\\Users\\Ria\\Documents\\${fileName}.vcf`,
     pick_import_file: ({ kind }) => ({
       kind,
       path: `C:\\Users\\Ria\\Documents\\oud.${kind}`,

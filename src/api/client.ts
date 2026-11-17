@@ -122,6 +122,7 @@ export const api = {
   findImportSources: () => call("find_import_sources", undefined),
   pickImportFile: (kind: ImportKind) => call("pick_import_file", { kind }),
   importContactsFile: (folder: boolean) => call("import_contacts_file", { folder }),
+  exportContacts: (fileName: string) => call("export_contacts", { fileName }),
   startImport: (source: ImportSource, target: ImportTarget, password: string | null = null, rescue = false) =>
     call("start_import", { source, target, password, rescue }),
   rescueAvailable: () => call("rescue_available", undefined),

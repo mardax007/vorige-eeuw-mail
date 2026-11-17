@@ -526,6 +526,21 @@ async fn import_contacts_file(app: AppHandle, state: State<'_, AppState>, folder
     Ok(Some(ContactsImported { found, added }))
 }
 
+/// The whole address book as one .vcf file where the user chooses. The path, or None when the
+/// dialog was closed.
+#[tauri::command]
+async fn export_contacts(app: AppHandle, state: State<'_, AppState>, file_name: String) -> R<Option<String>> {
+    let target = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog().file().set_file_name(format!("{}.vcf", parse::safe_file_name(&file_name))).add_filter("vCard", &["vcf"]).blocking_save_file()
+    })
+    .await
+    .map_err(|e| app_error(e.to_string()))?;
+    let Some(path) = target.and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    let text = import::vcard::write(&state.engine.store.contacts("")?);
+    std::fs::write(&path, text).map_err(|e| VemError::new(Code::StoreWrite01).with_detail(e.to_string()))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
 #[tauri::command]
 fn start_import(
     app: AppHandle,
@@ -786,6 +801,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         find_import_sources,
         pick_import_file,
         import_contacts_file,
+        export_contacts,
         start_import,
         rescue_available,
         phone_paired,

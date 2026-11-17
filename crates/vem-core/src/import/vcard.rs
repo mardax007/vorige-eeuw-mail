@@ -166,9 +166,57 @@ fn unescape(value: &str) -> String {
     value.replace("\\,", ",").replace("\\;", ";").replace("\\n", " ").replace("\\N", " ").replace("\\\\", "\\")
 }
 
+/// The address book as one vCard 3.0 file in UTF-8 (phase 2b task 3: "never trapped in the
+/// app"). Outlook, Gmail, phones and this program itself read it back.
+pub fn write(contacts: &[crate::model::Contact]) -> String {
+    let mut out = String::new();
+    for c in contacts {
+        out.push_str("BEGIN:VCARD\r\nVERSION:3.0\r\n");
+        out.push_str(&format!("FN:{}\r\n", escape(&c.name)));
+        out.push_str(&format!("N:{};;;;\r\n", escape(&c.name)));
+        for e in &c.emails {
+            out.push_str(&format!("EMAIL;TYPE=INTERNET:{}\r\n", escape(e)));
+        }
+        if let Some(p) = c.phone.as_deref().filter(|p| !p.trim().is_empty()) {
+            out.push_str(&format!("TEL:{}\r\n", escape(p)));
+        }
+        if let Some(n) = c.note.as_deref().filter(|n| !n.trim().is_empty()) {
+            out.push_str(&format!("NOTE:{}\r\n", escape(n)));
+        }
+        out.push_str("END:VCARD\r\n");
+    }
+    out
+}
+
+fn escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace(',', "\\,").replace(';', "\\;").replace("\r\n", "\\n").replace('\n', "\\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_address_book_survives_export_and_import() {
+        let contact = |name: &str, emails: &[&str], phone: Option<&str>| crate::model::Contact {
+            id: String::new(),
+            name: name.into(),
+            emails: emails.iter().map(|e| e.to_string()).collect(),
+            phone: phone.map(Into::into),
+            note: Some("Buurvrouw; heeft de sleutel,\nbel eerst".into()),
+        };
+        let book = vec![
+            contact("Renée de Bakker-Ünal", &["renee@voorbeeld.nl", "r.bakker@werk.nl"], Some("06-12345678")),
+            contact("Bakker, Sanne", &["sanne@voorbeeld.nl"], None),
+        ];
+        let back = parse(write(&book).as_bytes());
+        assert_eq!(back.len(), 2);
+        assert_eq!(back[0].name, "Renée de Bakker-Ünal");
+        assert_eq!(back[0].emails, vec!["renee@voorbeeld.nl", "r.bakker@werk.nl"]);
+        assert_eq!(back[0].phone.as_deref(), Some("06-12345678"));
+        assert_eq!(back[1].name, "Bakker, Sanne");
+        assert_eq!(back[1].phone, None);
+    }
 
     #[test]
     fn live_mail_card_with_quoted_printable_name() {

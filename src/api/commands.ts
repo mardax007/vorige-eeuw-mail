@@ -107,6 +107,7 @@ export interface CommandMap {
   pick_import_file: { args: { kind: ImportKind }; result: ImportSource | null };
   /** Reads vCard files (a folder of them, or one file) into the address book; null when cancelled. */
   import_contacts_file: { args: { folder: boolean }; result: ContactsImported | null };
+  export_contacts: { args: { fileName: string }; result: string | null };
   start_import: {
     args: { source: ImportSource; target: ImportTarget; password: string | null; rescue: boolean };
     result: string;

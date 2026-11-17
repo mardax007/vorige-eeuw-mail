@@ -8,6 +8,7 @@ import { useBackStep } from "../common/useBackStep";
 import { shortDate } from "../format";
 import { useApp } from "../state/AppContext";
 import { ContactEditor } from "./ContactEditor";
+import { ContactsFile } from "./ContactsFile";
 
 const EMPTY_CONTACT: Contact = { id: "", name: "", emails: [], phone: null, note: null };
 
@@ -185,6 +186,7 @@ export function ContactsView() {
           </li>
         ))}
       </ul>
+      <ContactsFile onAdded={() => void load()} />
     </section>
   );
 }
