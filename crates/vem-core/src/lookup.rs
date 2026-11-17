@@ -220,11 +220,16 @@ pub fn parse_autoconfig(xml: &str, email: &str, source: &str) -> Option<ServerSe
 }
 
 pub fn http() -> Result<reqwest::Client> {
+    http_for(Duration::from_secs(10))
+}
+
+/// The same HTTPS-only client with another time limit (a whole APK takes longer than a file).
+pub fn http_for(timeout: Duration) -> Result<reqwest::Client> {
     let tls = net::tls_config(Trust::Platform)?;
     reqwest::Client::builder()
         .use_preconfigured_tls((*tls).clone())
         .https_only(true)
-        .timeout(Duration::from_secs(10))
+        .timeout(timeout)
         .redirect(reqwest::redirect::Policy::limited(3))
         .user_agent(concat!("VorigeEeuwMail/", env!("CARGO_PKG_VERSION")))
         .build()

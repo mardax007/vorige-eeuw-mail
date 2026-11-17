@@ -1,6 +1,7 @@
 //! Mail logic for Vorige Eeuw Mail. No Tauri dependency: testable headless, reused on Android.
 
 pub mod actions;
+pub mod apk_update;
 pub mod compose;
 pub mod contacts_sync;
 pub mod engine;

@@ -19,6 +19,7 @@ compressed-rtf = "1.0.1"
 encoding_rs = "0.8.44"
 mail-builder = "2.0.1"
 mail-parser = { version = "1.0.1", features = ["full_encoding"] }
+minisign-verify = "0.3.0"
 outlook-pst = "1.2.0"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 quick-xml = "0.42.0"

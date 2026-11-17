@@ -144,5 +144,6 @@ The screen labels are "De server zei" and, when no server was involved, "Details
 | `VEM-STORE-READ-01` | Bewaarde mail kon niet gelezen worden. | Sluit het programma met Afsluiten en open het opnieuw. Blijft dit komen, vraag het dan aan Martijn. | phases 1-4 |
 | `VEM-STORE-SECRET-01` | Het bewaarde wachtwoord kon niet gelezen worden. | Typ het wachtwoord van dit postvak opnieuw in. | phases 1-4 |
 | `VEM-UPDATE-CMD-01` | Het bijwerken van het programma is niet gelukt. | U hoeft niets te doen; het programma probeert het later opnieuw. | phases 1-4 |
+| `VEM-UPDATE-GET-01` | De nieuwe versie kon niet opgehaald worden. | Probeer het later nog eens met Bijwerken. Lukt het steeds niet, vraag het dan aan Martijn. | phase 5 (Android) |
 | `VEM-REPORT-CMD-01` | Uw bericht aan Martijn kon niet verstuurd worden. | Probeer het straks opnieuw. | phases 1-4 |
 | `VEM-APP-CMD-01` | Er ging iets onverwachts mis. | Probeer het nog eens. Blijft dit komen, vraag het dan aan Martijn. | phases 1-4 |

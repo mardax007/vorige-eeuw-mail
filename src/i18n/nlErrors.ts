@@ -131,6 +131,10 @@ export const nlErrors = {
     sentence: "Het bijwerken van het programma is niet gelukt.",
     next: "U hoeft niets te doen; het programma probeert het later opnieuw.",
   },
+  "VEM-UPDATE-GET-01": {
+    sentence: "De nieuwe versie kon niet opgehaald worden.",
+    next: "Probeer het later nog eens met Bijwerken. Lukt het steeds niet, vraag het dan aan Martijn.",
+  },
   "VEM-REPORT-CMD-01": {
     sentence: "Uw bericht aan Martijn kon niet verstuurd worden.",
     next: "Probeer het straks opnieuw.",
