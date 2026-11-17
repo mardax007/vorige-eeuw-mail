@@ -147,10 +147,8 @@ async fn reports_wishes_and_log_answers_reach_martijn_once_and_clean() {
     engine.answer_log_request(&list).unwrap();
     engine.answer_log_request(&list).unwrap();
     let is_log = |subject: &String| subject.contains("Logboek");
-    let mut logs = Vec::new();
     for _ in 0..60 {
-        logs = martijn_got(&me).await.into_iter().filter(|(s, _)| is_log(s)).collect();
-        if !logs.is_empty() {
+        if martijn_got(&me).await.iter().any(|(s, _)| is_log(s)) {
             break;
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
