@@ -137,7 +137,8 @@ async fn send_sync_search_flag_move_delete() {
 
     let familie_name = unique("Familie");
     imap.create_folder(&familie_name).await.unwrap();
-    sync::sync_folders(&store, &mut imap, &acc.id).await.unwrap();
+    assert!(sync::sync_folders(&store, &mut imap, &acc.id).await.unwrap(), "a new folder changes the list");
+    assert!(!sync::sync_folders(&store, &mut imap, &acc.id).await.unwrap(), "nothing new, no change");
     let familie =
         store.folder_infos(&acc.id).unwrap().into_iter().find(|f| f.name == familie_name).expect("new folder listed").id;
     let inbox = store.folder_by_role(&acc.id, FolderRole::Inbox).unwrap().unwrap();

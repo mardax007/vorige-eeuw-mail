@@ -20,12 +20,15 @@ pub struct SyncReport {
     /// New unread messages in a Postvak IN, for Windows notifications.
     pub new_in_inbox: Vec<i64>,
     pub changed_folders: HashSet<i64>,
+    /// A folder came or went on the server: the folder list on screen must be read again.
+    pub folder_list_changed: bool,
 }
 
 impl SyncReport {
     fn merge(&mut self, other: SyncReport) {
         self.new_in_inbox.extend(other.new_in_inbox);
         self.changed_folders.extend(other.changed_folders);
+        self.folder_list_changed |= other.folder_list_changed;
     }
 }
 
@@ -33,8 +36,8 @@ impl SyncReport {
 pub async fn sync_account(store: &Store, imap: &mut Imap, account_id: &str, first_run: bool) -> Result<SyncReport> {
     ops::apply_pending(store, imap, account_id).await?;
     store.set_capabilities(account_id, &imap.capabilities())?;
-    sync_folders(store, imap, account_id).await?;
-    let mut report = SyncReport::default();
+    let folder_list_changed = sync_folders(store, imap, account_id).await?;
+    let mut report = SyncReport { folder_list_changed, ..SyncReport::default() };
     let mut infos = store.folder_infos(account_id)?;
     // Postvak IN first: that is where people look.
     infos.sort_by_key(|f| if f.role == Some(FolderRole::Inbox) { 0 } else { 1 });
@@ -46,15 +49,24 @@ pub async fn sync_account(store: &Store, imap: &mut Imap, account_id: &str, firs
     Ok(report)
 }
 
-pub async fn sync_folders(store: &Store, imap: &mut Imap, account_id: &str) -> Result<()> {
+/// Brings the stored folder list in line with the server. True when a folder the screens show
+/// (a selectable one) came or went.
+pub async fn sync_folders(store: &Store, imap: &mut Imap, account_id: &str) -> Result<bool> {
     let remote = imap.list_folders().await?;
+    let shown_before: HashSet<String> = store.folder_infos(account_id)?.into_iter().map(|f| f.name).collect();
     let mut keep = Vec::new();
-    for f in remote.iter().filter(|f| !f.skip) {
+    let mut shown_now = HashSet::new();
+    // The contacts folder of decision 19 holds one encrypted message for our own use; it is not
+    // mail and never shows in the folder list (docs/sync.md).
+    for f in remote.iter().filter(|f| !f.skip && f.name != crate::contacts_sync::FOLDER) {
         store.upsert_folder(account_id, &f.name, f.delimiter.as_deref(), f.role, f.selectable)?;
         keep.push(f.name.clone());
+        if f.selectable {
+            shown_now.insert(f.name.clone());
+        }
     }
     store.remove_folders_except(account_id, &keep)?;
-    Ok(())
+    Ok(shown_before != shown_now)
 }
 
 /// One folder: UIDVALIDITY check, new messages, then flags and deletions of known ones.

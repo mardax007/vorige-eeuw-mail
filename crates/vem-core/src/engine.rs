@@ -280,6 +280,10 @@ impl Engine {
         for f in &report.changed_folders {
             self.sink.mail_changed(id, Some(f.to_string()));
         }
+        if report.folder_list_changed {
+            // No folder id: the screens read the whole folder list again.
+            self.sink.mail_changed(id, None);
+        }
         if !report.new_in_inbox.is_empty() {
             let msgs: Vec<MessageSummary> =
                 report.new_in_inbox.iter().filter_map(|m| self.store.message(*m).ok().map(|s| s.summary)).collect();
