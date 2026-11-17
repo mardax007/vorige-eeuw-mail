@@ -5584,6 +5584,7 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-barcode-scanner",
  "tauri-plugin-dialog",
+ "tauri-plugin-fs",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",

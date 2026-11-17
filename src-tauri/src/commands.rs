@@ -397,16 +397,25 @@ fn open_attachment(app: AppHandle, state: State<'_, AppState>, message_id: Strin
     app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| app_error(e.to_string()))
 }
 
+/// True when the file was written; false when the user closed the save dialog.
 #[tauri::command]
-async fn save_attachment(app: AppHandle, state: State<'_, AppState>, message_id: String, attachment_id: String) -> R<()> {
+async fn save_attachment(app: AppHandle, state: State<'_, AppState>, message_id: String, attachment_id: String) -> R<bool> {
+    use std::io::Write;
+    use tauri_plugin_fs::FsExt;
     let (name, bytes) = attachment(&state, &message_id, &attachment_id)?;
-    let target = tauri::async_runtime::spawn_blocking(move || app.dialog().file().set_file_name(name).blocking_save_file())
-        .await
-        .map_err(|e| app_error(e.to_string()))?;
-    if let Some(path) = target.and_then(|p| p.into_path().ok()) {
-        std::fs::write(path, bytes)?;
-    }
-    Ok(())
+    let dialog_app = app.clone();
+    let target =
+        tauri::async_runtime::spawn_blocking(move || dialog_app.dialog().file().set_file_name(name).blocking_save_file())
+            .await
+            .map_err(|e| app_error(e.to_string()))?;
+    let Some(target) = target else { return Ok(false) };
+    // A Windows path, or on Android the content:// address the system's save screen hands back.
+    let mut options = tauri_plugin_fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    let mut file = app.fs().open(target, options)?;
+    file.write_all(&bytes)?;
+    file.flush()?;
+    Ok(true)
 }
 
 // ---- sync and settings -------------------------------------------------------------

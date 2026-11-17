@@ -95,7 +95,8 @@ export interface CommandMap {
   list_outbox: { args: NoArgs; result: OutboxItem[] };
   pick_attachments: { args: NoArgs; result: string[] };
   open_attachment: { args: { messageId: string; attachmentId: string }; result: void };
-  save_attachment: { args: { messageId: string; attachmentId: string }; result: void };
+  /** False when the user closed the save dialog without choosing a place. */
+  save_attachment: { args: { messageId: string; attachmentId: string }; result: boolean };
 
   sync_now: { args: { accountId: string | null }; result: void };
   get_settings: { args: NoArgs; result: Settings };

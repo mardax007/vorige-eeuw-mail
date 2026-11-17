@@ -150,7 +150,7 @@ export function createComposeHandlers(store: MockStore): Pick<CommandHandlers, C
     list_outbox: () => store.get().outbox.map((o) => o.item),
     pick_attachments: () => ["C:\\Users\\Ria\\Pictures\\Kleinkinderen.jpg"],
     open_attachment: () => undefined,
-    save_attachment: () => undefined,
+    save_attachment: () => true,
     list_contacts: ({ query }) => {
       const q = query.trim().toLowerCase();
       return store

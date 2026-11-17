@@ -31,12 +31,13 @@ type Panel = "none" | "label" | "move";
 
 /** The open message: one row of labelled buttons, who sent it, and the body. */
 export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) {
-  const { tags, folders, settings, showError, compose, reload } = useApp();
+  const { tags, folders, settings, showError, compose, reload, appInfo } = useApp();
   const { remove, move, respond } = useMessageActions();
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [loadError, setLoadError] = useState<VemError | null>(null);
   const [showImages, setShowImages] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
+  const [savedName, setSavedName] = useState<string | null>(null);
   // Goes up on every load: an answer for an older load (another message, by now) is ignored.
   const request = useRef(0);
 
@@ -69,6 +70,7 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
     setLoadError(null);
     setShowImages(false);
     setPanel("none");
+    setSavedName(null);
     void load(false);
     // Only a different message loads anew; showing images loads on its own below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,18 +130,27 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
     }
   };
 
-  const handleAttachment = async (attachmentId: string, isSave: boolean) => {
+  const handleAttachment = async (attachmentId: string, name: string, isSave: boolean) => {
+    setSavedName(null);
     try {
-      if (isSave) await api.saveAttachment(message.id, attachmentId);
-      else await api.openAttachment(message.id, attachmentId);
+      if (!isSave) {
+        await api.openAttachment(message.id, attachmentId);
+        return;
+      }
+      if (await api.saveAttachment(message.id, attachmentId)) setSavedName(name);
     } catch (e: unknown) {
       showError(e);
     }
   };
 
+  // On a phone the screen is narrow: who wrote it comes first, the buttons below it.
+  const isPhone = appInfo?.isPhone === true;
+  const header = <MessageHeader message={message} />;
+
   return (
     <section className="reading-pane" aria-label={message.subject}>
       {onBack && <BackButton onBack={onBack} />}
+      {isPhone && header}
       <div className="button-row action-row no-print">
         {isDraft && (
           <button type="button" className="primary" onClick={openDraft}>
@@ -158,10 +169,13 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
         <button type="button" aria-expanded={panel === "label"} onClick={() => setPanel(panel === "label" ? "none" : "label")}>
           {t("read.label")}
         </button>
-        <button type="button" onClick={toggleImportant}>
+        <button type="button" aria-pressed={message.important} onClick={toggleImportant}>
           {message.important ? `★ ${t("read.unmarkImportant")}` : `☆ ${t("read.markImportant")}`}
         </button>
-        <button type="button" onClick={() => window.print()}>{t("read.print")}</button>
+        {/* Android's WebView has no print dialog behind window.print(). */}
+        {!isPhone && (
+          <button type="button" onClick={() => window.print()}>{t("read.print")}</button>
+        )}
       </div>
       {panel === "move" && (
         <MoveMenu
@@ -184,7 +198,7 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
           onChanged={() => void reload().then(() => load(showImages))}
         />
       )}
-      <MessageHeader message={message} />
+      {!isPhone && header}
       {messageTags.length > 0 && (
         <p className="message-tags">
           {messageTags.map((tag) => (
@@ -210,11 +224,14 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
             {message.attachments.map((a) => (
               <li key={a.id} className="attachment-row">
                 <span>{a.name} ({formatBytes(a.size)})</span>
-                <button type="button" onClick={() => handleAttachment(a.id, false)}>{t("read.open")}</button>
-                <button type="button" onClick={() => handleAttachment(a.id, true)}>{t("read.save")}</button>
+                <button type="button" onClick={() => handleAttachment(a.id, a.name, false)}>{t("read.open")}</button>
+                <button type="button" onClick={() => handleAttachment(a.id, a.name, true)}>{t("read.save")}</button>
               </li>
             ))}
           </ul>
+          <p className="save-note" role="status">
+            {savedName ? t("read.saved", { name: savedName }) : ""}
+          </p>
         </div>
       )}
       <div className="mail-body">
@@ -223,6 +240,7 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
             html={message.html}
             allowRemoteImages={showImages || message.remoteImagesShown}
             textSize={settings.textSize}
+            isPhoneApp={appInfo?.isPhone === true}
           />
         ) : (
           <pre className="mail-text">{message.text ?? ""}</pre>
