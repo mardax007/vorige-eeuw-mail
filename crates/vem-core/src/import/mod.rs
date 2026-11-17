@@ -675,6 +675,28 @@ mod tests {
         }
     }
 
+    /// A real Outlook Express `.dbx` store at `VEM_REAL_DBX`: it reads without error and leaves
+    /// the file unchanged. `VEM_REAL_DBX_ITEMS`, if set, is the number of index entries the file
+    /// holds; each is either imported or skipped (a header that was never downloaded has no body,
+    /// which is why added alone is not asserted).
+    #[test]
+    fn real_dbx_file_imports() {
+        let Some(path) = std::env::var_os("VEM_REAL_DBX").map(PathBuf::from) else {
+            eprintln!("note: VEM_REAL_DBX not set, no real DBX tried");
+            return;
+        };
+        let before = std::fs::read(&path).unwrap();
+        let source = source_for(&path).unwrap();
+        assert_eq!(source.kind, ImportKind::Dbx);
+        let (_d, s) = store();
+        let r = run(&s, "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false))
+            .unwrap_or_else(|e| panic!("{}: the DBX reader opens it ({})", source.label, e.code));
+        if let Ok(n) = std::env::var("VEM_REAL_DBX_ITEMS") {
+            assert_eq!(r.added + r.skipped.len() as u64, n.parse::<u64>().unwrap(), "{}: index entries read", source.label);
+        }
+        assert_eq!(std::fs::read(&path).unwrap(), before, "the DBX file was changed");
+    }
+
     fn walk_psts(dir: &Path) -> Vec<PathBuf> {
         std::fs::read_dir(dir)
             .unwrap()

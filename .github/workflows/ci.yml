@@ -63,9 +63,30 @@ jobs:
           update: false
           install: mingw-w64-ucrt-x86_64-libpst
 
+      # Public real PST and DBX files (not kept in the repository), so the import tests run on
+      # real data and a lost outlook-pst patch is caught. The passworded PST's check matches a
+      # known collision string (CRC-32, so not its real password); see docs/PROGRESS.md.
+      - name: Fetch real import samples
+        shell: pwsh
+        run: |
+          $dir = "$env:RUNNER_TEMP\pst"
+          New-Item -ItemType Directory -Force "$dir", "$env:RUNNER_TEMP\dbx" | Out-Null
+          $files = @{
+            "$dir\enron.pst"      = "https://github.com/epfromer/pst-extractor/raw/HEAD/src/__tests__/testdata/enron.pst"
+            "$dir\passworded.pst" = "https://github.com/rjohnsondev/java-libpst/raw/HEAD/src/test/resources/passworded.pst"
+            "$dir\dist-list.pst"  = "https://github.com/rjohnsondev/java-libpst/raw/HEAD/src/test/resources/dist-list.pst"
+            "$dir\Outlook.pst"    = "https://github.com/aspose-email/Aspose.Email-for-Java/raw/HEAD/Examples/src/main/resources/outlook/Outlook.pst"
+            "$env:RUNNER_TEMP\dbx\Inbox.dbx" = "https://github.com/tibordp/fillyfoal/raw/HEAD/tests/fixtures/synthetic/outlook-express-dbx/Inbox.dbx"
+          }
+          foreach ($f in $files.GetEnumerator()) { Invoke-WebRequest $f.Value -OutFile $f.Key }
+
       - name: Rust core
         env:
           VEM_READPST: ${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\readpst.exe
+          VEM_REAL_PST_DIR: ${{ runner.temp }}\pst
+          VEM_REAL_PST_PASSWORD: 3tpi5t
+          VEM_REAL_DBX: ${{ runner.temp }}\dbx\Inbox.dbx
+          VEM_REAL_DBX_ITEMS: '2'
         run: cargo test -p vem-core --features test-support
 
       - name: Rescue tool collects
