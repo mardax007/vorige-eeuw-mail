@@ -113,7 +113,7 @@ export const nlErrors = {
   },
   "VEM-IMPORT-SPACE-02": {
     sentence: "Er is niet genoeg ruimte in uw postvak voor de oude mail.",
-    next: "Kies Op deze computer en druk opnieuw op Ophalen.",
+    next: "Onder Details staat hoe groot de oude mail is en hoeveel ruimte er nog is (oude mail / vrij). Kies bij Waar moet de mail heen? de eerste keuze (op dit apparaat) en druk opnieuw op Ophalen.",
   },
   "VEM-STORE-WRITE-01": {
     sentence: "Het programma kon niets opslaan op deze computer.",

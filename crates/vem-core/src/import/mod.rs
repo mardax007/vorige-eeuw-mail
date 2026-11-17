@@ -398,7 +398,7 @@ fn open_sink<'a>(store: &'a Store, label: &str, size: u64, target: &ImportTarget
                         // The numbers go along as details, like SPACE-01's, so Martijn sees how far off it is.
                         let room = limit.saturating_sub(q.used_kb) / 1024;
                         return Err(VemError::new(Code::ImportSpace02)
-                            .with_detail(format!("old mail {} MB, room left in the mailbox {room} MB", size / 1024 / 1024)));
+                            .with_detail(format!("{} MB / {room} MB", size / 1024 / 1024)));
                     }
             (a.id, true)
         }
@@ -898,7 +898,7 @@ mod tests {
         let target = ImportTarget::Mailbox { account_id: box_id.clone() };
         let e = run(&s, "j", &source, &target, &|_| {}, &AtomicBool::new(false)).unwrap_err();
         assert_eq!(e.code(), Some(Code::ImportSpace02));
-        assert_eq!(e.detail.as_deref(), Some("old mail 3 MB, room left in the mailbox 1 MB"));
+        assert_eq!(e.detail.as_deref(), Some("3 MB / 1 MB"));
         assert!(s.originals().unwrap().is_empty(), "no copy of the file kept");
         assert!(s.folders(Some(&box_id)).unwrap().is_empty(), "no folder made");
     }
