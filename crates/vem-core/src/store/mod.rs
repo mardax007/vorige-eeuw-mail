@@ -169,6 +169,10 @@ impl Store {
         std::fs::create_dir_all(root.join("mail"))?;
         let conn = Connection::open(root.join("index.sqlite"))
             .map_err(|e| VemError::new(Code::StoreRead01).with_detail(e.to_string()))?;
+        // A damaged index would otherwise fail later with a confusing message, or serve wrong
+        // data. Catch it here: the app shows a clear error, and the user re-syncs (mailbox) or
+        // re-imports (local). Mail itself is the .eml files, not this index.
+        check_not_corrupt(&conn)?;
         Self::init(conn, root.to_path_buf())
     }
 
@@ -210,6 +214,24 @@ impl Store {
     }
 }
 
+/// `PRAGMA quick_check` on a freshly opened index. A file that is not a database at all fails
+/// the query itself; a damaged one returns rows other than "ok". Both become VEM-STORE-READ-01,
+/// with SQLite's own words as detail (no mail content: quick_check names pages and tables only).
+fn check_not_corrupt(conn: &Connection) -> Result<()> {
+    let damaged = |detail: String| VemError::new(Code::StoreRead01).with_detail(detail);
+    let mut stmt = conn.prepare("PRAGMA quick_check").map_err(|e| damaged(e.to_string()))?;
+    let rows: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .map_err(|e| damaged(e.to_string()))?
+        .collect::<std::result::Result<_, _>>()
+        .map_err(|e| damaged(e.to_string()))?;
+    if rows.len() == 1 && rows[0] == "ok" {
+        Ok(())
+    } else {
+        Err(damaged(rows.join("; ")))
+    }
+}
+
 pub(crate) fn json<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".into())
 }
@@ -242,5 +264,41 @@ mod tests {
         let s = super::Store::open(dir.path()).unwrap();
         let v: i64 = s.db().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
         assert_eq!(v, super::SCHEMA_VERSION);
+    }
+
+    /// An index overwritten with junk (a bad disk, a half-copied backup) is refused with
+    /// VEM-STORE-READ-01 instead of being "repaired" into an empty store that hides the mail.
+    #[test]
+    fn a_garbage_index_is_refused_with_a_clear_code() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("index.sqlite"), vec![0x5Au8; 64 * 1024]).unwrap();
+        let err = super::Store::open(dir.path()).unwrap_err();
+        assert_eq!(err.code(), Some(crate::error::Code::StoreRead01));
+        // The damaged file is left as it was, so it can still be sent to Martijn or recovered.
+        assert_eq!(std::fs::read(dir.path().join("index.sqlite")).unwrap(), vec![0x5Au8; 64 * 1024]);
+    }
+
+    /// A real index whose pages were partly overwritten after it was written.
+    #[test]
+    fn a_damaged_index_page_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let s = super::Store::open(dir.path()).unwrap();
+            let db = s.db();
+            db.execute_batch("PRAGMA journal_mode=DELETE; CREATE TABLE filler(x TEXT);").unwrap();
+            for i in 0..2000 {
+                db.execute("INSERT INTO filler VALUES (?1)", [format!("rij {i} {}", "x".repeat(200))]).unwrap();
+            }
+        }
+        let path = dir.path().join("index.sqlite");
+        let mut bytes = std::fs::read(&path).unwrap();
+        assert!(bytes.len() > 40 * 4096, "index too small to damage: {}", bytes.len());
+        // Keep the 100-byte header so SQLite still opens it; trample pages further in.
+        for b in &mut bytes[8 * 4096..32 * 4096] {
+            *b = 0xFF;
+        }
+        std::fs::write(&path, &bytes).unwrap();
+        let err = super::Store::open(dir.path()).unwrap_err();
+        assert_eq!(err.code(), Some(crate::error::Code::StoreRead01));
     }
 }

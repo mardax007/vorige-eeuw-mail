@@ -169,6 +169,16 @@ async fn send_with_undo_delay_arrives_by_idle_and_keeps_a_sent_copy() {
     .await;
     assert!(ok, "one sent copy, adopted from the server");
     assert!(jan.store.contact_by_email("piet@example.test").unwrap().is_some(), "recipient learned");
+
+    // The message file of that copy is removed behind the app's back (a disk cleaner): opening
+    // it downloads it again from the server instead of failing every time.
+    let row = jan.store.messages_in_folder(sent, 0, 200).unwrap().into_iter().find(|m| m.subject == subject).unwrap();
+    let id: i64 = row.id.parse().unwrap();
+    let rel = jan.store.message(id).unwrap().eml_path.expect("the copy has a file");
+    std::fs::remove_file(jan.store.mail_dir().join(rel)).unwrap();
+    jan.ensure_body(id).await.expect("fetched again");
+    let raw = jan.store.read_eml(id).unwrap().expect("a body again");
+    assert!(String::from_utf8_lossy(&raw).contains("Komt u zondag eten?"));
 }
 
 /// "Uit een ander postvak": Jan's old mailbox is copied into Piet's, with read state and star.

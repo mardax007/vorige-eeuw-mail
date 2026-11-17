@@ -194,6 +194,26 @@ impl Store {
         self.index_search(id, &p, true)
     }
 
+    /// The file of a mailbox message is gone or empty (removed by a cleaner, a bad disk): forget
+    /// it, so the next fetch downloads the message again from the server. A message that only
+    /// lives here (imported, no server copy) is left as it is: its loss is reported, not hidden.
+    /// Returns whether the body was forgotten.
+    pub fn forget_lost_body(&self, id: i64) -> Result<bool> {
+        let row: Option<(Option<String>, Option<i64>, bool)> = self
+            .db()
+            .query_row("SELECT eml_path, uid, has_body FROM messages WHERE id = ?1", [id], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .optional()?;
+        let Some((Some(rel), Some(_uid), true)) = row else { return Ok(false) };
+        let intact = std::fs::metadata(self.mail_dir().join(&rel)).is_ok_and(|m| m.len() > 0);
+        if intact {
+            return Ok(false);
+        }
+        self.db().execute("UPDATE messages SET has_body = 0, eml_path = NULL WHERE id = ?1", [id])?;
+        Ok(true)
+    }
+
     pub fn read_eml(&self, id: i64) -> Result<Option<Vec<u8>>> {
         let path: Option<String> = self
             .db()
@@ -202,9 +222,12 @@ impl Store {
             .flatten();
         match path {
             None => Ok(None),
-            Some(rel) => std::fs::read(self.mail_dir().join(rel))
-                .map(Some)
-                .map_err(|e| VemError::new(Code::StoreRead01).with_detail(e.kind().to_string())),
+            Some(rel) => match std::fs::read(self.mail_dir().join(rel)) {
+                // Every stored message has at least a header; an empty file is a lost one.
+                Ok(raw) if raw.is_empty() => Err(VemError::new(Code::StoreRead01).with_detail("empty message file")),
+                Ok(raw) => Ok(Some(raw)),
+                Err(e) => Err(VemError::new(Code::StoreRead01).with_detail(e.kind().to_string())),
+            },
         }
     }
 
@@ -545,6 +568,40 @@ pub(crate) mod tests {
             .unwrap();
         assert_eq!(again, id);
         assert!(!s.message(id).unwrap().summary.unread);
+    }
+
+    /// A message file removed behind the app's back: a mailbox message is fetched again, a
+    /// message that only lives here reports its loss (VEM-STORE-READ-01) instead of showing empty.
+    #[test]
+    fn a_lost_message_file_is_fetched_again_or_reported() {
+        let (_d, s) = store();
+        let (acc, inbox) = seed(&s);
+        let raw = mail("Hoi", "Piet <piet@x.nl>", "Gezellig", "Mon, 16 Nov 2026 10:00:00 +0100");
+        let on_server = s
+            .insert_message(&NewMessage { account_id: acc.clone(), folder_id: inbox, uid: Some(3), raw: raw.clone(), has_body: true, ..Default::default() })
+            .unwrap();
+        let only_here = s
+            .insert_message(&NewMessage { account_id: acc.clone(), folder_id: inbox, uid: None, raw: raw.clone(), has_body: true, ..Default::default() })
+            .unwrap();
+        assert!(!s.forget_lost_body(on_server).unwrap(), "an intact file is kept");
+
+        let path_of = |id: i64| -> std::path::PathBuf {
+            let rel: String = s.db().query_row("SELECT eml_path FROM messages WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+            s.mail_dir().join(rel)
+        };
+        std::fs::remove_file(path_of(on_server)).unwrap();
+        std::fs::write(path_of(only_here), b"").unwrap();
+
+        assert!(s.forget_lost_body(on_server).unwrap());
+        assert_eq!(s.without_body(&acc, 10).unwrap(), vec![(on_server, inbox, 3)], "queued for download");
+        assert_eq!(s.read_eml(on_server).unwrap(), None);
+        s.set_body(on_server, &raw).unwrap();
+        assert_eq!(s.read_eml(on_server).unwrap().unwrap(), raw, "fetched again, readable again");
+
+        assert!(!s.forget_lost_body(only_here).unwrap(), "no server copy: nothing to fetch");
+        assert_eq!(s.read_eml(only_here).unwrap_err().code(), Some(Code::StoreRead01), "an emptied file is not shown as an empty mail");
+        std::fs::remove_file(path_of(only_here)).unwrap();
+        assert_eq!(s.read_eml(only_here).unwrap_err().code(), Some(Code::StoreRead01));
     }
 
     #[test]

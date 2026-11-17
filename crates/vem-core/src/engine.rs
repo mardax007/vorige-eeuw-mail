@@ -312,6 +312,10 @@ impl Engine {
 
     /// Fetch one message's body now, when the reading pane needs it before the background did.
     pub async fn ensure_body(&self, message_id: i64) -> Result<()> {
+        // A message file removed behind our back is downloaded again here (mailbox mail only).
+        if self.store.forget_lost_body(message_id)? {
+            log::event("store.body_lost", &[("message", &message_id.to_string())]);
+        }
         let m = self.store.message(message_id)?;
         if m.has_body {
             return Ok(());
