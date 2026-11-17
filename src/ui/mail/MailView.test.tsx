@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
@@ -126,6 +126,21 @@ describe("message buttons", () => {
     const subject = (await screen.findByLabelText("Onderwerp")) as HTMLInputElement;
     expect(subject.value).toBe("Fw: Afvalkalender 2027");
     expect(screen.getByText("afvalkalender-2027.pdf")).toBeTruthy();
+  });
+
+  it("says the attachments are being made ready, and takes no second tap meanwhile", async () => {
+    let finish: (paths: string[]) => void = () => {};
+    const get = vi.spyOn(api, "forwardAttachments").mockImplementation(
+      () => new Promise<string[]>((resolve) => (finish = resolve)),
+    );
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Afvalkalender 2027/ }));
+    await user.click(await screen.findByRole("button", { name: "Doorsturen" }));
+    expect(await screen.findByText("De bijlagen worden klaargezet om mee te sturen…")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Doorsturen" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(get).toHaveBeenCalledTimes(1);
+    act(() => finish(["C:\\Temp\\afvalkalender-2027.pdf"]));
+    expect(((await screen.findByLabelText("Onderwerp")) as HTMLInputElement).value).toBe("Fw: Afvalkalender 2027");
   });
 
   it("does not open Write without the attachments when they cannot be fetched", async () => {

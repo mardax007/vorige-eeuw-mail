@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { MessageDetail } from "../../api/types";
 import { t } from "../../i18n";
@@ -10,12 +10,16 @@ export interface MessageActions {
   remove: (ids: string[]) => Promise<boolean>;
   move: (ids: string[], folderId: string) => Promise<boolean>;
   respond: (message: MessageDetail, kind: ReplyKind) => void;
+  /** True while Doorsturen writes the attachments out for the Write screen. */
+  isForwarding: boolean;
 }
 
 /** Verwijderen, Verplaatsen and the reply buttons, shared by the buttons and the keyboard. */
 export function useMessageActions(): MessageActions {
   const { accounts, folders, compose, newDraft, showUndo, showError, reload } = useApp();
   const forwarding = useRef(false);
+  // Big attachments take a moment to be written out; the screen says so meanwhile.
+  const [isForwarding, setIsForwarding] = useState(false);
 
   const undoWith = useCallback(
     (token: string) => async () => {
@@ -78,16 +82,18 @@ export function useMessageActions(): MessageActions {
       // A second tap while the files are being written starts nothing.
       if (forwarding.current) return;
       forwarding.current = true;
+      setIsForwarding(true);
       api
         .forwardAttachments(message.id)
         .then((attachments) => compose({ ...draft, attachments }))
         .catch((e: unknown) => showError(e))
         .finally(() => {
           forwarding.current = false;
+          setIsForwarding(false);
         });
     },
     [accounts, compose, newDraft, showError],
   );
 
-  return { remove, move, respond };
+  return { remove, move, respond, isForwarding };
 }

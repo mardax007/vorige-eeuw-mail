@@ -91,6 +91,7 @@ export const nl = {
   "read.reply": "Beantwoorden",
   "read.replyAll": "Allen beantwoorden",
   "read.forward": "Doorsturen",
+  "read.forwardPreparing": "De bijlagen worden klaargezet om mee te sturen…",
   "read.delete": "Verwijderen",
   "read.move": "Verplaatsen",
   "read.moveTo": "Verplaatsen naar:",

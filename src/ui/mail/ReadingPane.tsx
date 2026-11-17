@@ -32,7 +32,7 @@ type Panel = "none" | "label" | "move";
 /** The open message: one row of labelled buttons, who sent it, and the body. */
 export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) {
   const { tags, folders, settings, showError, compose, reload, appInfo } = useApp();
-  const { remove, move, respond } = useMessageActions();
+  const { remove, move, respond, isForwarding } = useMessageActions();
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [loadError, setLoadError] = useState<VemError | null>(null);
   const [showImages, setShowImages] = useState(false);
@@ -159,7 +159,7 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
         )}
         <button type="button" onClick={() => respond(message, "reply")}>{t("read.reply")}</button>
         <button type="button" onClick={() => respond(message, "replyAll")}>{t("read.replyAll")}</button>
-        <button type="button" onClick={() => respond(message, "forward")}>{t("read.forward")}</button>
+        <button type="button" disabled={isForwarding} onClick={() => respond(message, "forward")}>{t("read.forward")}</button>
         {canDelete && (
           <button type="button" onClick={() => remove([message.id]).then((ok) => ok && onRemoved())}>{t("read.delete")}</button>
         )}
@@ -177,6 +177,11 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
           <button type="button" onClick={() => window.print()}>{t("read.print")}</button>
         )}
       </div>
+      {isForwarding && (
+        <p className="calm-line no-print" role="status">
+          {t("read.forwardPreparing")}
+        </p>
+      )}
       {panel === "move" && (
         <MoveMenu
           folders={accountFolders}
