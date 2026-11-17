@@ -1,7 +1,7 @@
-# New mail in the background on Android (proposal, phase 5 task 7)
+# New mail in the background on Android (phase 5 task 7)
 
-Written 17 November 2026 for Martijn. Nothing here is built yet; open question 24 in
-`DECISIONS.md` asks which option to build.
+Written 17 November 2026 as a proposal for Martijn. He chose option 2 the same day (decision 24
+in `DECISIONS.md`); it is built as described under "What is built" at the end.
 
 ## What the app does today
 
@@ -80,3 +80,40 @@ Permissions option 2 adds: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE
 - FairEmail's and Thunderbird for Android's `AndroidManifest.xml` (GitHub).
 - Tauri issues #15671 and #11609; crates.io `tauri-plugin-background-service`.
 - dontkillmyapp.com.
+
+## What is built (17 November 2026)
+
+- **The switch.** "Nieuwe mail direct melden" in Instellingen, on a phone only, off by default
+  (`Settings.background_mail`). Turning it on starts the service and asks Android's
+  battery-optimisation question ("Let app always run in background?"); turning it off stops the
+  service and its alarm. Rust keeps a flag file `background-mail` in the data folder so Kotlin
+  can see the switch before any Rust runs.
+- **Two processes, one at a time.** The service (`MailService.kt`, type `specialUse`) runs in its
+  own process `:mail` with the Rust core started headless (`src-tauri/src/android_mail.rs`), no
+  Tauri and no screens. The app's own process works on the mailboxes only while its screen is
+  visible. Two lock files settle who works (`vem_core::handoff`): `ui.lock` (the app is on screen)
+  and `sync.lock` (this process runs the engine). The app takes both in `onStart`, after the
+  service has paused; in `onStop` it pauses its engine (`Engine::pause`, which lets a message that
+  is going out finish) and lets go. The service looks every 3 seconds whether the app is back. A
+  lock ends with its process, so a killed process never blocks the other. The SQLite index is in
+  WAL mode and waits up to 5 seconds for the other process's write.
+- **The app may end with its screen now.** On a phone the app no longer keeps its process alive
+  after its screen closes (desktop still does). This also removes the white page that Tauri
+  showed when the screen was reopened in a process that had lived on (Tauri issue #15671).
+- **Notifications.** The permanent one ("Vorige Eeuw Mail kijkt of er nieuwe mail is", channel
+  "Kijken naar nieuwe mail", lowest importance, silent) and "Nieuwe e-mail" for each new message
+  while the service works. Their texts come from the Dutch catalogue: the screens send them to the
+  shell at start, which keeps them in the index for the service. Tapping either opens the app.
+- **Waking.** IMAP IDLE gives new mail as it arrives. An alarm (`setAndAllowWhileIdle`, about every
+  15 minutes, no exact-alarm permission) wakes the phone for a minute and asks the core to look at
+  the server; it also starts the service again if Android stopped it.
+- **Starting again.** After a restart of the phone (`BOOT_COMPLETED`) and after an update
+  (`MY_PACKAGE_REPLACED`); both may start a `specialUse` service from the background. Opening the
+  app also starts it when the switch is on.
+
+Tested on the Android 16 emulator against GreenMail: hand-over both ways, a notification from the
+service with the app away, mail in forced deep Doze, the service back after a reboot and after a
+reinstall, the switch off stopping service, notification and alarm, the screen reopening with the
+mail the service fetched. Not tested: the alarm firing (it is set; the emulator was not left for
+15 minutes), real phones of the family's makes (their battery rules decide; see
+dontkillmyapp.com), and a real provider's IDLE.

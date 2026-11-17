@@ -101,6 +101,12 @@ one by itself.
   and `backup_rules.xml`, since some makers keep phone-to-phone transfer on despite `allowBackup`).
   On a new phone each mailbox fetches its mail again; mail imported only into a local folder on the
   phone does not move along.
+- **Decision 24, new mail in the background on a phone: option 2 (Martijn, 17 November 2026).**
+  An own foreground service of type `specialUse` keeps the mailbox connection open, so new mail
+  shows within a minute as on Windows. It is switched on per phone in Instellingen ("Nieuwe mail
+  direct melden"), off by default, with a permanent notification while it runs and Android's
+  battery-optimisation question once. It starts again after a restart of the phone and after an
+  update. The proposal and the facts behind it are in `docs/background-mail.md`.
 
 ## Open
 
@@ -112,14 +118,6 @@ Decision 6 is made (Tauri stays; see "Build choices" below).
   on such a pointer only for non-commercial distribution, which this family app is. The safer choice
   is for the release workflow to also attach those source archives (a few tens of MB) to every
   release. Martijn: pointer only, or attach the sources?
-- **Question 24, new mail in the background on a phone (17 November 2026, phase 5 task 7).**
-  `docs/background-mail.md` sets out what Android allows. Options: (1) a check about every 15
-  minutes, as Android permits, with a notification; about 2 days. (2) An own foreground service
-  that keeps the mailbox connection open, switched on per phone, with a permanent notification and
-  the battery-optimisation question once; mail within a minute, as on Windows; about 4 to 6 days
-  and tests on each family make of phone. (3) Nothing extra: new mail when the app is opened, as
-  now. Claude Code recommends 2 if anyone expects the phone to ping, else 3 now and 1 later.
-  Martijn: which one?
 - **Question 25, the QR scanner needs Google Play services (17 November 2026, phase 5 task 9).**
   The official Tauri barcode-scanner plugin decodes with Google ML Kit through Google Play services.
   A phone without them (Huawei since 2019, some de-Googled phones) cannot read the code; the
@@ -199,6 +197,13 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
 - **Contact changes always move forward in time.** A contact saved or deleted gets a change time
   of at least the previous one plus one second, so a change on a device whose clock runs behind,
   or in the same second as the other device's, is not lost to "newest wins".
+- **New mail in the background on a phone (decision 24), how it is built** (17 November 2026).
+  The service runs in its own process (`:mail`) with the Rust core started without Tauri, and only
+  one process works on the mailboxes at a time, settled by two lock files in the data folder; the
+  app's process works only while its screen is visible. On a phone the app's process now ends
+  with its screen (it no longer stays alive as on Windows), which also avoids Tauri's white page
+  after reopening. The alarm is inexact (`setAndAllowWhileIdle`, about every 15 minutes), so no
+  exact-alarm permission is asked. Details and what was tested: `background-mail.md`.
 - **The contacts folder is hidden** from the folder list on every device (as `sync.md` says);
   the folder list on screen is read again whenever a folder comes or goes on the server.
 - **Drafts stay on this computer.** "Opslaan" keeps the draft in the local index (in the account's

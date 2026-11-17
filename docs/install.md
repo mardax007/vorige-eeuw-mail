@@ -62,6 +62,16 @@ staat dat niet toe. Er verschijnt bovenaan een blauwe balk: *Er is een nieuwe ve
 **Bijwerken** of **Installeren**. De eerste keer vraagt Android ook hier eerst om
 **Toestaan van deze bron**, nu voor Vorige Eeuw Mail zelf. Uw postvakken en mail blijven bewaard.
 
+**Meteen een melding bij nieuwe mail.** Zonder meer haalt de telefoon nieuwe mail op als u het
+programma opent. Wilt u een melding zodra er mail is, ook als het programma dicht is:
+
+1. Tik op **Instellingen** en zet **Nieuwe mail direct melden** aan.
+2. Android vraagt of het programma altijd op de achtergrond mag werken. Tik op **Toestaan**.
+   *(schermafdruk: `android-3-achtergrond.png`)*
+
+Bovenaan staat dan steeds een melding *Vorige Eeuw Mail kijkt of er nieuwe mail is*; die hoort
+erbij. Het kost wat meer batterij. Zet het uit in **Instellingen** als u dat niet wilt.
+
 **Uw contactpersonen ook op de telefoon.** Zet eerst hetzelfde e-mailadres op de telefoon als op
 de pc. Daarna, met de pc en de telefoon naast elkaar:
 
