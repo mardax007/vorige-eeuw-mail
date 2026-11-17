@@ -58,6 +58,20 @@ describe("send bar", () => {
     expect(within(list.closest("section") as HTMLElement).getByText(/Niet verstuurd/)).toBeTruthy();
   });
 
+  it("shows the server's exact reply in Postvak UIT and gives the message back to change it", async () => {
+    startWithoutWait();
+    const user = await sendTo("weigert@voorbeeld.nl");
+    await user.click(await screen.findByRole("button", { name: "Postvak UIT openen" }));
+    const list = (await screen.findByRole("heading", { name: "Postvak UIT" })).closest("section") as HTMLElement;
+    const reply = list.querySelector("pre.error-reply");
+    expect(reply?.textContent).toBe(
+      "550 5.1.1 <weigert@voorbeeld.nl>: Recipient address rejected: User unknown in virtual mailbox table",
+    );
+    await user.click(within(list).getByRole("button", { name: "Terughalen en aanpassen" }));
+    await waitFor(() => expect((screen.getByLabelText("Onderwerp") as HTMLInputElement).value).toBe("Proef"));
+    expect(await api.listOutbox()).toEqual([]);
+  });
+
   it("says it was sent once the message has left Postvak UIT", async () => {
     startWithoutWait();
     await sendTo("wim.peters@voorbeeld.nl");
