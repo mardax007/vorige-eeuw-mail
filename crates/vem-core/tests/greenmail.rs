@@ -169,6 +169,113 @@ async fn send_sync_search_flag_move_delete() {
     imap.logout().await;
 }
 
+/// The app is killed while it syncs, several times at different moments; the index, opened again
+/// as after a restart, ends with every message exactly once.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn killing_the_app_during_sync_loses_nothing_and_doubles_nothing() {
+    if !server_up() {
+        return;
+    }
+    const COUNT: usize = 150;
+    let folder = unique("Afgebroken");
+    let mut raw = Imap::connect(&imap_cfg("jan@example.test", PASSWORD)).await.expect("connect");
+    raw.create_folder(&folder).await.unwrap();
+    for i in 0..COUNT {
+        let m = message("oma@example.test", "jan@example.test", &format!("{folder} brief {i}"), "tekst");
+        raw.append(&folder, i % 2 == 0, false, &m).await.unwrap();
+    }
+    raw.logout().await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let acc = Store::open(dir.path()).unwrap().add_account("Jan", "jan@example.test", AccountKind::Imap, None).unwrap();
+    let mut cut_short = 0;
+    for cut_ms in [5u64, 20, 60, 150, 400] {
+        // A fresh "start of the app": the index opened again, a new connection, killed after cut_ms.
+        let store = Store::open(dir.path()).unwrap();
+        let mut imap = Imap::connect(&imap_cfg("jan@example.test", PASSWORD)).await.expect("connect");
+        let run = tokio::time::timeout(Duration::from_millis(cut_ms), sync::sync_account(&store, &mut imap, &acc.id, true)).await;
+        if run.is_err() {
+            cut_short += 1;
+        }
+        drop(imap);
+        drop(store);
+    }
+    let store = Store::open(dir.path()).unwrap();
+    let mut imap = Imap::connect(&imap_cfg("jan@example.test", PASSWORD)).await.expect("connect");
+    assert!(cut_short >= 2, "the sync was really cut off part-way ({cut_short} times)");
+    sync::sync_account(&store, &mut imap, &acc.id, true).await.expect("a full sync at last");
+    imap.logout().await;
+
+    let id = store.folders(Some(&acc.id)).unwrap().into_iter().find(|f| f.name == folder).expect("folder synced").id;
+    let rows = store.messages_in_folder(id.parse().unwrap(), 0, 1000).unwrap();
+    let mut subjects: Vec<&str> = rows.iter().map(|m| m.subject.as_str()).collect();
+    subjects.sort_unstable();
+    subjects.dedup();
+    assert_eq!(rows.len(), COUNT, "every message, once");
+    assert_eq!(subjects.len(), COUNT, "no doubles");
+    assert_eq!(rows.iter().filter(|m| m.unread).count(), COUNT / 2, "read state as on the server");
+}
+
+/// One full sync of Jan's test mailbox into `store`.
+async fn sync_once(store: &Store, account_id: &str) {
+    let mut imap = Imap::connect(&imap_cfg("jan@example.test", PASSWORD)).await.expect("connect");
+    sync::sync_account(store, &mut imap, account_id, true).await.expect("sync");
+    imap.logout().await;
+}
+
+/// A tag set here is stored on the server as an ordinary IMAP keyword, so other programs see it;
+/// a tag set elsewhere (here: a second copy of the program on another device) shows here.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tags_go_to_the_server_and_come_back() {
+    if !server_up() {
+        return;
+    }
+    let folder = unique("Labels");
+    let subject = unique("Gelabeld");
+    let mut raw = Imap::connect(&imap_cfg("jan@example.test", PASSWORD)).await.expect("connect");
+    raw.create_folder(&folder).await.unwrap();
+    raw.append(&folder, false, false, &message("oma@example.test", "jan@example.test", &subject, "tekst")).await.unwrap();
+
+    // Two devices, each with its own index.
+    let (da, db) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (a, b) = (Store::open(da.path()).unwrap(), Store::open(db.path()).unwrap());
+    let acc_a = a.add_account("Jan", "jan@example.test", AccountKind::Imap, None).unwrap();
+    let acc_b = b.add_account("Jan", "jan@example.test", AccountKind::Imap, None).unwrap();
+    let row = |store: &Store, acc: &str| -> vem_core::model::MessageSummary {
+        let f = store.folders(Some(acc)).unwrap().into_iter().find(|f| f.name == folder).expect("folder");
+        store.messages_in_folder(f.id.parse().unwrap(), 0, 10).unwrap().into_iter().find(|m| m.subject == subject).expect("message")
+    };
+    sync_once(&a, &acc_a.id).await;
+    sync_once(&b, &acc_b.id).await;
+
+    // Names unique per run: earlier runs on the same GreenMail left their own tags in the mailbox.
+    let (fam, xmas) = (unique("Familie"), unique("Kerst"));
+
+    // Set here: "Familie" on device A, then A syncs.
+    let familie = a.create_tag(&fam, "").unwrap();
+    vem_core::actions::set_message_tag(&a, &[row(&a, &acc_a.id).id], &familie.id, true).unwrap();
+    sync_once(&a, &acc_a.id).await;
+    raw.open(&folder, true).await.unwrap();
+    let on_server = raw.fetch("1:*", false).await.unwrap();
+    let keyword = a.tag_keyword(&familie.id).unwrap();
+    assert!(on_server[0].keywords.contains(&keyword), "an IMAP keyword other programs can read: {:?}", on_server[0].keywords);
+
+    // Seen elsewhere: device B gets "Familie" by name.
+    sync_once(&b, &acc_b.id).await;
+    let tags_b: Vec<String> = row(&b, &acc_b.id).tag_ids.iter().map(|t| b.tags().unwrap().into_iter().find(|x| &x.id == t).unwrap().name).collect();
+    assert_eq!(tags_b, vec![fam.clone()]);
+
+    // Set there: B adds "Kerst"; A shows it after its next sync.
+    let kerst = b.create_tag(&xmas, "").unwrap();
+    vem_core::actions::set_message_tag(&b, &[row(&b, &acc_b.id).id], &kerst.id, true).unwrap();
+    sync_once(&b, &acc_b.id).await;
+    sync_once(&a, &acc_a.id).await;
+    let mut tags_a: Vec<String> = row(&a, &acc_a.id).tag_ids.iter().map(|t| a.tags().unwrap().into_iter().find(|x| &x.id == t).unwrap().name).collect();
+    tags_a.sort();
+    assert_eq!(tags_a, vec![fam, xmas]);
+    raw.logout().await;
+}
+
 #[tokio::test]
 async fn append_is_adopted_not_doubled() {
     if !server_up() {
