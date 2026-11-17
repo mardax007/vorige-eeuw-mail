@@ -6,11 +6,16 @@ Claude Code updates this file at the end of every session.
 
 - **Phase:** phases 1 to 4 are built in code and tested on this PC; their exit criteria that need a
   real mailbox, a real PC of a family member, GitHub or Martijn are still open (list below).
-  Phase 5 (Android) is not started.
-- **Next for Claude Code:** the open build items below, then phase 5 once Martijn says to go on.
+  Phase 5 (Android) started on 17 November 2026 (Martijn's go): the phone layout of the mail
+  screen is built; building an APK waits for the Android SDK and NDK on this PC (not installed;
+  a download of a few GB that Martijn approves first).
+- **Next for Claude Code:** with the SDK and NDK: `tauri android init`, the APK, then phase 5
+  tasks 3 to 5 (sign-in, TLS, keystore). Without them: phase 5 task 8 (Bijwerken button) and
+  task 7's proposal.
 - **Martijn, to unblock the rest:**
-  1. Create the public GitHub repository, push this folder, and set the Actions secrets
-     (`docs/release.md`, "Once, before the first release").
+  1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
+     repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
+     workflow green and the help pages on GitHub Pages.
   2. Make the updater key and keep it with its password in the backup (phase 4 task 8).
   3. Register the Google Cloud "Desktop app" client and the Microsoft Entra public client
      (redirect `http://localhost`), and put their ids in the secrets.
@@ -23,9 +28,9 @@ Claude Code updates this file at the end of every session.
 
 ## State of the folder
 
-- Code: `crates/vem-core` (mail logic, 145 unit tests plus GreenMail end-to-end and real-file
-  import tests),
-  `src-tauri` (the shell, 3 tests), `src` (screens, 125 tests), `.github/workflows` (tests, draft release).
+- Code: `crates/vem-core` (mail logic, 156 unit tests plus GreenMail end-to-end, real-file
+  import and damaged-file tests),
+  `src-tauri` (the shell, 3 tests), `src` (screens, 127 tests), `.github/workflows` (tests, draft release).
   Commands are in `CLAUDE.md`.
 - `npm run tauri build` makes `Vorige Eeuw Mail_0.1.0_x64-setup.exe` (9.5 MB, per user; 3.7 MB
   of it is the rescue tool in `rescue\`). The built app starts and shows the Dutch first-run screen.
@@ -62,13 +67,18 @@ contacts to the phone (QR pairing, encrypted message in the mailbox; the phone s
 
 - Windows Live Mail: folder names, read state and stars from `Mail.MSMessageStore` (ESE, through
   `esent.dll` on a copy). Needs a real Live Mail store to build against; until then the import uses
-  the folder names on disk and marks all mail read, as phase 3 task 6 allows.
+  the folder names on disk and marks all mail read, as phase 3 task 6 allows. A self-made store was
+  considered (17 November) and not built: public sources document only the store's Folders table
+  (libyal esedb-kb, HiraokaHyperTools/ExploreWLMFolders), not the table that holds read state and
+  stars, so a test store would only test our own guess.
+- A PST cut short (a copy broken off at 50 or 75 %) cannot be read by either reader: outlook-pst
+  stops with VEM-IMPORT-READ-01 and readpst says "Could not get root record", also when the file
+  is padded back to its recorded length, because the PST's index pages lie near its end. The user
+  gets the error and the advice to ask Martijn. Damage inside the file is handled (see the log).
 - Rescue mode: proven end to end on a real PST whose header CRC is broken (the normal reader
   rejects it with VEM-IMPORT-READ-01, `readpst` then imports all 71 messages), and on four
   undamaged real PSTs. Not yet run from an installed build. Whether the release should carry the
   GPL source archives is open question 23.
-- Help pages on GitHub Pages: generated in `docs/help/`; publishing is a repository setting
-  (Pages from `docs/` on main) once the repository exists.
 
 ### Never run against real systems yet
 
@@ -97,10 +107,15 @@ session log for 2026-11-17.)
 | 2026-11-17 | Imported four public real PSTs (Enron, Aspose sample, java-libpst dist-list and passworded) with the normal reader and readpst side by side. outlook-pst 1.2.0 refused most real messages, so it is now vendored under `vendor/outlook-pst` with six small "accept more files" patches (`VEM-PATCHES.md`), redirected by `[patch.crates-io]`. New test `real_pst_files_import_with_both_readers` over `VEM_REAL_PST_DIR`. The password check verified on a real protected file (refused empty, accepted a matching check) | outlook-pst drops almost every real message: a missing `PtypObject` type arm, an over-strict heap free-count check, distribution lists with no sub-node tree, a missing attachment method, and embedded-message nodes looked up in the wrong sub-node tree (plus a double file-lock dead-lock). readpst double-writes long attachment names as `filename*=` and `filename=` | A truly damaged PST; the real DBX/Live Mail/providers; Martijn's items; phase 5 |
 | 2026-11-17 | Imported a real Outlook Express DBX (fillyfoal's `Inbox.dbx`): new test `real_dbx_file_imports` over `VEM_REAL_DBX`. CI now fetches the four PSTs and the DBX into the runner temp and points the import tests at them, so a lost outlook-pst patch fails CI | The DBX fixture's two message-info blocks carry no attributes, so both entries are header-only (no body); our reader reads the signature, item count and index tree right and classifies them correctly | A truly damaged PST; the real Live Mail/providers; Martijn's items; phase 5 |
 | 2026-11-17 | Rescue-only path proven on a real PST: flipping one reserved header byte breaks outlook-pst's header CRC but not readpst, so the normal reader fails with VEM-IMPORT-READ-01 (the rescue offer) and readpst imports all 71 messages. New test `a_pst_the_normal_reader_rejects_is_read_by_rescue`, run in CI | outlook-pst checks dwCRCPartial over the header; readpst does not, so a reserved-field flip cleanly separates the two readers | The real Live Mail store/providers/sign-in; installed-build checks; Martijn's items; phase 5 |
+| 2026-11-17 | GitHub: public repository `mardax007/vorige-eeuw-mail` (GPL-3.0), Tests workflow and Pages on; first runs green, real-file tests included. Damaged data, on self-made damage (Martijn: "corrupt data to see recov"): `Store::open` refuses a damaged `index.sqlite` (`PRAGMA quick_check`, VEM-STORE-READ-01, file left as it is); a mailbox message whose `.eml` was removed or emptied is downloaded again when opened (GreenMail test), a local one reports its loss; a damaged password file gives VEM-STORE-SECRET-01; `import/corrupt_tests.rs` feeds truncated, overwritten and bit-flipped copies of the empty and Enron PST, the real and a self-made 40-message DBX, an mbox and an EML folder to the import (each must end within 2 minutes, leave the file unchanged, and import what it can or stop with a VEM-IMPORT-READ code). Phase 5 started: phone layout of the mail screen (one part at a time below 640 px) | Three import faults found and fixed: a non-DBX file "imported 0 messages" (now refused, or listed as skipped in a folder); a DBX cut inside a message block lost the whole recovery scan (now 26 of 26 whole messages back); a damaged mbox start and a cut "From " line were dropped silently or became an empty message (now listed). Bit flips and overwritten runs in the Enron PST lose at most a few messages (68 to 71 of 71). A PST cut short is lost to both readers (open items). The Live Mail message table is undocumented | Android SDK and NDK (Martijn's OK for the download), then the APK; phase 5 tasks 7 and 8 meanwhile |
 
 ## Ideas parked
 
 Things that came up but are not in the current phase. Do not build them without asking.
+
+- Our own block scanner for a PST cut short (read the data blocks without the index pages, the way
+  scanpst does). Neither outlook-pst nor readpst can do it; only worth it if a family PST turns out
+  to be cut.
 
 - A per-sender "always show images" list, as Velo does.
 - Substring search (trigram index) on subject and sender, if word search turns out not to be enough.
