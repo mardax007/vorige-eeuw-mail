@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../../api/client";
+import { api, onEvent } from "../../api/client";
+import type { LastCopy } from "../../api/types";
+import { readableDate } from "../format";
 import { askCamera, openAppSettings, scanCode, stopScan } from "../../api/scanner";
 import { t } from "../../i18n";
 import { useApp } from "../state/AppContext";
@@ -16,6 +18,38 @@ export function qrImageSrc(svg: string): string {
 export function PhoneView() {
   const { appInfo } = useApp();
   return appInfo?.isPhone ? <PhoneScan /> : <PcCode />;
+}
+
+/**
+ * On the PC, once a phone is linked: mail kept only on this PC goes to the phone by itself
+ * (decision 26), and when it last did.
+ */
+function PcCopyLine() {
+  const [last, setLast] = useState<LastCopy | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const look = () =>
+      api
+        .phoneLastCopy()
+        .then((found) => {
+          if (alive) setLast(found);
+        })
+        // Only a remark: without it the page still works.
+        .catch(() => undefined);
+    void look();
+    const listening = onEvent("lan:sent", () => void look());
+    return () => {
+      alive = false;
+      void listening.then((stop) => stop());
+    };
+  }, []);
+  const when = last ? readableDate(new Date(last.at * 1000).toISOString()) : "";
+  return (
+    <>
+      <p>{t("phone.pcCopy")}</p>
+      {when && <p className="calm-line">{t("phone.lastCopy", { date: when })}</p>}
+    </>
+  );
 }
 
 /** On the PC: a code to scan, and "Koppeling verbreken" once a phone is linked. */
@@ -93,6 +127,7 @@ function PcCode() {
         </p>
       )}
       <p>{t("phone.text")}</p>
+      {isPaired && <PcCopyLine />}
       {qrSvg && !isPaired && <img className="qr" src={qrImageSrc(qrSvg)} alt={t("phone.qrAlt")} />}
       <div className="button-row">
         <button type="button" className="primary" onClick={makeCode}>{t("phone.make")}</button>

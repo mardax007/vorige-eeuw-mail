@@ -329,6 +329,7 @@ export const nl = {
   "import.chosenAccount": "Gekozen: alle mail uit {account}",
   "import.where": "Waar moet de mail heen?",
   "import.local": "Op deze computer",
+  "import.localPhone": "Op deze telefoon",
   "import.mailbox": "In mijn postvak zetten",
   "import.mailboxNamed": "In het postvak {account} zetten",
   "import.account": "In welk postvak?",
@@ -380,6 +381,13 @@ export const nl = {
   "phone.linked": "De telefoon is gekoppeld. Uw contactpersonen komen er zo op.",
   "phone.isLinked": "Deze telefoon is gekoppeld met uw computer.",
   "phone.pcLinked": "Er is een telefoon gekoppeld. Uw contactpersonen staan ook op die telefoon.",
+  "phone.pcCopy":
+    "Oude mail die alleen op deze computer staat, komt vanzelf ook op de telefoon als de telefoon op hetzelfde wifi zit en Vorige Eeuw Mail daar open is.",
+  "phone.lastCopy": "De telefoon had die mail het laatst op {date}.",
+  "lan.progress": "Mail van de computer wordt op deze telefoon gezet: {done} van {total}.",
+  "lan.done": "De mail van de computer staat nu ook op deze telefoon.",
+  "import.phoneFiles":
+    "Oude mail uit Outlook of Windows Live Mail haalt u op met Vorige Eeuw Mail op de computer. Is deze telefoon gekoppeld, dan komt die mail daarna vanzelf ook hier.",
   "phone.cameraDenied":
     "Vorige Eeuw Mail mag de camera niet gebruiken. Tik op Instellingen openen, kies Machtigingen en zet Camera aan. Kom dan terug en tik op Code scannen.",
   "phone.openSettings": "Instellingen openen",

@@ -709,6 +709,12 @@ fn phone_paired(state: State<'_, AppState>) -> R<bool> {
     Ok(contacts_sync::paired_account(&state.engine.store)?.is_some())
 }
 
+/// When the phone last had all mail kept on this PC (docs/pc-to-phone.md); None before the first copy.
+#[tauri::command]
+fn phone_last_copy(state: State<'_, AppState>) -> R<Option<vem_core::lan::LastCopy>> {
+    state.engine.store.kv_get(vem_core::lan::LAST_KEY)
+}
+
 /// The phone side of "Telefoon koppelen": the text of the code the camera read on the PC.
 #[tauri::command]
 fn pair_with_code(state: State<'_, AppState>, text: String) -> R<()> {
@@ -778,6 +784,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         start_import,
         rescue_available,
         phone_paired,
+        phone_last_copy,
         import_status,
         cancel_sign_in,
         update_password,

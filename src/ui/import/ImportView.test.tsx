@@ -145,3 +145,19 @@ describe("what the import says at the end", () => {
     expect(await screen.findByText(/staan alle opgehaalde berichten op gelezen/, undefined, { timeout: 5000 })).toBeTruthy();
   });
 });
+
+describe("on a phone", () => {
+  it("offers only another mailbox and says files are brought in on the computer", async () => {
+    const real = api.appInfo;
+    vi.spyOn(api, "appInfo").mockImplementation(async () => ({ ...(await real()), isPhone: true }));
+    const search = vi.spyOn(api, "findImportSources");
+    const user = await openImport();
+    expect(screen.getByText(/haalt u op met Vorige Eeuw Mail op de computer/)).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Gevonden op deze computer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Outlook-bestand" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Contactpersonen uit Windows Live Mail" })).toBeNull();
+    expect(search).not.toHaveBeenCalled();
+    await user.click(within(accountRow("Ria Jansen (Gmail)")).getByRole("button", { name: "Kiezen" }));
+    expect(screen.getByLabelText("Op deze telefoon")).toBeTruthy();
+  });
+});

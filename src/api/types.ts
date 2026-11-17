@@ -264,6 +264,22 @@ export interface CoreEvents {
   "open:compose": { to: string; subject?: string };
   /** Android: a newer version is on GitHub; the screens offer "Bijwerken". */
   "update:available": UpdateOffer;
+  /** Phone: the mail kept on the paired PC coming in (docs/pc-to-phone.md). */
+  "lan:phone": PcCopyEvent;
+  /** PC: the phone got (or already had) the mail kept on this PC. */
+  "lan:sent": { received: number; removed: number; skipped: number };
+}
+
+/** What the phone says while the PC's local mail comes in. */
+export type PcCopyEvent =
+  | { kind: "progress"; done: number; total: number }
+  | { kind: "done"; received: number; removed: number }
+  | { kind: "failed"; error: VemError };
+
+/** When the phone last had all mail kept on this PC; `at` in seconds since 1970. */
+export interface LastCopy {
+  at: number;
+  sent: number;
 }
 
 /** A newer version waiting for "Bijwerken" (Android only; Windows updates itself). */

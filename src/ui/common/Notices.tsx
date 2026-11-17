@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, onEvent } from "../../api/client";
 import type { OutboxItem, UpdateOffer } from "../../api/types";
-import { t } from "../../i18n";
+import { locale, t } from "../../i18n";
 import { useApp } from "../state/AppContext";
 
 /** The "Ongedaan maken" bar after Verwijderen or Verplaatsen. */
@@ -247,6 +247,55 @@ export function UpdateOfferBar() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** How long "De mail van de computer staat nu ook op deze telefoon." stays. */
+export const PC_COPY_DONE_MS = 6000;
+
+type PcCopyLine = { kind: "progress"; done: number; total: number } | { kind: "done" };
+
+/**
+ * Phone: the mail kept on the paired PC coming in over the home Wi-Fi (decision 26). It needs
+ * nothing from the person; only a full phone is an error worth their attention.
+ */
+export function PcCopyBar() {
+  const { showError } = useApp();
+  const [line, setLine] = useState<PcCopyLine | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const listening = onEvent("lan:phone", (e) => {
+      if (!alive) return;
+      if (e.kind === "progress") setLine({ kind: "progress", done: e.done, total: e.total });
+      else if (e.kind === "done") setLine(e.received > 0 ? { kind: "done" } : null);
+      else {
+        setLine(null);
+        showError(e.error);
+      }
+    });
+    return () => {
+      alive = false;
+      void listening.then((stop) => stop());
+    };
+  }, [showError]);
+
+  const isDone = line?.kind === "done";
+  useEffect(() => {
+    if (!isDone) return;
+    const timer = setTimeout(() => setLine(null), PC_COPY_DONE_MS);
+    return () => clearTimeout(timer);
+  }, [isDone]);
+
+  if (!line) return null;
+  return (
+    <div className="notice-bar calm" role="status">
+      <span>
+        {line.kind === "progress"
+          ? t("lan.progress", { done: line.done.toLocaleString(locale), total: line.total.toLocaleString(locale) })
+          : t("lan.done")}
+      </span>
     </div>
   );
 }

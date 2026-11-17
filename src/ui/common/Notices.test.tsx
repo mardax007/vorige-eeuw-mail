@@ -129,3 +129,25 @@ describe("Bijwerken on a phone", () => {
     expect(screen.getByRole("button", { name: "Bijwerken" })).toBeTruthy();
   });
 });
+
+describe("mail from the PC on the phone", () => {
+  it("counts while it comes in, then says it is there", async () => {
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Mappen" });
+    await waitFor(() => {
+      getMockBackend().events.emit("lan:phone", { kind: "progress", done: 1200, total: 5000 });
+      expect(screen.getByText("Mail van de computer wordt op deze telefoon gezet: 1.200 van 5.000.")).toBeTruthy();
+    });
+    act(() => getMockBackend().events.emit("lan:phone", { kind: "done", received: 5000, removed: 0 }));
+    expect(screen.getByText("De mail van de computer staat nu ook op deze telefoon.")).toBeTruthy();
+  });
+
+  it("says only a full phone as an error", async () => {
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Mappen" });
+    await waitFor(() => {
+      getMockBackend().events.emit("lan:phone", { kind: "failed", error: { code: "VEM-LAN-SPACE-01" } });
+      expect(screen.getByText("Er is niet genoeg ruimte op deze telefoon voor de mail van de computer.")).toBeTruthy();
+    });
+  });
+});

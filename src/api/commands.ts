@@ -13,6 +13,7 @@ import type {
   ImportProgress,
   ImportSource,
   ImportTarget,
+  LastCopy,
   MessageDetail,
   MessageSummary,
   OriginalCopy,
@@ -124,6 +125,8 @@ export interface CommandMap {
   help_report: { args: NoArgs; result: string };
   pair_phone: { args: NoArgs; result: PairInfo };
   phone_paired: { args: NoArgs; result: boolean };
+  /** When the paired phone last had all mail kept on this PC; null before the first copy. */
+  phone_last_copy: { args: NoArgs; result: LastCopy | null };
   pair_with_code: { args: { text: string }; result: void };
   unpair_phone: { args: NoArgs; result: void };
   quit_app: { args: NoArgs; result: void };

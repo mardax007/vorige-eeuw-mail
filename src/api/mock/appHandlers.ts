@@ -25,6 +25,7 @@ type AppCommands =
   | "help_report"
   | "pair_phone"
   | "phone_paired"
+  | "phone_last_copy"
   | "pair_with_code"
   | "unpair_phone"
   | "quit_app";
@@ -204,6 +205,7 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
       store.set((s) => ({ ...s, phonePaired: true }));
     },
     phone_paired: () => store.get().phonePaired,
+    phone_last_copy: () => null,
     unpair_phone: () => store.set((s) => ({ ...s, phonePaired: false })),
     quit_app: () => undefined,
   };

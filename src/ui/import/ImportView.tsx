@@ -75,7 +75,9 @@ const UNREADABLE = "VEM-IMPORT-READ-01";
 
 /** "Oude mail ophalen": choose a file, folder or old mailbox, choose where it goes, watch it come in. */
 export function ImportView() {
-  const { accounts, showError, reload, go } = useApp();
+  const { accounts, showError, reload, go, appInfo } = useApp();
+  // Decision 26: files from Outlook and Windows Live Mail are brought in on the PC only.
+  const isPhone = appInfo?.isPhone === true;
   const mail = mailAccounts(accounts);
   // null while the computer is still being searched.
   const [sources, setSources] = useState<ImportSource[] | null>(null);
@@ -102,6 +104,7 @@ export function ImportView() {
   const needsPassword = choice?.kind === "file" && choice.source.protected === true;
 
   useEffect(() => {
+    if (isPhone) return;
     api
       .findImportSources()
       .then(setSources)
@@ -110,7 +113,7 @@ export function ImportView() {
         showError(e);
       });
     api.rescueAvailable().then(setCanRescue).catch(() => setCanRescue(false));
-  }, [showError]);
+  }, [showError, isPhone]);
 
   // The old mailbox itself is never offered as the place to put its mail.
   const sourceAccountId = choice?.kind === "account" ? choice.accountId : null;
@@ -167,30 +170,36 @@ export function ImportView() {
     <section className="page import">
       <h2>{t("import.title")}</h2>
 
-      <h3>{t("import.found")}</h3>
-      {sources === null && <p role="status">{t("import.searching")}</p>}
-      {sources?.length === 0 && <p>{t("import.none")}</p>}
-      <ul className="plain-list">
-        {(sources ?? []).map((s) => (
-          <li key={s.path} className="attachment-row">
-            <span>{s.label}{s.size ? ` (${formatBytes(s.size)})` : ""}</span>
-            <button
-              type="button"
-              aria-pressed={choice?.kind === "file" && choice.source.path === s.path}
-              onClick={() => setChoice({ kind: "file", source: s })}
-            >
-              {t("import.choose")}
-            </button>
-          </li>
-        ))}
-      </ul>
+      {isPhone ? (
+        <p>{t("import.phoneFiles")}</p>
+      ) : (
+        <>
+          <h3>{t("import.found")}</h3>
+          {sources === null && <p role="status">{t("import.searching")}</p>}
+          {sources?.length === 0 && <p>{t("import.none")}</p>}
+          <ul className="plain-list">
+            {(sources ?? []).map((s) => (
+              <li key={s.path} className="attachment-row">
+                <span>{s.label}{s.size ? ` (${formatBytes(s.size)})` : ""}</span>
+                <button
+                  type="button"
+                  aria-pressed={choice?.kind === "file" && choice.source.path === s.path}
+                  onClick={() => setChoice({ kind: "file", source: s })}
+                >
+                  {t("import.choose")}
+                </button>
+              </li>
+            ))}
+          </ul>
 
-      <h3>{t("import.other")}</h3>
-      <div className="button-row">
-        {KINDS.map((k) => (
-          <button key={k.kind} type="button" onClick={() => void pickOther(k.kind)}>{t(k.label)}</button>
-        ))}
-      </div>
+          <h3>{t("import.other")}</h3>
+          <div className="button-row">
+            {KINDS.map((k) => (
+              <button key={k.kind} type="button" onClick={() => void pickOther(k.kind)}>{t(k.label)}</button>
+            ))}
+          </div>
+        </>
+      )}
 
       <AccountSources
         mail={mail}
@@ -215,7 +224,7 @@ export function ImportView() {
         <legend>{t("import.where")}</legend>
         <label className="check-row">
           <input type="radio" name="import-target" checked={effectiveKind === "local"} onChange={() => setTargetKind("local")} />
-          {t("import.local")}
+          {isPhone ? t("import.localPhone") : t("import.local")}
         </label>
         {targets.length > 0 && (
           <label className="check-row">
@@ -254,9 +263,12 @@ export function ImportView() {
         </div>
       )}
 
-      <ContactsFromLiveMail />
-
-      <OriginalsList refreshKey={doneCount} />
+      {!isPhone && (
+        <>
+          <ContactsFromLiveMail />
+          <OriginalsList refreshKey={doneCount} />
+        </>
+      )}
     </section>
   );
 }

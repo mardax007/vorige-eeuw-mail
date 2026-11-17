@@ -6,6 +6,7 @@ mod android_mail;
 #[cfg(windows)]
 mod badge;
 mod commands;
+mod pc_to_phone;
 mod shell;
 mod updates;
 
@@ -102,6 +103,7 @@ pub fn run() {
             shell::ask_notification_permission(app.handle());
             shell::update_badge(app.handle());
             updates::spawn(app.handle().clone());
+            pc_to_phone::spawn(app.handle().clone());
             Ok(())
         })
         .invoke_handler(commands::handler())
