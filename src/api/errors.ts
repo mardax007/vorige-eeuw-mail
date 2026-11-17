@@ -26,6 +26,18 @@ export function toVemError(value: unknown): VemError {
       detail: value.detail ?? null,
     };
   }
-  const detail = value instanceof Error ? value.message : String(value);
-  return { code: UNKNOWN_ERROR_CODE, serverReply: null, detail };
+  return { code: UNKNOWN_ERROR_CODE, serverReply: null, detail: errorText(value) };
+}
+
+/**
+ * The readable text of something thrown. Tauri's mobile plugins reject with a plain
+ * `{ message }` object, which `String()` would turn into "[object Object]".
+ */
+export function errorText(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "object" && value !== null && "message" in value) {
+    const message = (value as { message: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return String(value);
 }

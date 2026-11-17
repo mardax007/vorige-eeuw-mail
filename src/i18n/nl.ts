@@ -261,7 +261,7 @@ export const nl = {
   "settings.reauth": "Opnieuw inloggen",
   "settings.reauthDone": "U bent weer ingelogd.",
   "settings.quitText": "Wilt u het programma helemaal sluiten? Dan haalt het geen nieuwe mail meer op, tot u het weer opent.",
-  "settings.removeConfirm": "{account} wordt uit dit programma gehaald. De mail op deze computer wordt weggegooid; de mail bij uw provider blijft bestaan. Doorgaan?",
+  "settings.removeConfirm": "{account} wordt uit dit programma gehaald. De mail in dit programma wordt weggegooid; de mail bij uw provider blijft bestaan. Doorgaan?",
   "settings.removeYes": "Ja, verwijderen",
   "settings.space": "Ruimte in postvak",
   "settings.spaceUsed": "{used} van {limit} gebruikt",
@@ -350,6 +350,18 @@ export const nl = {
   "phone.make": "Code maken",
   "phone.qrAlt": "Code om de telefoon te koppelen",
   "phone.unpair": "Koppeling verbreken",
+  "phone.scanText":
+    "Kies op de computer Telefoon koppelen en Code maken. Tik dan hier op Code scannen en richt de camera op de code. Uw contactpersonen komen dan ook op deze telefoon.",
+  "phone.scan": "Code scannen",
+  "phone.scanHint": "Richt de camera op de code op het scherm van de computer.",
+  "phone.scanStop": "Stoppen",
+  "phone.linking": "De telefoon wordt gekoppeld.",
+  "phone.linked": "De telefoon is gekoppeld. Uw contactpersonen komen er zo op.",
+  "phone.isLinked": "Deze telefoon is gekoppeld met uw computer.",
+  "phone.cameraDenied":
+    "Vorige Eeuw Mail mag de camera niet gebruiken. Tik op Instellingen openen, kies Machtigingen en zet Camera aan. Kom dan terug en tik op Code scannen.",
+  "phone.openSettings": "Instellingen openen",
+  "phone.unpairedPhone": "De koppeling is verbroken. Uw contactpersonen blijven op deze telefoon staan.",
   "phone.unpaired": "De koppeling is verbroken. Maak een nieuwe code om een telefoon te koppelen.",
 
   // Updates

@@ -46,6 +46,9 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| shell::show_main(app)))
         .plugin(tauri_plugin_autostart::Builder::new().args([HIDDEN_ARG]).build())
         .plugin(tauri_plugin_updater::Builder::new().build());
+    // Phone only: the camera reads the pairing code the PC shows.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

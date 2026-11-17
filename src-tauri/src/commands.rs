@@ -301,8 +301,13 @@ fn drafts_folder(state: &AppState, account_id: &str) -> R<i64> {
     if let Some(f) = store.folder_by_role(account_id, FolderRole::Drafts)? {
         return Ok(f);
     }
-    // No Concepten on the server (or a local account): keep drafts on this computer.
-    let local = store.local_account("Op deze computer")?;
+    // No Concepten on the server (or a local account): keep drafts on this device. The label is
+    // the folder group's heading, so a phone says telefoon.
+    #[cfg(desktop)]
+    const LOCAL_LABEL: &str = "Op deze computer";
+    #[cfg(mobile)]
+    const LOCAL_LABEL: &str = "Op deze telefoon";
+    let local = store.local_account(LOCAL_LABEL)?;
     store.ensure_local_folder(&local.id, &["Concepten".to_string()], Some(FolderRole::Drafts))
 }
 
@@ -687,6 +692,14 @@ fn phone_paired(state: State<'_, AppState>) -> R<bool> {
     Ok(contacts_sync::paired_account(&state.engine.store)?.is_some())
 }
 
+/// The phone side of "Telefoon koppelen": the text of the code the camera read on the PC.
+#[tauri::command]
+fn pair_with_code(state: State<'_, AppState>, text: String) -> R<()> {
+    let account = contacts_sync::pair_from_code(&state.engine.store, &state.engine.secrets, &text)?;
+    state.engine.wake(Some(&account));
+    Ok(())
+}
+
 #[tauri::command]
 fn unpair_phone(state: State<'_, AppState>) -> R<()> {
     contacts_sync::unpair(&state.engine.store, &state.engine.secrets)
@@ -759,6 +772,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         send_wish,
         help_report,
         pair_phone,
+        pair_with_code,
         unpair_phone,
         quit_app,
     ]

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
+import { askCamera, openAppSettings, scanCode, stopScan } from "../../api/scanner";
 import { t } from "../../i18n";
 import { useApp } from "../state/AppContext";
 
@@ -11,8 +12,14 @@ export function qrImageSrc(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-/** "Telefoon koppelen": a code to scan, and "Koppeling verbreken" once a phone is linked. */
+/** "Telefoon koppelen": the PC shows a code, the phone scans it. */
 export function PhoneView() {
+  const { appInfo } = useApp();
+  return appInfo?.isPhone ? <PhoneScan /> : <PcCode />;
+}
+
+/** On the PC: a code to scan, and "Koppeling verbreken" once a phone is linked. */
+function PcCode() {
   const { showError } = useApp();
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   const [isPaired, setIsPaired] = useState(false);
@@ -86,6 +93,135 @@ export function PhoneView() {
         {isPaired && <button type="button" onClick={unpair}>{t("phone.unpair")}</button>}
       </div>
       {isUnpaired && <p role="status">{t("phone.unpaired")}</p>}
+    </section>
+  );
+}
+
+type ScanPhase = "idle" | "denied" | "scanning" | "linking" | "linked";
+
+/**
+ * On the phone: "Code scannen" reads the PC's code with the camera. The camera shows behind the
+ * page, so while it runs only a hint, a frame and a big Stoppen button stay on screen.
+ */
+function PhoneScan() {
+  const { showError } = useApp();
+  const [phase, setPhase] = useState<ScanPhase>("idle");
+  const [isPaired, setIsPaired] = useState(false);
+  const [isUnpaired, setIsUnpaired] = useState(false);
+  const isScanning = phase === "scanning";
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .phonePaired()
+      .then((paired) => {
+        if (alive) setIsPaired(paired);
+      })
+      .catch(showError);
+    return () => {
+      alive = false;
+    };
+  }, [showError]);
+
+  useEffect(() => {
+    if (!isScanning) return;
+    document.documentElement.classList.add("scanning");
+    return () => {
+      document.documentElement.classList.remove("scanning");
+      // Leaving the page while scanning switches the camera off; a failure here has no screen left.
+      void stopScan().catch(() => undefined);
+    };
+  }, [isScanning]);
+
+  const scan = async () => {
+    setIsUnpaired(false);
+    try {
+      if (!(await askCamera())) {
+        setPhase("denied");
+        return;
+      }
+      setPhase("scanning");
+      const text = await scanCode();
+      if (text === null) {
+        setPhase("idle");
+        return;
+      }
+      setPhase("linking");
+      await api.pairWithCode(text);
+      setIsPaired(true);
+      setPhase("linked");
+    } catch (e: unknown) {
+      setPhase("idle");
+      showError(e);
+    }
+  };
+
+  const stop = async () => {
+    try {
+      await stopScan();
+    } catch (e: unknown) {
+      showError(e);
+    }
+    setPhase("idle");
+  };
+
+  const settings = async () => {
+    try {
+      await openAppSettings();
+    } catch (e: unknown) {
+      showError(e);
+    }
+  };
+
+  const unpair = async () => {
+    try {
+      await api.unpairPhone();
+      setIsPaired(false);
+      setIsUnpaired(true);
+      setPhase("idle");
+    } catch (e: unknown) {
+      showError(e);
+    }
+  };
+
+  if (isScanning) {
+    return (
+      <div className="scan-overlay" role="dialog" aria-label={t("phone.scan")}>
+        <p className="scan-hint">{t("phone.scanHint")}</p>
+        <div className="scan-frame" aria-hidden="true" />
+        <button type="button" className="primary scan-stop" onClick={() => void stop()}>
+          {t("phone.scanStop")}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <section className="page phone">
+      <h2>{t("phone.title")}</h2>
+      {isPaired && phase !== "linked" && <p>{t("phone.isLinked")}</p>}
+      <p>{t("phone.scanText")}</p>
+      {phase === "denied" && (
+        <div className="notice-bar" role="alert">
+          <span>{t("phone.cameraDenied")}</span>
+          <button type="button" onClick={() => void settings()}>
+            {t("phone.openSettings")}
+          </button>
+        </div>
+      )}
+      {phase === "linking" && <p role="status">{t("phone.linking")}</p>}
+      {phase === "linked" && <p role="status">{t("phone.linked")}</p>}
+      <div className="button-row">
+        <button type="button" className="primary" disabled={phase === "linking"} onClick={() => void scan()}>
+          {t("phone.scan")}
+        </button>
+        {isPaired && (
+          <button type="button" onClick={() => void unpair()}>
+            {t("phone.unpair")}
+          </button>
+        )}
+      </div>
+      {isUnpaired && <p role="status">{t("phone.unpairedPhone")}</p>}
     </section>
   );
 }

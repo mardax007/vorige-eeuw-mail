@@ -136,6 +136,7 @@ export const api = {
   helpReport: () => call("help_report", undefined),
   pairPhone: () => call("pair_phone", undefined),
   phonePaired: () => call("phone_paired", undefined),
+  pairWithCode: (text: string) => call("pair_with_code", { text }),
   unpairPhone: () => call("unpair_phone", undefined),
   quitApp: () => call("quit_app", undefined),
 };

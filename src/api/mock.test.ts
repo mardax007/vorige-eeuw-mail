@@ -31,6 +31,12 @@ describe("client", () => {
   it("turns anything thrown into a VemError", () => {
     expect(toVemError(new Error("kapot"))).toEqual({ code: "VEM-APP-CMD-01", serverReply: null, detail: "kapot" });
     expect(toVemError("tekst")).toEqual({ code: "VEM-APP-CMD-01", serverReply: null, detail: "tekst" });
+    // A mobile plugin rejects with a plain { message } object.
+    expect(toVemError({ message: "cancelled" })).toEqual({
+      code: "VEM-APP-CMD-01",
+      serverReply: null,
+      detail: "cancelled",
+    });
     expect(toVemError({ code: "VEM-IMAP-LOGIN-01", serverReply: "NO x" })).toEqual({
       code: "VEM-IMAP-LOGIN-01",
       serverReply: "NO x",

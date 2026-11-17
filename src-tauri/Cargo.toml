@@ -33,6 +33,10 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-updater = "2"
 
+# Phone only: the camera reads the code from "Telefoon koppelen" on the PC (phase 5 task 9).
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "2"
+
 # Android: "Bijwerken" hands the checked APK to Android's install screen through a small Kotlin
 # class (gen/android/.../ApkInstaller.kt), reached through JNI.
 [target.'cfg(target_os = "android")'.dependencies]

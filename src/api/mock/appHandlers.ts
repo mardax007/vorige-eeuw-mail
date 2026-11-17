@@ -25,6 +25,7 @@ type AppCommands =
   | "help_report"
   | "pair_phone"
   | "phone_paired"
+  | "pair_with_code"
   | "unpair_phone"
   | "quit_app";
 
@@ -196,6 +197,11 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
     pair_phone: () => {
       store.set((s) => ({ ...s, phonePaired: true }));
       return { qrSvg: SAMPLE_QR };
+    },
+    // The phone side: anything that is not JSON is not our code.
+    pair_with_code: ({ text }) => {
+      if (!text.trim().startsWith("{")) throw mockError("VEM-PAIR-READ-01");
+      store.set((s) => ({ ...s, phonePaired: true }));
     },
     phone_paired: () => store.get().phonePaired,
     unpair_phone: () => store.set((s) => ({ ...s, phonePaired: false })),

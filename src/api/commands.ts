@@ -123,6 +123,7 @@ export interface CommandMap {
   help_report: { args: NoArgs; result: string };
   pair_phone: { args: NoArgs; result: PairInfo };
   phone_paired: { args: NoArgs; result: boolean };
+  pair_with_code: { args: { text: string }; result: void };
   unpair_phone: { args: NoArgs; result: void };
   quit_app: { args: NoArgs; result: void };
 }
