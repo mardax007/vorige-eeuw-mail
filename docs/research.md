@@ -159,7 +159,7 @@ before use.
 - Open issues that matter: #81 (reader stops silently), #82 (embedded messages), #60 (RTF panic),
   #83, #84, #93. Opened: https://github.com/microsoft/outlook-pst-rs/issues
 - libpff / pffexport (LGPL-3, alpha, reads PST and OST, recovery mode): https://github.com/libyal/libpff.
-  libpst `readpst` (GPL-3): https://www.five-ten-sg.com/libpst/rn01re01.html; Windows build via MSYS2
+  libpst `readpst` (GPL-2.0-or-later): https://www.five-ten-sg.com/libpst/rn01re01.html; Windows build via MSYS2
   (excerpt): https://packages.msys2.org/base/mingw-w64-libpst
 - RTF-wrapped HTML: MS-OXRTFEX,
   https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxrtfex/411d0d58-49f7-496c-b8c3-5859b045f6cf

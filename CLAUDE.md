@@ -114,7 +114,9 @@ Layout:
 ## Environment
 
 - Development is on Windows, in `F:\Projects\Mail`. Use commands that work in PowerShell.
-- Installed: Node 24, git, Docker with WSL 2, Java, GitHub CLI, Rust (stable, MSVC), Build Tools 2022.
+- Installed: Node 24, git, Docker with WSL 2, Java, GitHub CLI, Rust (stable, MSVC), Build Tools 2022,
+  MSYS2 in `C:\msys64` with `mingw-w64-ucrt-x86_64-libpst` (the rescue tool; `scripts/rescue-tool.mjs`
+  copies it into `src-tauri/rescue/` before every `tauri dev` and `tauri build`).
 - Visual Studio 18 on this PC lacks the x64 libraries, so every cargo command runs through
   `scripts\vcenv.cmd`, which loads the Build Tools 2022 x64 environment first. From Git Bash:
   `cmd //c "scripts\vcenv.cmd cargo …"`.

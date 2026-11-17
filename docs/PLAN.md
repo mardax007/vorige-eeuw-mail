@@ -230,7 +230,7 @@ Three routes. A USB stick plus "import from a file or folder" is the fallback th
 
 | Old client | Where the mail is | How to read it |
 | --- | --- | --- |
-| Outlook for Windows, POP account | One `.pst` file | **(review)** Microsoft's Rust crate `outlook-pst` in the core first. **(research)** It gives raw MAPI properties; turning them into mail files is our own module (below). Backup: a separate rescue tool (`readpst`, GPL-3, or `pffexport`, LGPL-3) |
+| Outlook for Windows, POP account | One `.pst` file | **(review)** Microsoft's Rust crate `outlook-pst` in the core first. **(research)** It gives raw MAPI properties; turning them into mail files is our own module (below). Backup: a separate rescue tool (`readpst`, GPL-2.0-or-later, or `pffexport`, LGPL-3) |
 | Outlook 2013 and later, IMAP or Exchange account | **(research)** An `.ost` file | **(review)** Do not read the file; copy from the server (route 2) |
 | New Outlook app | **(research)** Can now export mail to a `.pst` file (Settings, Files, Export) | Export to PST, then read it as above. Or route 2 |
 | Windows Mail and Calendar app | Retired 31 December 2024 | Route 2 only |

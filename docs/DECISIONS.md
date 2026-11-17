@@ -98,7 +98,14 @@ one by itself.
 
 ## Open
 
-None. Decision 6 is made (Tauri stays; see "Build choices" below).
+Decision 6 is made (Tauri stays; see "Build choices" below).
+
+- **Question 23, source of the rescue tool (17 November 2026).** `readpst` and its DLLs are GPL and
+  LGPL binaries from MSYS2. Their README points to MSYS2's source archive
+  (https://repo.msys2.org/mingw/sources/) for the exact versions. GPL-2 section 3(c) allows passing
+  on such a pointer only for non-commercial distribution, which this family app is. The safer choice
+  is for the release workflow to also attach those source archives (a few tens of MB) to every
+  release. Martijn: pointer only, or attach the sources?
 
 ## Build choices (16 November 2026, Claude Code; Martijn may overrule any of them)
 
@@ -119,7 +126,16 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
 - **Rescue tool: `readpst` (17 November 2026).** libpst is GPL-2.0-or-later, so it can ship beside
   the GPL-3.0 app (decision 14). It writes `.eml` files in folders, which the existing folder reader
   takes; `pffexport` writes its own folder format and would need a new reader. The app looks for
-  `rescueeadpst.exe` next to itself and offers rescue mode only when it is there.
+  `rescue\readpst.exe` next to itself and offers rescue mode only when it is there.
+- **readpst comes from MSYS2 (17 November 2026; Martijn said yes to installing it).** libpst has no
+  official Windows build, so MSYS2's `mingw-w64-ucrt-x86_64-libpst` (0.6.76.r78) is used unchanged.
+  `scripts/rescue-tool.mjs` copies `readpst.exe`, the 18 DLLs it loads (found with `ldd`) and the
+  licence files of their 14 packages into `src-tauri/rescue/`. `bundle.resources` installs that
+  folder as `rescue\` next to the app; the installer grows from 5.8 to 9.5 MB. The release workflow
+  installs the package with `msys2/setup-msys2` and stops when the tool is missing. `readpst` opens
+  files through the ANSI code page, so it runs inside its scratch folder with plain names only (it
+  failed under a folder named "Łucja"). The README beside it points to MSYS2's source archive for
+  the exact versions; see open question 23.
 - **PST password (17 November 2026).** The content of a protected PST is not encrypted; the file
   only keeps a CRC-32 of the password. The app still asks for it and checks it before reading, out
   of respect for whoever set it. The password is not kept or logged.
@@ -168,4 +184,5 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-16 | Decisions 1, 3, 4, 6–12, 14–16, 19, 21, 22 answered (Martijn); phase 6 dropped |
 | 2026-11-16 | Build choices recorded: stack confirmed (decision 6), own SMTP client, no MX/SRV yet, local drafts, delayed server moves, report queue, mbox import, unwind on panic |
 | 2026-11-17 | MX/SRV lookup built; readpst chosen as rescue tool; PST password checked |
+| 2026-11-17 | readpst from MSYS2 bundled in the installer (Martijn said yes to installing it); question 23 added |
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |
