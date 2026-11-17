@@ -77,6 +77,18 @@ jobs:
           updaterJsonPreferNsis: true
           args: --config {"bundle":{"createUpdaterArtifacts":true}}
 
+      # The source code of the rescue tool's GPL and LGPL packages, at the shipped versions, goes
+      # with every release (decision 23). The installer's rescue\README.txt names these files.
+      - name: Attach the rescue tool's source code to the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+        shell: bash
+        run: |
+          node scripts/rescue-sources.mjs dist-sources
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          gh release upload "v$version" dist-sources/* --clobber
+
   # The phone app (phase 5 task 8). Runs after the Windows job, which made the draft release.
   # NOT YET RUN on GitHub: the first real run is part of the first release with Android.
   android:
