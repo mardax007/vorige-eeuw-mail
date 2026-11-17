@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import { api } from "../../api/client";
-import { getMockBackend } from "../../api/mock";
+import { getMockBackend, resetMockBackend } from "../../api/mock";
+import { createSampleState } from "../../api/mock/data";
 import { AppProvider } from "../state/AppProvider";
 import { ReadingPane } from "./ReadingPane";
 
@@ -27,6 +28,14 @@ describe("sync errors", () => {
     });
     const box = document.querySelector(".sync-error") as HTMLElement;
     expect(within(box).getByRole("heading", { name: "Ria Jansen (Gmail)" })).toBeTruthy();
+  });
+
+  it("shows an error from before the screens opened (a failed fetch at start)", async () => {
+    const state = createSampleState();
+    const error = { code: "VEM-STORE-SECRET-01", serverReply: null, detail: "unprotect" };
+    resetMockBackend({ ...state, accounts: state.accounts.map((a) => (a.id === "acc-gmail" ? { ...a, lastError: error } : a)) });
+    await renderApp();
+    expect(await screen.findByText("Het bewaarde wachtwoord kon niet gelezen worden.")).toBeTruthy();
   });
 });
 

@@ -94,6 +94,10 @@ export function AppProvider({ children }: AppProviderProps) {
         setFolders(fol);
         setTags(tg);
         setOutbox(out);
+        // A fetch that failed before the screens listened (at start, or with the window hidden)
+        // sent its event to nobody; the core keeps it with the account. Live events win.
+        const stored = Object.fromEntries(acc.flatMap((a) => (a.lastError ? [[a.id, a.lastError]] : [])));
+        setSyncErrors((live) => ({ ...stored, ...live }));
         setLocationState(firstInbox(acc, fol));
         setView(acc.length === 0 ? { kind: "setup" } : { kind: "mail" });
       } catch (e: unknown) {
