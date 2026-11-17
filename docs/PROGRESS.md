@@ -13,9 +13,11 @@ Claude Code updates this file at the end of every session.
   check (task 4). Both ran on the Android 16 emulator against GreenMail (session log, 17 November).
   Sign-in on Android (task 3: Gmail by app password, Microsoft by the browser) and the
   "Bijwerken" button (task 8) are built; Bijwerken ran on the emulator up to Android's own install
-  screen. Not yet on a real phone.
-- **Next for Claude Code:** task 7's proposal (background mail; ask Martijn first), task 9
-  (contacts on the phone), task 6 (search speed on a phone).
+  screen. Contacts on the phone (task 9) are built: the phone scans the PC's code with its camera
+  and shares the address book through the mailbox (tested on GreenMail; the camera screen ran on
+  the emulator, but the emulator cannot read a code). Task 7's proposal is written
+  (`docs/background-mail.md`) and waits for Martijn. Not yet on a real phone.
+- **Next for Claude Code:** task 6 (search speed on a phone); task 7 once Martijn has chosen.
 - **Martijn, to unblock the rest:**
   1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
      repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
@@ -33,6 +35,12 @@ Claude Code updates this file at the end of every session.
      Keep it in the backup: a lost key means every family phone reinstalls.
   9. Phase 5 task 8: the free limited-distribution account at Google before 2027, with each family
      phone added.
+  10. Answer question 24 in `DECISIONS.md` (new mail in the background on a phone; proposal in
+      `docs/background-mail.md`).
+  11. Answer question 25 (the QR scanner needs Google Play services) and fill in which family
+      phones are Android, and their make, in `docs/family-inventory.md`.
+  12. Pair a real phone with your PC once ("Telefoon koppelen" on both) and check a contact goes
+      both ways; the emulator cannot read a QR code.
 
 ## State of the folder
 
@@ -94,9 +102,10 @@ Real IMAP/SMTP providers (only GreenMail; the MX/SRV lookup was tried read-only 
 Google and Microsoft sign-in, a real Live Mail store, the taskbar count and notification click on
 an installed build, the updater with a signed release, notifications from an installed build, the
 release workflow (its Android job has never run: it needs the signing key secrets), Google and
-Microsoft sign-in on a phone, and the last step of "Bijwerken" (Android's "Toestaan van deze bron"
+Microsoft sign-in on a phone, the last step of "Bijwerken" (Android's "Toestaan van deze bron"
 and the update itself; on the emulator the run stopped there, since that switch is a security
-setting).
+setting), and reading a real QR code with a phone's camera (the emulator has no Google Play
+services, which the scanner needs to decode).
 (Real PST and DBX files are now tested — four public PSTs with mail, contacts and a password, and a
 real Outlook Express DBX — and CI fetches them so the import tests run on real data; see the
 session log for 2026-11-17.)
@@ -122,11 +131,15 @@ session log for 2026-11-17.)
 | 2026-11-17 | Android build: SDK command-line tools, platform 36, build-tools, NDK 29 in `%LOCALAPPDATA%\Android\Sdk` (Gradle added platform 37 and build-tools 36 itself; the SDK licence was accepted as part of Martijn's go), four Rust Android targets, `tauri android init`. Desktop-only parts (tray, autostart, single instance, updater, folder picker, taskbar badge) behind `cfg(desktop)`; `tauri.android.conf.json` leaves the Windows rescue tool out of the APK. Keystore-sealed password files on Android (same file layout and damage handling as DPAPI; sealing tested on Windows). `rustls-platform-verifier` Android part: Kotlin component from its Maven archive, ProGuard rule, `net::init_android()` at start. Debug APK (arm64) builds. | `JAVA_HOME` must be a real `jdk-*` folder (the `latest` link breaks Gradle); Gradle 9.6.1 runs on JDK 26. A source edit during a running Android build breaks that build. The verifier's README says group `rustls`, its archive uses `org.rustls`. | Emulator run (approval for the download), then sign-in on Android |
 | 2026-11-17 | Emulator run (Martijn approved the download): AVD `vem-test`, Android 16 x86_64, with GreenMail behind a self-made test CA and a test autoconfig host (all in `Mail-scratch`, outside the repository). Checked on the emulator: the app starts and Android's certificate check works (a real HTTPS settings lookup; GreenMail refused with VEM-IMAP-TLS-01 once the test CA was removed); adding the GreenMail mailbox; reading, replying (In-Reply-To right), new mail after a force-stop; the password file sealed with the Keystore key (no plain text in the file or the preferences); a damaged password file shows VEM-STORE-SECRET-01, and a new password in Instellingen repairs it and mail comes in again with a notification. Fixed on the way: the screen ran under the status bar (Android 15+ edge to edge, now padded by the window insets); notifications need Android's one-time question (asked at start and after adding a mailbox, `capabilities/mobile.json`); a fetch that failed before the screens listened was never shown (the stored error is now read at start); the old error stayed after a working new password (the core now clears it at once); "Starten met Windows" is hidden on a phone (`AppInfo.isPhone`); a reply's heading said "Nieuwe e-mail" (now "Antwoord schrijven") | `rustls-platform-verifier` uses Android's `AndroidCAStore`, so certificates the user installed are trusted on Android too (as the Windows store does). The x86_64 APK for the emulator: `--target x86_64` in the APK command | Task 3 (sign-in on Android), task 8, task 7 proposal; Android backup switched off on Martijn's answer (`DECISIONS.md`) |
 | 2026-11-17 | Android backup off (Martijn). Task 3: sign-in on Android; Gmail takes an app password on a phone, Microsoft keeps the browser sign-in, the page after sign-in says to open the app again. Task 8: "Bijwerken" on a phone. The app reads `android.json` next to `latest.json` (15 s after start, then every six hours), shows "Er is een nieuwe versie", downloads the APK from `https://github.com/` only, checks it with the updater key (minisign, the same key as Windows) and opens Android's install screen through a FileProvider (`ApkInstaller.kt`, JNI). Release workflow: an Android job builds the signed APK, signs the update and adds the APK and `android.json` to the draft (not yet run); `scripts/android-release.mjs` writes `android.json`; release notes now come from `release-notes.md`. `docs/release.md` and `docs/install.md` have the Android steps. On the emulator, with a throwaway key and a test HTTPS server standing in for github.com: offer shown, 674 MB debug APK fetched and checked, Android's install screen opened | Latest.json's notes were written when the workflow ran, so editing the draft's text (the old step 3) never reached the apps. Tauri's Android context is the Application object, whose class comes from the framework's loader, so app classes must be loaded through `Context.getClassLoader()`. With `MSYS_NO_PATHCONV=1` set, `cmd //c` from Git Bash opens an idle shell and the build silently does nothing. On a touch screen a tapped button keeps its hover look, which made the disabled "Bijwerken" unreadable | Task 7 proposal, task 9, task 6; Martijn's items |
+| 2026-11-17 | Task 9, contacts on the phone: the phone side of "Telefoon koppelen" ("Code scannen" with the camera through Tauri's official barcode-scanner plugin, a full-screen Stoppen over the camera picture, a camera "no" explained with "Instellingen openen", "Koppeling verbreken"); the core takes the PC's code (`pair_from_code`, new codes VEM-PAIR-READ-01 and VEM-PAIR-FIND-01) and links the phone's own mailbox with the same address; a GreenMail test pairs two devices and sends changes both ways, and a new code locks the old key out. A change made in the same second as the other device's now still wins (`changed_at` always moves forward). The contacts folder "Vorige Eeuw Mail" no longer shows in the folder list (`sync.md`), and the screens reload the folder list when a folder comes or goes. A phone names its local drafts group "Op deze telefoon". Task 7: proposal written (`docs/background-mail.md`), open question 24 | On the emulator the camera screen and Stoppen work. Stoppen showed "[object Object]" at first: Tauri's mobile plugins reject with a plain `{message}` object, which `toVemError` now reads. A Stoppen in the first seconds left the camera on, because the plugin switches it on only once Android's camera service has started; the app now stops it again after 1.5, 5 and 10 s. The plugin's decoder is Google ML Kit, which needs Google Play services and queues usage events for `firebaselogging.googleapis.com`; that uploader is removed in the app's manifest (the log then says "Transport backend 'cct' is not registered"); question 25 | Task 6; Martijn's items 10–12 |
 
 ## Ideas parked
 
 Things that came up but are not in the current phase. Do not build them without asking.
 
+- On a phone, "Oude mail ophalen" (import) is offered as on the PC, although old mail files rarely
+  live on a phone, and "Telefoon koppelen" sits under Meer mappen. Hide import on a phone, or keep
+  it for a mailbox-to-mailbox import? Ask Martijn.
 - Our own block scanner for a PST cut short (read the data blocks without the index pages, the way
   scanpst does). Neither outlook-pst nor readpst can do it; only worth it if a family PST turns out
   to be cut.

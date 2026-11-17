@@ -112,6 +112,23 @@ Decision 6 is made (Tauri stays; see "Build choices" below).
   on such a pointer only for non-commercial distribution, which this family app is. The safer choice
   is for the release workflow to also attach those source archives (a few tens of MB) to every
   release. Martijn: pointer only, or attach the sources?
+- **Question 24, new mail in the background on a phone (17 November 2026, phase 5 task 7).**
+  `docs/background-mail.md` sets out what Android allows. Options: (1) a check about every 15
+  minutes, as Android permits, with a notification; about 2 days. (2) An own foreground service
+  that keeps the mailbox connection open, switched on per phone, with a permanent notification and
+  the battery-optimisation question once; mail within a minute, as on Windows; about 4 to 6 days
+  and tests on each family make of phone. (3) Nothing extra: new mail when the app is opened, as
+  now. Claude Code recommends 2 if anyone expects the phone to ping, else 3 now and 1 later.
+  Martijn: which one?
+- **Question 25, the QR scanner needs Google Play services (17 November 2026, phase 5 task 9).**
+  The official Tauri barcode-scanner plugin decodes with Google ML Kit through Google Play services.
+  A phone without them (Huawei since 2019, some de-Googled phones) cannot read the code; the
+  emulator image used here cannot either. ML Kit also queues usage events for
+  `firebaselogging.googleapis.com`; that uploader is removed from the app's manifest, so nothing is
+  sent (checked in the emulator log). The alternative is an own small scanner in Kotlin (the
+  phone's camera through CameraX, decoding with ZXing, which needs no Google services and no
+  network), about 1 to 2 days. Martijn: keep the plugin if every family Android phone has Google
+  Play (most Samsung, Motorola, Nokia, Pixel and Xiaomi phones do), or build the own scanner?
 
 ## Build choices (16 November 2026, Claude Code; Martijn may overrule any of them)
 
@@ -171,8 +188,22 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
 - **What is new comes from `release-notes.md` (17 November 2026).** Both update files are written
   when the release workflow runs, so the text is committed with the version number instead of
   typed into the draft afterwards.
+- **Pairing the phone (17 November 2026, phase 5 task 9).** The phone reads the PC's QR code with
+  Tauri's official barcode-scanner plugin in its "windowed" mode: the camera picture shows behind a
+  see-through page that keeps our own hint and a big Stoppen button (the plugin's own full-screen
+  mode has no way back for someone who does not know Android's back gesture). The code's mailbox
+  must already be on the phone; the phone links the mailbox with the same address
+  (VEM-PAIR-FIND-01 names it otherwise) and anything that is not our code gives VEM-PAIR-READ-01.
+  The key is sealed with the Keystore key like a password. Stoppen stops the camera again after
+  1.5, 5 and 10 seconds, because the plugin can switch the camera on after an early Stoppen.
+- **Contact changes always move forward in time.** A contact saved or deleted gets a change time
+  of at least the previous one plus one second, so a change on a device whose clock runs behind,
+  or in the same second as the other device's, is not lost to "newest wins".
+- **The contacts folder is hidden** from the folder list on every device (as `sync.md` says);
+  the folder list on screen is read again whenever a folder comes or goes on the server.
 - **Drafts stay on this computer.** "Opslaan" keeps the draft in the local index (in the account's
-  Concepten folder, or "Op deze computer" when there is none) and does not append it to the server.
+  Concepten folder, or "Op deze computer" when there is none; "Op deze telefoon" on a phone) and
+  does not append it to the server.
   Fewer writes to the mailbox, and no half-written draft on the phone.
 - **Moves and deletes wait 125 seconds before they reach the server** (the undo time plus 5 s), so
   "Ongedaan maken" never needs the server. Sync skips messages with a waiting move.

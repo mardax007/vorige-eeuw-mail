@@ -62,6 +62,20 @@ staat dat niet toe. Er verschijnt bovenaan een blauwe balk: *Er is een nieuwe ve
 **Bijwerken** of **Installeren**. De eerste keer vraagt Android ook hier eerst om
 **Toestaan van deze bron**, nu voor Vorige Eeuw Mail zelf. Uw postvakken en mail blijven bewaard.
 
+**Uw contactpersonen ook op de telefoon.** Zet eerst hetzelfde e-mailadres op de telefoon als op
+de pc. Daarna, met de pc en de telefoon naast elkaar:
+
+1. Op de pc: klik in de lijst met mappen op **Meer mappen** en dan op **Telefoon koppelen**. Klik
+   op **Code maken**. Er verschijnt een vierkante code.
+2. Op de telefoon: tik op **Mappen**, op **Meer mappen** en op **Telefoon koppelen**. Tik op
+   **Code scannen**. De eerste keer vraagt Android of het programma de camera mag gebruiken; kies
+   **Tijdens gebruik van de app**.
+3. Houd de telefoon voor het scherm van de pc, zodat de code in het kader valt. Even later staat er
+   *De telefoon is gekoppeld*. Uw contactpersonen komen er binnen een paar minuten op.
+
+Wat u op de pc of op de telefoon aan een contactpersoon verandert, komt ook op de andere. Raakt u de
+telefoon kwijt, kies dan op de pc **Telefoon koppelen** en **Koppeling verbreken**.
+
 ## Hulp
 
 Ziet u een melding met een code die begint met **VEM**, zoek de code dan op of kijk in
