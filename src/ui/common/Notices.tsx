@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../api/client";
-import type { OutboxItem } from "../../api/types";
+import { api, onEvent } from "../../api/client";
+import type { OutboxItem, UpdateOffer } from "../../api/types";
 import { t } from "../../i18n";
 import { useApp } from "../state/AppContext";
 
@@ -174,6 +174,75 @@ export function UpdateLine() {
       {isOpen && (
         <ul className="whats-new">
           {news.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+type UpdatePhase = "offer" | "fetching" | "android";
+
+/**
+ * Android: a newer version is on GitHub. "Bijwerken" fetches and checks it, then Android's own
+ * install screen asks the person (decision 22). Windows never shows this; it updates itself.
+ */
+export function UpdateOfferBar() {
+  const { showError } = useApp();
+  const [offer, setOffer] = useState<UpdateOffer | null>(null);
+  const [phase, setPhase] = useState<UpdatePhase>("offer");
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .updateOffer()
+      .then((found) => {
+        if (alive && found) setOffer(found);
+      })
+      .catch(showError);
+    const listening = onEvent("update:available", (found) => {
+      if (alive) setOffer(found);
+    });
+    return () => {
+      alive = false;
+      void listening.then((stop) => stop());
+    };
+  }, [showError]);
+
+  if (!offer) return null;
+
+  const install = async () => {
+    setPhase("fetching");
+    try {
+      await api.installUpdate();
+      setPhase("android");
+    } catch (e: unknown) {
+      setPhase("offer");
+      showError(e);
+    }
+  };
+  const texts: Record<UpdatePhase, string> = {
+    offer: t("update.offer", { version: offer.version }),
+    fetching: t("update.fetching"),
+    android: t("update.androidAsks"),
+  };
+
+  return (
+    <div className="notice-bar calm" role="status">
+      <span>{texts[phase]}</span>
+      <button type="button" className="primary" disabled={phase === "fetching"} onClick={() => void install()}>
+        {t("update.install")}
+      </button>
+      {offer.notes.length > 0 && (
+        <button type="button" className="link-button" aria-expanded={isOpen} onClick={() => setIsOpen(!isOpen)}>
+          {t("update.whatsNew")}
+        </button>
+      )}
+      {isOpen && (
+        <ul className="whats-new">
+          {offer.notes.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>

@@ -94,3 +94,38 @@ describe("send bar", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("Bijwerken on a phone", () => {
+  const offer = { version: "0.2.0", notes: ["Zoeken gaat sneller."] };
+
+  it("offers a newer version and opens Android's install screen", async () => {
+    vi.spyOn(api, "updateOffer").mockResolvedValue(offer);
+    const install = vi.spyOn(api, "installUpdate").mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText("Er is een nieuwe versie van Vorige Eeuw Mail: 0.2.0.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Bijwerken" }));
+    expect(install).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Android vraagt nu of u wilt bijwerken/)).toBeTruthy();
+  });
+
+  it("shows an update found while the app is open", async () => {
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Mappen" });
+    expect(screen.queryByRole("button", { name: "Bijwerken" })).toBeNull();
+    await waitFor(() => {
+      getMockBackend().events.emit("update:available", offer);
+      expect(screen.getByRole("button", { name: "Bijwerken" })).toBeTruthy();
+    });
+  });
+
+  it("shows the error and offers Bijwerken again when fetching fails", async () => {
+    vi.spyOn(api, "updateOffer").mockResolvedValue(offer);
+    vi.spyOn(api, "installUpdate").mockRejectedValue({ code: "VEM-UPDATE-GET-01", detail: "signature does not match" });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Bijwerken" }));
+    expect(await screen.findByText("De nieuwe versie kon niet opgehaald worden.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Bijwerken" })).toBeTruthy();
+  });
+});

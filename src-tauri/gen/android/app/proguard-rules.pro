@@ -21,3 +21,5 @@
 #-renamesourcefileattribute SourceFile
 # rustls-platform-verifier is called from Rust through JNI, which R8 cannot see.
 -keep, includedescriptorclasses class org.rustls.platformverifier.** { *; }
+# "Bijwerken": Rust calls ApkInstaller.install through JNI (src-tauri/src/updates.rs).
+-keep class tech.mardax.vem.ApkInstaller { *; }

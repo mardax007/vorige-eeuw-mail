@@ -30,6 +30,8 @@ pub struct AppState {
     pub sign_in_cancel: Mutex<Option<Arc<tokio::sync::Notify>>>,
     /// The latest import progress, so the Import screen finds a running import again.
     pub last_import: Mutex<Option<vem_core::model::ImportProgress>>,
+    /// Android: a newer version found on GitHub, waiting for "Bijwerken".
+    pub android_update: Mutex<Option<vem_core::apk_update::AndroidRelease>>,
 }
 
 /// Started by Windows at sign-in (autostart): stay next to the clock, no window.
@@ -68,6 +70,7 @@ pub fn run() {
                 texts: Mutex::new(shell::ShellTexts::default()),
                 sign_in_cancel: Mutex::new(None),
                 last_import: Mutex::new(None),
+                android_update: Mutex::new(None),
             });
             tauri::async_runtime::block_on(async { engine.start() }).map_err(|e| format!("{e:?}"))?;
             let hidden = std::env::args().any(|a| a == HIDDEN_ARG);

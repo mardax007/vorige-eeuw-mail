@@ -5,6 +5,8 @@ import { mockError } from "./state";
 
 type AppCommands =
   | "app_info"
+  | "update_offer"
+  | "install_update"
   | "list_accounts"
   | "lookup_settings"
   | "add_account"
@@ -123,6 +125,9 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
   };
 
   return {
+    // The browser preview is no phone: nothing to offer, and Bijwerken does nothing.
+    update_offer: () => null,
+    install_update: () => undefined,
     app_info: () => ({
       version: "0.1.0",
       updatedTo: "0.1.0",

@@ -356,6 +356,11 @@ export const nl = {
   "update.line": "Vorige Eeuw Mail is bijgewerkt naar versie {version}.",
   "update.whatsNew": "Wat is er nieuw?",
   "update.hide": "Verbergen",
+  "update.offer": "Er is een nieuwe versie van Vorige Eeuw Mail: {version}.",
+  "update.install": "Bijwerken",
+  "update.fetching": "De nieuwe versie wordt opgehaald. Dit kan een paar minuten duren.",
+  "update.androidAsks":
+    "Android vraagt nu of u wilt bijwerken. Kies daar Updaten, Bijwerken of Installeren (dat verschilt per telefoon). Vraagt Android eerst om toestemming, kies dan Instellingen, zet 'Toestaan van deze bron' aan en ga terug. Uw postvakken en mail blijven bewaard.",
 
   // Errors (the box)
   "error.serverSaid": "De server zei:",

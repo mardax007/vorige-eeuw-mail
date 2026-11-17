@@ -3,7 +3,7 @@ import { t } from "./i18n";
 import { BackToMail } from "./ui/common/BackToMail";
 import { CheckMailButton } from "./ui/common/CheckMailButton";
 import { ErrorBox } from "./ui/common/ErrorBox";
-import { ReportNotice, SendBar, UndoBar, UpdateLine } from "./ui/common/Notices";
+import { ReportNotice, SendBar, UndoBar, UpdateLine, UpdateOfferBar } from "./ui/common/Notices";
 import { ComposeView } from "./ui/compose/ComposeView";
 import { ContactsView } from "./ui/contacts/ContactsView";
 import { HelpView } from "./ui/help/HelpView";
@@ -107,6 +107,7 @@ function Shell() {
     <div className="app">
       <TopBar />
       <UpdateLine />
+      <UpdateOfferBar />
       <ReportNotice />
       {error && (
         <div className="global-error">

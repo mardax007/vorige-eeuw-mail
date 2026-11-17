@@ -54,6 +54,8 @@ export async function onEvent<E extends CoreEventName>(
 /** Every command, one function each. Components call these through this object. */
 export const api = {
   appInfo: () => call("app_info", undefined),
+  updateOffer: () => call("update_offer", undefined),
+  installUpdate: () => call("install_update", undefined),
   setShellTexts: (texts: ShellTexts) => call("set_shell_texts", { texts }),
   listAccounts: () => call("list_accounts", undefined),
   lookupSettings: (email: string) => call("lookup_settings", { email }),

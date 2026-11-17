@@ -4,6 +4,7 @@
 import type {
   Account,
   AppInfo,
+  UpdateOffer,
   Contact,
   ContactsImported,
   Draft,
@@ -34,6 +35,10 @@ type NoArgs = undefined;
 
 export interface CommandMap {
   app_info: { args: NoArgs; result: AppInfo };
+  /** Android: a newer version found on GitHub, or null. */
+  update_offer: { args: NoArgs; result: UpdateOffer | null };
+  /** Android: download and check the new version, then open Android's install screen. */
+  install_update: { args: NoArgs; result: void };
   set_shell_texts: { args: { texts: ShellTexts }; result: void };
   list_accounts: { args: NoArgs; result: Account[] };
   lookup_settings: { args: { email: string }; result: ServerSettings };

@@ -14,9 +14,29 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// The release signing key (phase 5 task 1). keystore.properties is written by the release
+// workflow from GitHub secrets and never committed; without it a release build is unsigned and a
+// debug build uses the usual debug key. Every update must carry the same key, or Android refuses it.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 37
     namespace = "tech.mardax.vem"
+    if (!keystoreProperties.isEmpty) {
+        signingConfigs {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("password")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("password")
+            }
+        }
+    }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "tech.mardax.vem"
@@ -39,6 +59,9 @@ android {
             }
         }
         getByName("release") {
+            if (!keystoreProperties.isEmpty) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                enable = true
             }

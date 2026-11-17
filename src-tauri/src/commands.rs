@@ -701,6 +701,8 @@ fn quit_app(app: AppHandle) -> R<()> {
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         app_info,
+        crate::updates::update_offer,
+        crate::updates::install_update,
         set_shell_texts,
         list_accounts,
         lookup_settings,

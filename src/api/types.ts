@@ -259,6 +259,14 @@ export interface CoreEvents {
   "outbox:changed": OutboxItem[];
   "open:message": { messageId: string };
   "open:compose": { to: string };
+  /** Android: a newer version is on GitHub; the screens offer "Bijwerken". */
+  "update:available": UpdateOffer;
+}
+
+/** A newer version waiting for "Bijwerken" (Android only; Windows updates itself). */
+export interface UpdateOffer {
+  version: string;
+  notes: string[];
 }
 
 /** Where imported mail goes (start_import). Added by the screens. */

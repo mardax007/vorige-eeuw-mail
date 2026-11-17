@@ -120,7 +120,10 @@ button.danger-outline {
   font-weight: 600;
 }
 
-button:disabled {
+/* :hover too: on a touch screen a tapped button keeps its hover look, and a disabled main
+   button would stay dark with grey text. */
+button:disabled,
+button:disabled:hover {
   cursor: default;
   border-style: dashed;
   background: var(--paper-soft);
