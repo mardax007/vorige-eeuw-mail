@@ -12,7 +12,8 @@ pub fn keyword_for(name: &str) -> String {
     let mut out = String::from("$vem_");
     for c in name.chars() {
         if c.is_ascii_alphanumeric() {
-            out.push(c.to_ascii_lowercase());
+            // Case kept (docs/sync.md): another device shows "Familie", not "familie".
+            out.push(c);
         } else if !out.ends_with('_') {
             out.push('_');
         }
@@ -137,7 +138,7 @@ mod tests {
 
     #[test]
     fn keywords_are_atoms() {
-        assert_eq!(keyword_for("Rekeningen 2026!"), "$vem_rekeningen_2026_");
+        assert_eq!(keyword_for("Rekeningen 2026!"), "$vem_Rekeningen_2026_");
         assert!(keyword_for("€€").starts_with("$vem_"));
         assert!(!keyword_for("a b").contains(' '));
     }
