@@ -87,6 +87,7 @@ jobs:
           VEM_REAL_PST_PASSWORD: 3tpi5t
           VEM_REAL_DBX: ${{ runner.temp }}\dbx\Inbox.dbx
           VEM_REAL_DBX_ITEMS: '2'
+          VEM_RESCUE_PST: ${{ runner.temp }}\pst\enron.pst
         run: cargo test -p vem-core --features test-support
 
       - name: Rescue tool collects

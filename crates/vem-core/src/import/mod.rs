@@ -675,6 +675,42 @@ mod tests {
         }
     }
 
+    /// The rescue-only path on a real PST: a copy of `VEM_RESCUE_PST` with one reserved header
+    /// byte flipped (inside the header CRC that `outlook-pst` checks but `readpst` does not). The
+    /// normal reader must fail with the code the screen turns into a rescue offer
+    /// (VEM-IMPORT-READ-01), and the rescue tool must then import the file whole, unchanged.
+    #[cfg(windows)]
+    #[test]
+    fn a_pst_the_normal_reader_rejects_is_read_by_rescue() {
+        let (Some(src), Some(tool)) =
+            (std::env::var_os("VEM_RESCUE_PST"), std::env::var_os("VEM_READPST").map(PathBuf::from))
+        else {
+            eprintln!("note: VEM_RESCUE_PST or VEM_READPST not set, the rescue-only path is not tried");
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("damaged.pst");
+        let mut bytes = std::fs::read(PathBuf::from(src)).unwrap();
+        bytes[0x10] ^= 0xFF; // a reserved header field: breaks outlook-pst's CRC, not readpst's
+        std::fs::write(&file, &bytes).unwrap();
+        let source = source_for(&file).unwrap();
+
+        let normal = run(&s_fresh(), "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false));
+        assert_eq!(normal.err().map(|e| e.code), Some("VEM-IMPORT-READ-01".into()), "the normal reader rejects it");
+
+        let rescued = run_rescue(&s_fresh(), "j", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false), &tool)
+            .expect("the rescue tool reads it");
+        assert!(rescued.rescued && rescued.added > 0, "rescue imported {} message(s)", rescued.added);
+        assert_eq!(std::fs::read(&file).unwrap(), bytes, "the damaged copy is not changed");
+    }
+
+    fn s_fresh() -> Store {
+        // The tempdir must outlive the store; leak it, this is a one-shot test.
+        let (d, s) = store();
+        std::mem::forget(d);
+        s
+    }
+
     /// A real Outlook Express `.dbx` store at `VEM_REAL_DBX`: it reads without error and leaves
     /// the file unchanged. `VEM_REAL_DBX_ITEMS`, if set, is the number of index entries the file
     /// holds; each is either imported or skipped (a header that was never downloaded has no body,
