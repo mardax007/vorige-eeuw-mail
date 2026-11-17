@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Code, Result, VemError};
 use crate::imap::Imap;
 use crate::log;
-use crate::model::{Addr, now};
+use crate::model::{AccountKind, Addr, now};
 use crate::secrets::{Secret, Secrets};
 use crate::store::Store;
 use crate::store::contacts::SyncContact;
@@ -52,21 +52,50 @@ pub fn paired_account(store: &Store) -> Result<Option<String>> {
     store.kv_get(PAIR_KEY)
 }
 
-/// Pair: make a new key (a new pairing replaces the old) and return the QR code as SVG.
-pub fn pair(store: &Store, secrets: &Secrets, account_id: &str) -> Result<String> {
+/// The PC side: make a new key (a new pairing replaces the old) and the code for the phone.
+pub fn pair_code(store: &Store, secrets: &Secrets, account_id: &str) -> Result<PairCode> {
     let account = store.account(account_id)?;
     let k: [u8; 32] = rand::random();
     secrets.put(SECRET_NAME, &Secret::SyncKey { key: k.to_vec() })?;
     store.kv_set(PAIR_KEY, &account_id.to_string())?;
-    let code = PairCode {
+    log::event("contacts.paired", &[("account", account_id)]);
+    Ok(PairCode {
         v: 1,
         account: account.email,
         key: base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(k),
-    };
+    })
+}
+
+/// Pair on the PC and return the code as a QR picture (SVG).
+pub fn pair(store: &Store, secrets: &Secrets, account_id: &str) -> Result<String> {
+    let code = pair_code(store, secrets, account_id)?;
     let text = serde_json::to_string(&code).map_err(|_| VemError::new(Code::AppCmd01))?;
     let qr = qrcode::QrCode::new(text.as_bytes()).map_err(|_| VemError::new(Code::AppCmd01).with_detail("qr"))?;
-    log::event("contacts.paired", &[("account", account_id)]);
     Ok(qr.render::<qrcode::render::svg::Color>().min_dimensions(280, 280).quiet_zone(true).build())
+}
+
+/// The phone side: the text of the QR code the PC showed. The mailbox in the code must already be
+/// on this phone (the contacts travel through it). Keeps the key and returns that mailbox's id.
+pub fn pair_from_code(store: &Store, secrets: &Secrets, text: &str) -> Result<String> {
+    let bad = || VemError::new(Code::PairRead01);
+    let code: PairCode = serde_json::from_str(text.trim()).map_err(|_| bad())?;
+    if code.v != 1 {
+        return Err(bad());
+    }
+    let key = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(code.key.as_bytes())
+        .ok()
+        .filter(|k| k.len() == 32)
+        .ok_or_else(bad)?;
+    let account = store
+        .accounts()?
+        .into_iter()
+        .find(|a| a.kind == AccountKind::Imap && a.email.eq_ignore_ascii_case(code.account.trim()))
+        .ok_or_else(|| VemError::new(Code::PairFind01).with_detail(code.account.trim().to_string()))?;
+    secrets.put(SECRET_NAME, &Secret::SyncKey { key })?;
+    store.kv_set(PAIR_KEY, &account.id)?;
+    log::event("contacts.paired_phone", &[("account", &account.id)]);
+    Ok(account.id)
 }
 
 pub fn unpair(store: &Store, secrets: &Secrets) -> Result<()> {
@@ -191,5 +220,52 @@ mod tests {
         unpair(&s, &secrets).unwrap();
         assert_eq!(paired_account(&s).unwrap(), None);
         assert!(key(&secrets).unwrap().is_none());
+    }
+
+    #[test]
+    fn the_phone_takes_the_key_for_its_own_mailbox() {
+        let (pd, pc) = crate::store::testutil::store();
+        let pc_secrets = Secrets::new(pd.path());
+        let a = pc.add_account("Jan", "jan@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        let text = serde_json::to_string(&pair_code(&pc, &pc_secrets, &a.id).unwrap()).unwrap();
+
+        let (fd, phone) = crate::store::testutil::store();
+        let phone_secrets = Secrets::new(fd.path());
+        phone.add_account("Jan", "Jan@X.nl", crate::model::AccountKind::Imap, None).unwrap();
+        let id = pair_from_code(&phone, &phone_secrets, &format!(" {text}
+")).unwrap();
+        assert_eq!(paired_account(&phone).unwrap().as_deref(), Some(id.as_str()));
+        assert_eq!(key(&phone_secrets).unwrap(), key(&pc_secrets).unwrap(), "both hold the same key");
+    }
+
+    #[test]
+    fn a_code_for_a_mailbox_not_on_the_phone_says_which_one() {
+        let (pd, pc) = crate::store::testutil::store();
+        let a = pc.add_account("Jan", "jan@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        let text = serde_json::to_string(&pair_code(&pc, &Secrets::new(pd.path()), &a.id).unwrap()).unwrap();
+        let (fd, phone) = crate::store::testutil::store();
+        let secrets = Secrets::new(fd.path());
+        phone.add_account("Piet", "piet@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        let e = pair_from_code(&phone, &secrets, &text).unwrap_err();
+        assert_eq!(e.code, "VEM-PAIR-FIND-01");
+        assert_eq!(e.detail.as_deref(), Some("jan@x.nl"));
+        assert_eq!(paired_account(&phone).unwrap(), None, "nothing kept");
+        assert!(key(&secrets).unwrap().is_none());
+    }
+
+    #[test]
+    fn something_else_than_our_code_is_refused() {
+        let (fd, phone) = crate::store::testutil::store();
+        let secrets = Secrets::new(fd.path());
+        phone.add_account("Jan", "jan@x.nl", crate::model::AccountKind::Imap, None).unwrap();
+        for text in [
+            "https://example.test/",
+            "",
+            r#"{"v":2,"account":"jan@x.nl","key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+            r#"{"v":1,"account":"jan@x.nl","key":"kort"}"#,
+        ] {
+            assert_eq!(pair_from_code(&phone, &secrets, text).unwrap_err().code, "VEM-PAIR-READ-01", "{text}");
+        }
+        assert_eq!(paired_account(&phone).unwrap(), None);
     }
 }

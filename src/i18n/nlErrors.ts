@@ -135,6 +135,14 @@ export const nlErrors = {
     sentence: "De nieuwe versie kon niet opgehaald worden.",
     next: "Probeer het later nog eens met Bijwerken. Lukt het steeds niet, vraag het dan aan Martijn.",
   },
+  "VEM-PAIR-READ-01": {
+    sentence: "Deze code is geen koppelcode van Vorige Eeuw Mail.",
+    next: "Kies op de computer Telefoon koppelen en Code maken, en scan die nieuwe code.",
+  },
+  "VEM-PAIR-FIND-01": {
+    sentence: "Het postvak van deze code staat nog niet op deze telefoon.",
+    next: "Voeg eerst op deze telefoon het postvak toe dat bij Details staat, en scan de code daarna opnieuw.",
+  },
   "VEM-REPORT-CMD-01": {
     sentence: "Uw bericht aan Martijn kon niet verstuurd worden.",
     next: "Probeer het straks opnieuw.",

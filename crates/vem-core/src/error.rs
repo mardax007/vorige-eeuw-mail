@@ -41,6 +41,8 @@ pub enum Code {
     StoreSecret01,
     UpdateCmd01,
     UpdateGet01,
+    PairRead01,
+    PairFind01,
     ReportCmd01,
     AppCmd01,
 }
@@ -79,6 +81,8 @@ impl Code {
         Code::StoreSecret01,
         Code::UpdateCmd01,
         Code::UpdateGet01,
+        Code::PairRead01,
+        Code::PairFind01,
         Code::ReportCmd01,
         Code::AppCmd01,
     ];
@@ -117,6 +121,8 @@ impl Code {
             Code::StoreSecret01 => "VEM-STORE-SECRET-01",
             Code::UpdateCmd01 => "VEM-UPDATE-CMD-01",
             Code::UpdateGet01 => "VEM-UPDATE-GET-01",
+            Code::PairRead01 => "VEM-PAIR-READ-01",
+            Code::PairFind01 => "VEM-PAIR-FIND-01",
             Code::ReportCmd01 => "VEM-REPORT-CMD-01",
             Code::AppCmd01 => "VEM-APP-CMD-01",
         }
