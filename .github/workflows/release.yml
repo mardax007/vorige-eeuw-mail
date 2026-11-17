@@ -28,7 +28,18 @@ jobs:
 
       - run: npm ci
 
+      # The rescue tool for damaged Outlook files; scripts/rescue-tool.mjs copies it into the
+      # installer and stops the release when it is missing.
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-libpst
+
       - name: Tests first
+        env:
+          VEM_READPST: ${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\readpst.exe
         run: |
           npm test
           cargo test -p vem-core --lib
@@ -36,6 +47,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+          VEM_RESCUE_REQUIRED: '1'
           # Signs the update; the key lives only here and in Martijn's offline backup.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

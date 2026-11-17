@@ -364,9 +364,9 @@ fn run_inner(
 /// Rescue mode: the tool writes `.eml` files into our own scratch folder, which is read and
 /// then removed. The scratch folder is ours alone; the original and its copy stay as they are.
 fn read_rescued(store: &Store, tool: &Path, pst: &Path, job_id: &str, emit: &mut Emit<'_>) -> std::result::Result<Skipped, String> {
-    let out = store.root().join("rescue").join(job_id);
-    let result = rescue::convert(tool, pst, &out).and_then(|()| eml_tree(&out, emit));
-    let _ = std::fs::remove_dir_all(&out);
+    let work = store.root().join("rescue").join(job_id);
+    let result = rescue::convert(tool, pst, &work).and_then(|()| eml_tree(&work.join(rescue::OUTPUT), emit));
+    let _ = std::fs::remove_dir_all(&work);
     result
 }
 
@@ -643,12 +643,13 @@ mod tests {
         let src = tempfile::tempdir().unwrap();
         let pst = src.path().join("Kapot.pst");
         std::fs::write(&pst, b"not really a pst").unwrap();
-        // A stand-in for readpst: the output folder is its 8th argument.
+        // A stand-in for readpst: the output folder is its 8th argument, the input its 9th.
         let tool = src.path().join("readpst.cmd");
         std::fs::write(
             &tool,
             concat!(
                 "@echo off\r\n",
+                "if not exist \"%~9\" exit /b 3\r\n",
                 "mkdir \"%~8\\Postvak IN\"\r\n",
                 "(echo Subject: gered& echo Message-ID: ^<r1@x^>& echo.& echo hallo) > \"%~8\\Postvak IN\\1.eml\"\r\n",
             ),

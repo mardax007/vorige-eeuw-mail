@@ -55,8 +55,24 @@ jobs:
           }
           throw 'GreenMail did not start'
 
+      # The rescue tool for damaged Outlook files (readpst), so its real test runs too.
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-libpst
+
       - name: Rust core
+        env:
+          VEM_READPST: ${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\readpst.exe
         run: cargo test -p vem-core --features test-support
+
+      - name: Rescue tool collects
+        env:
+          MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+          VEM_RESCUE_REQUIRED: '1'
+        run: node scripts/rescue-tool.mjs
 
       - name: Tauri shell compiles
         run: cargo check -p vem

@@ -46,6 +46,9 @@ Thumbs.db
 
 # Tauri generated
 src-tauri/gen/schemas
+# Rescue tool, copied from MSYS2 by scripts/rescue-tool.mjs
+src-tauri/rescue/*
+!src-tauri/rescue/.gitkeep
 dist-ssr
 *.local
 *.log

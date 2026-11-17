@@ -13,20 +13,29 @@ pub fn tool() -> Option<PathBuf> {
     tool.is_file().then_some(tool)
 }
 
+/// The names inside the scratch folder. `readpst` opens files through the ANSI code page, so a
+/// path with a letter outside it (a user folder "Łucja") would fail; it runs inside the scratch
+/// folder and gets only these plain names.
+const INPUT: &str = "in.pst";
+pub const OUTPUT: &str = "out";
+
 /// The arguments: folders as on disk (`-r`), one `.eml` per message (`-e`), only mail (`-t e`),
 /// no RTF copies of the text as attachments (`-b`), quiet (`-q`).
-fn args(pst: &Path, out: &Path) -> Vec<std::ffi::OsString> {
-    let mut a: Vec<std::ffi::OsString> = ["-r", "-e", "-q", "-b", "-t", "e", "-o"].iter().map(Into::into).collect();
-    a.push(out.into());
-    a.push(pst.into());
-    a
+fn args() -> [&'static str; 9] {
+    ["-r", "-e", "-q", "-b", "-t", "e", "-o", OUTPUT, INPUT]
 }
 
-/// Run the tool on `pst` (our own copy) into the empty folder `out`.
-pub fn convert(tool: &Path, pst: &Path, out: &Path) -> Result<(), String> {
-    std::fs::create_dir_all(out).map_err(|e| format!("rescue folder: {}", e.kind()))?;
+/// Run the tool on `pst` (our own copy) inside the new scratch folder `work`; the messages land
+/// in `work\out`. The copy is hard-linked in (no second copy of a big file), copied only when
+/// the disk cannot link.
+pub fn convert(tool: &Path, pst: &Path, work: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(work.join(OUTPUT)).map_err(|e| format!("rescue folder: {}", e.kind()))?;
+    let input = work.join(INPUT);
+    if std::fs::hard_link(pst, &input).is_err() {
+        std::fs::copy(pst, &input).map_err(|e| format!("rescue copy: {}", e.kind()))?;
+    }
     let mut cmd = Command::new(tool);
-    cmd.args(args(pst, out));
+    cmd.args(args()).current_dir(work);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -48,13 +57,29 @@ mod tests {
 
     #[test]
     fn readpst_is_asked_for_mail_only_as_eml_files_in_folders() {
-        let a = args(Path::new("C:/kopie/Outlook.pst"), Path::new("C:/data/rescue"));
-        let a: Vec<String> = a.iter().map(|s| s.to_string_lossy().into_owned()).collect();
-        assert_eq!(a, ["-r", "-e", "-q", "-b", "-t", "e", "-o", "C:/data/rescue", "C:/kopie/Outlook.pst"]);
+        assert_eq!(args(), ["-r", "-e", "-q", "-b", "-t", "e", "-o", "out", "in.pst"]);
     }
 
     #[test]
     fn no_tool_next_to_the_test_binary() {
         assert!(tool().is_none());
+    }
+
+    /// The real `readpst`, when `VEM_READPST` names it (CI sets it after installing MSYS2's
+    /// libpst), on a scratch folder whose name `readpst` cannot open through the ANSI code page.
+    #[test]
+    fn real_readpst_works_under_a_folder_outside_the_code_page() {
+        let Some(tool) = std::env::var_os("VEM_READPST").map(std::path::PathBuf::from) else {
+            eprintln!("note: VEM_READPST not set, the real readpst is not tried");
+            return;
+        };
+        let d = tempfile::tempdir().unwrap();
+        let pst = d.path().join("Łucja.pst");
+        std::fs::copy(crate::import::pst::tests::empty_pst(), &pst).unwrap();
+        let before = std::fs::read(&pst).unwrap();
+        let work = d.path().join("Łucja").join("j");
+        convert(&tool, &pst, &work).unwrap();
+        assert!(work.join(OUTPUT).join("Empty").is_dir(), "the root folder of Empty.pst is written");
+        assert_eq!(std::fs::read(&pst).unwrap(), before, "our copy is not changed");
     }
 }

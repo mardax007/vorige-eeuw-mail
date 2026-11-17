@@ -5,9 +5,9 @@
   "version": "0.1.0",
   "identifier": "tech.mardax.vem",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "node scripts/rescue-tool.mjs && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "node scripts/rescue-tool.mjs && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -36,6 +36,7 @@
     "category": "Productivity",
     "shortDescription": "Eenvoudige e-mail voor de familie",
     "createUpdaterArtifacts": false,
+    "resources": { "rescue/": "rescue/" },
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
       "nsis": {

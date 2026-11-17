@@ -746,7 +746,7 @@ fn has_field(head: &str, name: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[test]
@@ -758,7 +758,7 @@ mod tests {
         assert_eq!(password_crc(&empty_pst()).unwrap(), None, "Outlook's empty example file has no password");
     }
 
-    fn empty_pst() -> std::path::PathBuf {
+    pub(crate) fn empty_pst() -> std::path::PathBuf {
         let home = std::env::var_os("CARGO_HOME").map(std::path::PathBuf::from).unwrap_or_else(|| {
             std::path::PathBuf::from(std::env::var_os("USERPROFILE").or(std::env::var_os("HOME")).unwrap()).join(".cargo")
         });
