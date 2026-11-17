@@ -119,6 +119,23 @@ describe("message buttons", () => {
     expect(await screen.findByRole("button", { name: "★ Niet meer belangrijk" })).toBeTruthy();
   });
 
+  it("prints the message with Afdrukken on the PC", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));
+    await user.click(await screen.findByRole("button", { name: "Afdrukken" }));
+    expect(print).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no Afdrukken on a phone, whose WebView cannot print", async () => {
+    const real = api.appInfo;
+    vi.spyOn(api, "appInfo").mockImplementation(async () => ({ ...(await real()), isPhone: true }));
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));
+    await screen.findByRole("button", { name: "Beantwoorden" });
+    expect(screen.queryByRole("button", { name: "Afdrukken" })).toBeNull();
+  });
+
   it("has no Verwijderen inside Verwijderde items", async () => {
     const user = await renderApp();
     const nav = within(screen.getByRole("navigation", { name: "Mappen" }));

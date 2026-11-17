@@ -19,6 +19,28 @@ async function openSettings(isPhone: boolean) {
 beforeEach(() => resetMockBackend());
 afterEach(() => vi.restoreAllMocks());
 
+describe("Lettergrootte", () => {
+  it("makes all text larger and smaller within its limits, and keeps the choice", async () => {
+    const save = vi.spyOn(api, "saveSettings");
+    const user = await openSettings(false);
+    const smaller = screen.getByRole("button", { name: /Kleiner/ }) as HTMLButtonElement;
+    const larger = screen.getByRole("button", { name: /Groter/ }) as HTMLButtonElement;
+    expect(smaller.disabled).toBe(true);
+    expect(screen.getByText("Nu: 18 (gewoon)")).toBeTruthy();
+    await user.click(larger);
+    expect(await screen.findByText("Nu: 20")).toBeTruthy();
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ textSize: 20 }));
+    expect(document.documentElement.style.getPropertyValue("--text-size")).toBe("20px");
+    for (let i = 0; i < 10; i++) if (!larger.disabled) await user.click(larger);
+    expect(await screen.findByText("Nu: 32")).toBeTruthy();
+    expect(larger.disabled).toBe(true);
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ textSize: 32 }));
+    expect((await api.getSettings()).textSize).toBe(32);
+    await user.click(smaller);
+    expect(await screen.findByText("Nu: 30")).toBeTruthy();
+  });
+});
+
 describe("Nieuwe mail direct melden (decision 24)", () => {
   it("is offered on a phone, off at first, and saved when switched on", async () => {
     const save = vi.spyOn(api, "saveSettings");
