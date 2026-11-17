@@ -22,7 +22,8 @@ describe("Contactpersonen", () => {
     expect(screen.queryByRole("button", { name: /Truus de Wit/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Toevoegen uit een bestand" }));
     expect(await screen.findByRole("button", { name: /Truus de Wit/ })).toBeTruthy();
-    expect(screen.getByText("Toegevoegd aan Contactpersonen: 1.")).toBeTruthy();
+    // Kees was in the file and in the list already: said, not counted as added.
+    expect(screen.getByText("Toegevoegd aan Contactpersonen: 1. Stonden er al (en zijn niet veranderd): 1.")).toBeTruthy();
   });
 
   it("has one back button to the mail on the list", async () => {

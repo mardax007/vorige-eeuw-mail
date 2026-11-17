@@ -154,6 +154,7 @@ export function ContactsView() {
     );
   }
 
+  const isEmptyBook = !isLoading && !hasLoadError && query.trim() === "" && contacts.length === 0;
   return (
     <section className="page">
       <BackToMail />
@@ -177,6 +178,8 @@ export function ContactsView() {
       {!isLoading && !hasLoadError && contacts.length === 0 && (
         <p>{query.trim() === "" ? t("contacts.empty") : t("contacts.none", { query: query.trim() })}</p>
       )}
+      {/* An empty address book: adding from a file comes first, and there is nothing to save. */}
+      {isEmptyBook && <ContactsFile canSave={false} onAdded={() => void load()} />}
       <ul className="plain-list">
         {contacts.map((c) => (
           <li key={c.id}>
@@ -186,7 +189,7 @@ export function ContactsView() {
           </li>
         ))}
       </ul>
-      <ContactsFile onAdded={() => void load()} />
+      {!isEmptyBook && <ContactsFile canSave onAdded={() => void load()} />}
     </section>
   );
 }

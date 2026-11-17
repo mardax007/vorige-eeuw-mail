@@ -212,7 +212,7 @@ export const nl = {
   "contacts.recentFailed": "De mail met deze persoon kon niet gevonden worden. Bovenaan staat wat er misging.",
   "contacts.needName": "Vul een naam in.",
   "contacts.file.title": "Contactpersonen in een bestand",
-  "contacts.file.text": "Bewaar alle contactpersonen in één bestand, bijvoorbeeld voor een ander e-mailprogramma of uw telefoon. Zo'n bestand (.vcf) kunt u hier ook weer toevoegen.",
+  "contacts.file.text": "Bewaar alle contactpersonen in één bestand, bijvoorbeeld voor een ander e-mailprogramma. Zo'n bestand (.vcf) kunt u hier ook weer toevoegen.",
   "contacts.file.save": "Opslaan als bestand",
   "contacts.file.add": "Toevoegen uit een bestand",
   "contacts.file.saved": "Opgeslagen in {path}",
@@ -390,7 +390,8 @@ export const nl = {
   "phone.pcLinked": "Er is een telefoon gekoppeld. Uw contactpersonen staan ook op die telefoon.",
   "phone.pcCopy":
     "Oude mail die alleen op deze computer staat, komt vanzelf ook op de telefoon als de telefoon op hetzelfde wifi zit en Vorige Eeuw Mail daar open is.",
-  "phone.lastCopy": "De telefoon had die mail het laatst op {date}.",
+  "phone.lastCopy": "Laatst bijgewerkt op de telefoon: {date}.",
+  "phone.noCopyYet": "De telefoon heeft die mail nog niet gekregen. Open Vorige Eeuw Mail op de telefoon, thuis op de wifi.",
   "lan.progress": "Mail van de computer wordt op deze telefoon gezet: {done} van {total}.",
   "lan.done": "De mail van de computer staat nu ook op deze telefoon.",
   "import.phoneFiles":

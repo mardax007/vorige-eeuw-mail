@@ -25,7 +25,8 @@ export function PhoneView() {
  * (decision 26), and when it last did.
  */
 function PcCopyLine() {
-  const [last, setLast] = useState<LastCopy | null>(null);
+  // undefined while asking, null when the phone never had the mail yet.
+  const [last, setLast] = useState<LastCopy | null | undefined>(undefined);
   useEffect(() => {
     let alive = true;
     const look = () =>
@@ -48,6 +49,7 @@ function PcCopyLine() {
     <>
       <p>{t("phone.pcCopy")}</p>
       {when && <p className="calm-line">{t("phone.lastCopy", { date: when })}</p>}
+      {last === null && <p className="calm-line">{t("phone.noCopyYet")}</p>}
     </>
   );
 }

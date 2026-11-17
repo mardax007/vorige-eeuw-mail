@@ -77,7 +77,9 @@ export function ImportProgressView({ progress, onOpen }: ImportProgressViewProps
       {progress.rescued && !progress.error && <p>{t("import.rescued")}</p>}
       {progress.folderId && (
         <div className="button-row">
-          <button type="button" onClick={() => onOpen(progress.folderId ?? "")}>{t("import.open")}</button>
+          <button type="button" className={progress.error ? undefined : "primary"} onClick={() => onOpen(progress.folderId ?? "")}>
+            {t("import.open")}
+          </button>
         </div>
       )}
       {progress.skipped.length > 0 && <SkippedDetails skipped={progress.skipped} />}

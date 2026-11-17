@@ -4,6 +4,8 @@ import { t } from "../../i18n";
 import { useApp } from "../state/AppContext";
 
 interface ContactsFileProps {
+  /** False for an empty address book: saving it would make an empty file. */
+  canSave: boolean;
   /** Called after contacts came in from a file, so the list shows them. */
   onAdded: () => void;
 }
@@ -12,7 +14,7 @@ interface ContactsFileProps {
  * The address book as a .vcf file: saved where the user chooses, so it is never trapped in this
  * program, and read back from such a file (features.md, phase 2b task 3).
  */
-export function ContactsFile({ onAdded }: ContactsFileProps) {
+export function ContactsFile({ canSave, onAdded }: ContactsFileProps) {
   const { showError } = useApp();
   const [isBusy, setIsBusy] = useState(false);
   const [result, setResult] = useState("");
@@ -42,7 +44,13 @@ export function ContactsFile({ onAdded }: ContactsFileProps) {
       const r = await api.importContactsFile(false);
       if (!r) return null;
       onAdded();
-      return r.found === 0 ? t("import.contacts.noneFound") : t("import.contacts.done", { added: r.added });
+      if (r.found === 0) return t("import.contacts.noneFound");
+      const there = r.found - r.added;
+      const lines = [
+        r.added > 0 ? t("import.contacts.done", { added: r.added }) : "",
+        there > 0 ? t("import.contacts.alreadyThere", { count: there }) : "",
+      ];
+      return lines.filter(Boolean).join(" ");
     });
 
   return (
@@ -50,7 +58,7 @@ export function ContactsFile({ onAdded }: ContactsFileProps) {
       <h3 id="contacts-file">{t("contacts.file.title")}</h3>
       <p>{t("contacts.file.text")}</p>
       <div className="button-row">
-        <button type="button" disabled={isBusy} onClick={() => void save()}>
+        <button type="button" disabled={isBusy || !canSave} onClick={() => void save()}>
           {t("contacts.file.save")}
         </button>
         <button type="button" disabled={isBusy} onClick={() => void add()}>
