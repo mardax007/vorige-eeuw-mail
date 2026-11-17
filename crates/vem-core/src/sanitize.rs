@@ -74,17 +74,45 @@ pub fn clean_html(html: &str, inline: &[(String, String, Vec<u8>)], allow_remote
                     None
                 }
                 ("a", "href") => {
-                    (lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:"))
+                    // Never a link to this computer: on a phone a tapped link leads the app's own
+                    // window, and the app itself lives at tauri.localhost.
+                    let local = host_of(&lower).is_some_and(|h| is_local_host(&h));
+                    (!local && (lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:")))
                         .then(|| value.into())
                 }
                 (_, "src" | "href") => None,
                 (_, "class") => None,
+                (_, "style") => Some(safe_style(v).into()),
                 _ => Some(value.into()),
             }
         });
     let html = builder.clean(html).to_string();
     let has_remote_images = *remote_seen.lock().unwrap_or_else(|e| e.into_inner());
     CleanHtml { html, has_remote_images }
+}
+
+/// This computer or phone itself: localhost, any *.localhost name, and loopback addresses.
+fn is_local_host(host: &str) -> bool {
+    let host = host.trim_end_matches('.');
+    host == "localhost"
+        || host.ends_with(".localhost")
+        || host.starts_with("127.")
+        || host == "[::1]"
+        || host == "0.0.0.0"
+}
+
+/// A style attribute without the declarations that could load something or run code: `url()`,
+/// `image-set()`, old `expression()`, and CSS escapes that could spell those. The CSP blocks such
+/// loads as well; this keeps them out of the frame altogether.
+fn safe_style(style: &str) -> String {
+    style
+        .split(';')
+        .filter(|d| {
+            let d = d.to_ascii_lowercase();
+            !["url(", "image-set(", "expression(", "\\", "@import"].iter().any(|bad| d.contains(bad))
+        })
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 /// The part of a host that a person recognises: "ing.nl" for "www.mijn.ing.nl".

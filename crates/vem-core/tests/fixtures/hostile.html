@@ -1,0 +1,51 @@
+<!doctype html>
+<!-- The hostile HTML set (docs/phases/1-spike.md task 13, phase 5 task 2). Every trick below
+     tries to run code, load something or reach the app. HOST is replaced by the test with a
+     local logging web server, so any request that gets out is seen. Nothing here may run or load. -->
+<html>
+<head>
+<meta http-equiv="refresh" content="0; url=http://HOST/refresh">
+<meta http-equiv="Content-Security-Policy" content="default-src *">
+<base href="http://HOST/base/">
+<link rel="stylesheet" href="http://HOST/link.css">
+<link rel="prefetch" href="http://HOST/prefetch">
+<style>
+@import url("http://HOST/import.css");
+body { background: url("http://HOST/css-bg.png"); }
+@font-face { font-family: x; src: url("http://HOST/font.woff"); }
+</style>
+<script>window.top.__vemHostile = "script"; fetch("http://HOST/script");</script>
+<script src="http://HOST/script.js"></script>
+</head>
+<body onload="fetch('http://HOST/onload')">
+<p>Hostile test message: nothing in it may run or load.</p>
+<img src="http://HOST/plain.png" alt="plain">
+<img src="https://HOST/tls.png" alt="tls">
+<img src="x" onerror="fetch('http://HOST/onerror')">
+<img srcset="http://HOST/srcset.png 1x">
+<picture><source srcset="http://HOST/source.png"><img src="cid:none"></picture>
+<div style="background-image: url('http://HOST/inline-style.png')">inline style</div>
+<div style="width: expression(fetch('http://HOST/expr'))">old IE trick</div>
+<svg onload="fetch('http://HOST/svg')"><image href="http://HOST/svg-image.png"/></svg>
+<iframe src="http://HOST/iframe"></iframe>
+<iframe srcdoc="&lt;script&gt;parent.parent.__vemHostile='srcdoc'&lt;/script&gt;"></iframe>
+<object data="http://HOST/object"></object>
+<embed src="http://HOST/embed">
+<video src="http://HOST/video.mp4" autoplay></video>
+<audio src="http://HOST/audio.mp3" autoplay></audio>
+<form action="http://HOST/form" method="post"><input name="q" value="x" autofocus onfocus="this.form.submit()"><button>Verstuur</button></form>
+<a href="javascript:window.top.__vemHostile='javascript'">javascript link</a>
+<a href="data:text/html,&lt;script&gt;alert(1)&lt;/script&gt;">data link</a>
+<a href="file:///etc/hosts">file link</a>
+<a href="intent://scan/#Intent;scheme=zxing;end">intent link</a>
+<a href="tauri://localhost/">tauri link</a>
+<a href="http://tauri.localhost/#/instellingen">app page link</a>
+<a href="http://127.0.0.1:1420/">loopback link</a>
+<a href="https://example.org/link-without-target">web link without a target</a>
+<a href="mailto:piet@example.test?subject=Hoi">mailto link</a>
+<script>
+try { window.top.__TAURI_INTERNALS__.invoke("get_settings"); window.top.__vemHostile = "invoke"; } catch (e) {}
+try { window.parent.postMessage({ cmd: "get_settings" }, "*"); } catch (e) {}
+</script>
+</body>
+</html>
