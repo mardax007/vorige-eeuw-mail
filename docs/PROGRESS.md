@@ -36,8 +36,15 @@ Claude Code updates this file at the end of every session.
      repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
      workflow green and the help pages on GitHub Pages.
   2. Make the updater key and keep it with its password in the backup (phase 4 task 8).
-  3. Register the Google Cloud "Desktop app" client and the Microsoft Entra public client
-     (redirect `http://localhost`), and put their ids in the secrets.
+  3. Google: the Cloud project `vorige-eeuw-mail` (External, consent screen "Vorige Eeuw Mail")
+     and its "Desktop app" client exist since 17 November 2026. Put the client id and secret in
+     `VEM_GOOGLE_CLIENT_ID` and `VEM_GOOGLE_CLIENT_SECRET` (`gh secret set VEM_GOOGLE_CLIENT_ID -R
+     mardax007/vorige-eeuw-mail` asks for the value). The project is still in *testing*: before a
+     family member signs in, fill in a home page and a privacy policy link on the Branding page and
+     press "Publish app" on the Audience page (`PLAN.md`, Google sign-in: testing status signs out
+     every seven days). An Android-type client needs the Android signing key first (step 8).
+     Microsoft: skipped, nobody in `family-inventory.md` uses Outlook.com, and the registration
+     needs an Azure sign-up with a card check (`PLAN.md`, Microsoft).
   4. Try the app against your own Solcon mailbox and a throwaway Gmail account (read-only first),
      and give Claude Code a real old PST and DBX file to import into a local account.
   5. Take the screenshots for `docs/install.md`.
