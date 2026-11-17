@@ -86,21 +86,27 @@ This and 2b are most of the work. Reading comes first.
 ## Exit criteria
 
 - [ ] A new account is added with only an address and a password, Solcon included
-- [ ] Every failure on the way shows sentence, next step, exact server reply and code
+- [x] Every failure on the way shows sentence, next step, exact server reply and code (error
+      catalogue tests in `i18n.test.ts`, `ErrorBox.test.tsx`, setup tests; on GreenMail and the emulator; 17 November 2026)
 - [x] A large mailbox lists quickly (`search_perf`: a folder's first page in 0.3 ms with 100,000
       messages in the index; 17 November 2026)
 - [x] Search gives first results within 0.2 s on 100,000 messages, for all mail, one mailbox and one
       folder alike, and finds "café" when typing "cafe" (`search_perf`: at most 32 ms on the PC, 46 ms
       on the Android emulator; the accent rule in `store/search.rs` tests; 17 November 2026)
-- [ ] HTML mail cannot run scripts or load remote images unasked (the hostile set passes)
-- [ ] A tag set here shows in another mail program (where the server keeps keywords), and a tag set
-      there shows here
-- [ ] The app opens and reads mail with the network off
-- [ ] Killing the app during sync loses nothing and duplicates nothing
-- [ ] Print, "Alle postvakken", "Belangrijk", the "Ongedaan maken" bar and the text-size control work
-- [ ] No password or token in the index, logs, help report or message files
+- [x] HTML mail cannot run scripts or load remote images unasked (the hostile set passes:
+      `tests/hostile_html.rs`, Windows and the Android emulator; 17 November 2026)
+- [x] A tag set here shows in another mail program (where the server keeps keywords), and a tag set
+      there shows here (`tags_go_to_the_server_and_come_back`, GreenMail, two devices; 17 November 2026)
+- [x] The app opens and reads mail with the network off
+      (`after_a_restart_mail_reads_offline_and_no_file_holds_the_password`; 17 November 2026)
+- [x] Killing the app during sync loses nothing and duplicates nothing
+      (`killing_the_app_during_sync_loses_nothing_and_doubles_nothing`; 17 November 2026)
+- [x] Print, "Alle postvakken", "Belangrijk", the "Ongedaan maken" bar and the text-size control work
+      (`App.test.tsx`, `MailView.test.tsx`, `Notices.test.tsx`, `SettingsView.test.tsx`; 17 November 2026)
+- [x] No password or token in the index, logs, help report or message files (every file of the
+      data folder scanned after a restart; `help_report_has_no_addresses`; 17 November 2026)
 - [ ] A new message shows a Windows notification on an installed build, with the window closed,
       and clicking it opens that message
-- [ ] Every word on every screen comes from the Dutch catalogue
+- [x] Every word on every screen comes from the Dutch catalogue (`noLiteralText.test.ts`; 17 November 2026)
 - [ ] One family member used the main screen without help while Martijn watched
 - [ ] Martijn has used it on his own mailbox for a few days

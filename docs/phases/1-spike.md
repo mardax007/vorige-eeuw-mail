@@ -103,21 +103,25 @@ Spike code may be rough, but it lives in the intended layout so that what works 
 ## Exit criteria
 
 - [ ] IMAP: connect, sign in, list, fetch and parse work against the test server and one real account
-- [ ] SMTP: a message sent and received on the test server; a refused send shows the reply verbatim
+- [x] SMTP: a message sent and received on the test server; a refused send shows the reply verbatim
+      (`engine_greenmail.rs`, `smtp.rs` fake-server tests; 17 November 2026)
 - [ ] Settings lookup finds the right servers for the family's real domains, Solcon included
 - [ ] Connections work behind antivirus mail scanning (or the test root), through the Windows store
 - [ ] Unread counts on the real accounts are the same before and after the spike
-- [ ] A secret survives a restart and never appears in plain text in a file or a log
+- [x] A secret survives a restart and never appears in plain text in a file or a log
+      (`after_a_restart_mail_reads_offline_and_no_file_holds_the_password`; 17 November 2026)
 - [ ] Google sign-in works and still works after eight days (or: not needed, per decision 8)
 - [ ] An unsigned installer runs on a family PC, and one update from a GitHub release installs
       there with nobody touching it
 - [ ] A Windows notification shows on the installed build and opens the app when clicked
 - [ ] The core connects, signs in and stores a secret on an Android phone
-- [ ] The hostile HTML sample loads nothing, runs nothing and cannot reach the core
+- [x] The hostile HTML sample loads nothing, runs nothing and cannot reach the core
+      (`tests/hostile_html.rs`, by hand on Windows and the Android emulator; 17 November 2026)
 - [ ] A real PST is read with the right counts, and three messages open as `.eml` elsewhere
 - [x] Search times over 100,000 messages are recorded for all three levels (`search_perf`, PC and
       Android emulator, 17 November 2026; docs/PROGRESS.md)
 - [ ] Capabilities, quota and folder names of each real account are written down
 - [ ] Sent-copy behaviour, keyword support and connection limit are known per provider, from
       throwaway accounts only
-- [ ] `spike-report.md` written; Martijn has decided Tauri or Electron (decision 6)
+- [x] `spike-report.md` written; Martijn has decided Tauri or Electron (decision 6: left to Claude
+      Code, Tauri stays; `../spike-report.md`, 17 November 2026)

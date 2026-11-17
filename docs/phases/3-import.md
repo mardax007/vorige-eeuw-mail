@@ -74,11 +74,19 @@ Before writing readers, collect test files (none of them real mail, none in git 
       APPEND into a family mailbox during testing)
 - [ ] A real PST of several GB imports with a correct count per folder (same rule)
 - [ ] Sent items from a PST show the right sender, recipients and date
-- [ ] An import that is cut off resumes without duplicates
-- [ ] The report lists every skipped message with a reason
-- [ ] An import that does not fit the mailbox is stopped before it starts, with the numbers
-- [ ] The source files are byte-for-byte unchanged afterwards
-- [ ] Imported old mail is found by search at all three levels
-- [ ] Contacts and categories from a PST arrive as contacts and tags
-- [ ] A copy of each imported original file is kept, and deleting it from the menu frees the space
-- [ ] A DBX folder imports with the right count
+- [x] An import that is cut off resumes without duplicates (`an_import_cut_off_halfway_goes_on_without_doubles`; 17 November 2026)
+- [x] The report lists every skipped message with a reason (import tests for headers-only, too
+      large and damaged mail; the real DBX counts added plus skipped against its index; 17 November 2026)
+- [x] An import that does not fit the mailbox is stopped before it starts, with the numbers
+      (`mail_that_does_not_fit_the_mailbox_is_refused_before_anything_happens`; 17 November 2026)
+- [x] The source files are byte-for-byte unchanged afterwards (`import/corrupt_tests.rs` compares
+      every source before and after, real and damaged files; 17 November 2026)
+- [x] Imported old mail is found by search at all three levels (`eml_folder_import_keeps_original_and_skips_repeats`; 17 November 2026)
+- [x] Contacts and categories from a PST arrive as contacts and tags (contacts from the real public
+      PSTs and `outlook_contacts_join_the_address_book_without_overwriting`; categories in
+      `outlook_categories_become_tags_with_state_and_accents_kept`, since no public PST with
+      categories was found; a family PST will show them for real; 17 November 2026)
+- [x] A copy of each imported original file is kept, and deleting it from the menu frees the space
+      (`eml_folder_import_keeps_original_and_skips_repeats`, `originals_only_inside_our_folder`; 17 November 2026)
+- [x] A DBX folder imports with the right count (`real_dbx_file_imports` and a self-made
+      40-message DBX; 17 November 2026)

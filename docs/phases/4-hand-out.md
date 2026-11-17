@@ -38,7 +38,8 @@ GPL-3.0, per-user install, unsigned for now). Read `../PLAN.md` section 6.
 - [ ] A family member installs it from the guide alone
 - [ ] A release published by Martijn installs on that PC while nobody touches it, and the app
       reopens where it was
-- [ ] No update installs while a message is being written
+- [x] No update installs while a message is being written (`installs_only_when_nobody_writes_imports_or_sends`; 17 November 2026)
 - [ ] A release is built and signed by GitHub Actions, with no key on any PC except the backup
-- [ ] Searching for a `VEM-…` code leads to its help page
+- [x] Searching for a `VEM-…` code leads to its help page (one page per code on GitHub Pages,
+      `every_code_has_a_help_page`; 17 November 2026)
 - [ ] The key backups exist and have been tested by restoring one

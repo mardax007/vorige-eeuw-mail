@@ -44,15 +44,22 @@ copies), `../screens.md` and `../PLAN.md` section 5.
 ## Exit criteria
 
 - [ ] A message, a reply and a forward arrive correctly in another mail program
-- [ ] Attachments arrive intact, including file names with accents
-- [ ] Typing part of a name suggests the right contact; a contact survives export and import as `.vcf`
+- [x] Attachments arrive intact, including file names with accents
+      (`attachments_with_accents_and_replies_arrive_intact`, GreenMail; 17 November 2026)
+- [x] Typing part of a name suggests the right contact; a contact survives export and import as `.vcf`
+      (`ComposeView.test.tsx`, `the_address_book_survives_export_and_import`; 17 November 2026)
 - [ ] One copy in Sent, not zero and not two, for each provider in the inventory, tested on a spare
       mailbox at that provider (never a family mailbox)
-- [ ] A failed send keeps the message and shows the server's exact reply, every line
-- [ ] A message written offline is sent once, and only once, when the connection returns
-- [ ] A forced error reaches the report address on the test server once, with the server reply exact
+- [x] A failed send keeps the message and shows the server's exact reply, every line
+      (`a_refused_message_is_kept_with_every_line_of_the_reply`, `smtp.rs` tests, `Notices.test.tsx`; 17 November 2026)
+- [x] A message written offline is sent once, and only once, when the connection returns
+      (`a_message_written_offline_is_sent_once_when_the_connection_returns`, GreenMail; 17 November 2026)
+- [x] A forced error reaches the report address on the test server once, with the server reply exact
       except masked addresses, no address other than the sender's and Martijn's, and no password,
-      token or mail content
-- [ ] A listed log request is answered once; an unlisted install number sends nothing
-- [ ] A wish sent from the app arrives with the app version
-- [ ] Undo send, the signature and smaller photos work; a message in Postvak UIT is sent once
+      token or mail content (`reports_greenmail.rs`, Piet's test mailbox standing in; 17 November 2026)
+- [x] A listed log request is answered once; an unlisted install number sends nothing
+      (`reports_greenmail.rs`; 17 November 2026)
+- [x] A wish sent from the app arrives with the app version (`reports_greenmail.rs`; 17 November 2026)
+- [x] Undo send, the signature and smaller photos work; a message in Postvak UIT is sent once
+      (`send_with_undo_delay_arrives_by_idle_and_keeps_a_sent_copy`, `prefill.test.ts`,
+      `large_photo_is_shrunk`, the offline test above; 17 November 2026)
