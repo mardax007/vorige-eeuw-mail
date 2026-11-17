@@ -395,7 +395,10 @@ fn open_sink<'a>(store: &'a Store, label: &str, size: u64, target: &ImportTarget
             if let Some(q) = a.quota.as_ref()
                 && let Some(limit) = q.limit_kb
                     && q.used_kb + size / 1024 > limit {
-                        return Err(VemError::new(Code::ImportSpace02));
+                        // The numbers go along as details, like SPACE-01's, so Martijn sees how far off it is.
+                        let room = limit.saturating_sub(q.used_kb) / 1024;
+                        return Err(VemError::new(Code::ImportSpace02)
+                            .with_detail(format!("old mail {} MB, room left in the mailbox {room} MB", size / 1024 / 1024)));
                     }
             (a.id, true)
         }
@@ -853,6 +856,25 @@ mod tests {
         let r = run(&s, "j2", &source, &ImportTarget::Local, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!((r.added, r.already_there), (0, 2), "a second import adds nothing twice");
         assert_eq!(r.folder, None, "nothing new, nothing to open");
+    }
+
+    #[test]
+    fn mail_that_does_not_fit_the_mailbox_is_refused_before_anything_happens() {
+        let (_d, s) = store();
+        let box_id = s.add_account("Ria", "ria@example.test", crate::model::AccountKind::Imap, None).unwrap().id;
+        // 3 MB of old mail; the mailbox has 1 MB left of its 100 MB.
+        s.set_quota(&box_id, Some(&crate::model::Quota { used_kb: 99 * 1024, limit_kb: Some(100 * 1024) })).unwrap();
+        let src = tempfile::tempdir().unwrap();
+        let body = "x".repeat(3 * 1024 * 1024);
+        std::fs::write(src.path().join("a.eml"), format!("{}{body}\r\n", eml("Groot", "big"))).unwrap();
+        let source = ImportSource { kind: ImportKind::Eml, path: src.path().to_string_lossy().into(), size: None, label: "Groot".into(), protected: false };
+
+        let target = ImportTarget::Mailbox { account_id: box_id.clone() };
+        let e = run(&s, "j", &source, &target, &|_| {}, &AtomicBool::new(false)).unwrap_err();
+        assert_eq!(e.code(), Some(Code::ImportSpace02));
+        assert_eq!(e.detail.as_deref(), Some("old mail 3 MB, room left in the mailbox 1 MB"));
+        assert!(s.originals().unwrap().is_empty(), "no copy of the file kept");
+        assert!(s.folders(Some(&box_id)).unwrap().is_empty(), "no folder made");
     }
 
     #[test]
