@@ -49,7 +49,19 @@ pub fn provider(sign_in: SignIn) -> Option<ProviderInfo> {
 
 /// Whether this build can sign in this way.
 pub fn available(sign_in: SignIn) -> bool {
-    provider(sign_in).is_some_and(|p| p.client_id.is_some())
+    let has_client = provider(sign_in).is_some_and(|p| p.client_id.is_some());
+    offered(sign_in, cfg!(target_os = "android"), has_client)
+}
+
+/// Google blocks the loopback redirect for apps on Android and wants its Android library there,
+/// tied to the signing key; a Gmail mailbox on a phone takes an app password instead (phase 5
+/// task 3). Microsoft accepts `http://localhost` from any public client, so it stays.
+fn offered(sign_in: SignIn, on_android: bool, has_client: bool) -> bool {
+    match sign_in {
+        SignIn::Password => false,
+        SignIn::Google => has_client && !on_android,
+        SignIn::Microsoft => has_client,
+    }
 }
 
 pub struct Pending {
@@ -235,5 +247,14 @@ mod tests {
     #[test]
     fn password_has_no_provider() {
         assert!(provider(SignIn::Password).is_none());
+    }
+
+    #[test]
+    fn google_takes_an_app_password_on_a_phone() {
+        assert!(!offered(SignIn::Google, true, true), "Google blocks the loopback flow on Android");
+        assert!(offered(SignIn::Google, false, true));
+        assert!(offered(SignIn::Microsoft, true, true), "Microsoft allows http://localhost there");
+        assert!(!offered(SignIn::Microsoft, true, false), "no client id, no browser sign-in");
+        assert!(!offered(SignIn::Password, false, true));
     }
 }

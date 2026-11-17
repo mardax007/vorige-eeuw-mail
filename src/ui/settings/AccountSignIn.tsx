@@ -7,7 +7,7 @@ import { ErrorBox } from "../common/ErrorBox";
 import { PasswordField } from "../common/PasswordField";
 import { SignInWait } from "../common/SignInWait";
 import { useApp } from "../state/AppContext";
-import { providerOf, signInRoute } from "./signIn";
+import { oauthDonePage, providerOf, signInRoute } from "./signIn";
 
 interface AccountSignInProps {
   account: Account;
@@ -94,6 +94,7 @@ function NewPassword({ account }: { account: Account }) {
 /** "Opnieuw inloggen" for a Google or Microsoft mailbox, with "Stoppen" while the browser is open. */
 function SignInAgain({ account }: { account: Account }) {
   const refresh = useRefresh(account.id);
+  const { appInfo } = useApp();
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<VemError | null>(null);
   const isStopping = useRef(false);
@@ -116,7 +117,7 @@ function SignInAgain({ account }: { account: Account }) {
     isStopping.current = false;
     setPhase("busy");
     try {
-      await api.reauthAccount(account.id, t("setup.oauthDonePage"));
+      await api.reauthAccount(account.id, oauthDonePage(appInfo?.isPhone ?? false));
       setPhase("done");
       await refresh();
     } catch (e: unknown) {

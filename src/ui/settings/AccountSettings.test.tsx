@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import { resetMockBackend } from "../../api/mock";
 import { createSampleState } from "../../api/mock/data";
 import { errorText } from "../../i18n";
-import { providerOf, signInRoute } from "./signIn";
+import { oauthDonePage, providerOf, signInRoute } from "./signIn";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -135,5 +135,12 @@ describe("Instellingen on a phone", () => {
   it("has Starten met Windows on a PC", async () => {
     await openSettings();
     expect(screen.getByLabelText("Starten met Windows")).toBeTruthy();
+  });
+});
+
+describe("the page the browser shows after signing in", () => {
+  it("says to close the window on a PC and to go back to the app on a phone", () => {
+    expect(oauthDonePage(false)).toBe("U bent ingelogd. U kunt dit venster sluiten en teruggaan naar Vorige Eeuw Mail.");
+    expect(oauthDonePage(true)).toBe("U bent ingelogd. Open Vorige Eeuw Mail weer om verder te gaan.");
   });
 });

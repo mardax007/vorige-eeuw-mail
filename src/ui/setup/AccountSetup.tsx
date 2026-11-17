@@ -4,6 +4,7 @@ import { isStoppedSignIn, toVemError } from "../../api/errors";
 import type { Account, ServerSettings, VemError } from "../../api/types";
 import { t } from "../../i18n";
 import { ErrorBox } from "../common/ErrorBox";
+import { oauthDonePage } from "../settings/signIn";
 import { useApp } from "../state/AppContext";
 import { CredentialsStep, type SignInRoute } from "./CredentialsStep";
 
@@ -16,7 +17,7 @@ interface AccountSetupProps {
 
 /** "Postvak toevoegen": name and address, then a password or the Google/Microsoft sign-in. */
 export function AccountSetup({ isFirstRun }: AccountSetupProps) {
-  const { reload, go, setLocation } = useApp();
+  const { reload, go, setLocation, appInfo } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>("address");
@@ -162,7 +163,7 @@ export function AccountSetup({ isFirstRun }: AccountSetupProps) {
             }
             onOAuth={() =>
               void run("waiting", () =>
-                api.addAccountOAuth(name.trim(), email.trim(), found, t("setup.oauthDonePage")),
+                api.addAccountOAuth(name.trim(), email.trim(), found, oauthDonePage(appInfo?.isPhone ?? false)),
               )
             }
           />

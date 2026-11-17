@@ -1,4 +1,10 @@
 import type { SignIn, VemError } from "../../api/types";
+import { t } from "../../i18n";
+
+/** The page the browser shows once the sign-in is done. A phone has no window to close. */
+export function oauthDonePage(isPhone: boolean): string {
+  return isPhone ? t("setup.oauthDonePagePhone") : t("setup.oauthDonePage");
+}
 
 const GOOGLE_DOMAINS: readonly string[] = ["gmail.com", "googlemail.com"];
 const MICROSOFT_DOMAINS: readonly string[] = [

@@ -227,6 +227,7 @@ export const nl = {
   "setup.oauthWaiting": "Log in via het venster van uw internetprogramma. Kom daarna hier terug.",
   "setup.stop": "Stoppen",
   "setup.oauthDonePage": "U bent ingelogd. U kunt dit venster sluiten en teruggaan naar Vorige Eeuw Mail.",
+  "setup.oauthDonePagePhone": "U bent ingelogd. Open Vorige Eeuw Mail weer om verder te gaan.",
   "setup.googleAppPassword": "Google laat dit programma niet binnen met uw gewone wachtwoord. Vraag Martijn om een app-wachtwoord voor u te maken, en typ dat hieronder in.",
   "setup.microsoftNotYet": "Dit soort postvak (Outlook.com, Hotmail, Live) kan het programma nog niet openen. Vraag Martijn wat u kunt doen.",
 

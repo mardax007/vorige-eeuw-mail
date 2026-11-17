@@ -154,6 +154,14 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
 - **PST password (17 November 2026).** The content of a protected PST is not encrypted; the file
   only keeps a CRC-32 of the password. The app still asks for it and checks it before reading, out
   of respect for whoever set it. The password is not kept or logged.
+- **Sign-in on Android (17 November 2026, phase 5 task 3).** Address and password work as on
+  Windows. Gmail on a phone takes an **app password**: Google blocks the loopback redirect for apps
+  on Android and wants its own Android library there, tied to the package name and signing key, so
+  the app password is the simpler route that works (Google still offers app passwords to accounts
+  with 2-step verification). Microsoft keeps the browser sign-in with `http://localhost`, which its
+  identity platform accepts from any public client; Outlook.com has no app passwords for IMAP any
+  more. The page the browser shows afterwards says to open the app again. Not yet tried with real
+  Google or Microsoft accounts on a real phone (needs Martijn's client ids).
 - **Drafts stay on this computer.** "Opslaan" keeps the draft in the local index (in the account's
   Concepten folder, or "Op deze computer" when there is none) and does not append it to the server.
   Fewer writes to the mailbox, and no half-written draft on the phone.
