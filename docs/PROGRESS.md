@@ -32,10 +32,12 @@ Claude Code updates this file at the end of every session.
   PC, GreenMail and the emulator is ticked in `docs/phases/` with its test and date, and
   `docs/spike-report.md` is written (17 November 2026).
 - **Martijn, to unblock the rest:**
-  1. Set the Actions secrets (`docs/release.md`, "Once, before the first release"). The public
-     repository `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests
-     workflow green and the help pages on GitHub Pages.
-  2. Make the updater key and keep it with its password in the backup (phase 4 task 8).
+  1. Done 18 November 2026: every Actions secret from `docs/release.md` is set except
+     `VEM_MICROSOFT_CLIENT_ID` (Microsoft skipped, step 3). The public repository
+     `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests workflow green
+     and the help pages on GitHub Pages.
+  2. The updater key exists since 18 November 2026 (`%USERPROFILE%\.tauri\vem-updater.key` and
+     `.pub`). Still to do: copy both files and the password into the backup (phase 4 task 8).
   3. Google: the Cloud project `vorige-eeuw-mail` (External, consent screen "Vorige Eeuw Mail")
      and its "Desktop app" client exist since 17 November 2026. Its id and secret are in the Actions
      secrets `VEM_GOOGLE_CLIENT_ID` and `VEM_GOOGLE_CLIENT_SECRET` (17 November 2026). The project is "In production", unverified
@@ -50,8 +52,10 @@ Claude Code updates this file at the end of every session.
   6. Say whether the envelope icon and mbox import may stay (`DECISIONS.md`, "Build choices").
   7. At the first release, check that the rescue tool's source archives (about 190 MB) are
      attached to the draft (decision 23); the release workflow uploads them.
-  8. Make the Android signing key and put it in the secrets (`docs/release.md`, "Once", step 3).
-     Keep it in the backup: a lost key means every family phone reinstalls.
+  8. The Android signing key exists since 18 November 2026
+     (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`) and is in the secrets. Still to do:
+     copy it and its password into the backup (a lost key means every family phone reinstalls),
+     then the Android-type Google client (step 3).
   9. Phase 5 task 8: the free limited-distribution account at Google before 2027, with each family
      phone added.
   10. On each family phone's make, switch on "Nieuwe mail direct melden", answer Android's battery
