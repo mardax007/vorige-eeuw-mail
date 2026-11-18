@@ -1,26 +1,57 @@
-/* Base: one plain font, text 18px or larger, contrast of at least 7:1, targets of 44px. */
+/* Base: one system font, text 18px or larger, text contrast of at least 7:1, targets of 44px.
+   The look (decided 18 November 2026): warm paper from the icon's envelope, its navy as the one
+   accent, flat areas instead of dark lines, and the open mail as a white sheet on the desk. */
 
 :root {
-  --text-size: 18px;
-  --font: "Segoe UI", system-ui, sans-serif;
+  --text-size: 18px; /* AppProvider sets it from settings.textSize (18-32) */
+  /* Built into the system: Windows 11, Windows 10, Android. No font file, no font host. */
+  --font: "Segoe UI Variable Text", "Segoe UI", Roboto, "Noto Sans", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", Roboto, "Noto Sans", system-ui, sans-serif;
+  --font-mono: Consolas, "Cascadia Mono", "Roboto Mono", "Droid Sans Mono", monospace;
+  --size-title: calc(1em + 9px); /* 27px at 18, 41px at 32 */
+  --size-heading: calc(1em + 4px); /* 22px at 18 */
 
-  --ink: #111111;          /* on white: 18.9:1 */
-  --ink-soft: #333333;     /* on white: 12.6:1 */
-  --paper: #ffffff;
-  --paper-soft: #f2f2f2;   /* --ink on it: 16.9:1 */
-  --line: #595959;
-  --accent: #0a3a8c;       /* white on it: 10.9:1; on white: 10.9:1 */
-  --accent-soft: #dce6f7;  /* --ink on it: 15.9:1 */
-  --danger: #8f1d1d;       /* white on it: 9.1:1 */
-  --warn-paper: #fff4d6;   /* --ink on it: 17.6:1 */
-  --warn-line: #7a5200;
+  --canvas: #f6f2ea;         /* --ink on it: 15.2:1 */
+  --surface: #ffffff;        /* --ink on it: 16.9:1 */
+  --surface-sunken: #f1ece2; /* --ink on it: 14.4:1 */
+  --hover: #efe9de;          /* --ink on it: 13.7:1 */
+  --ink: #1a1d21;
+  --ink-soft: #454b52;       /* 7.3:1 or more on every surface above */
+  --line-strong: #77705f;    /* edges of controls: 4.1:1 or more */
+  --line-quiet: #e2dacb;     /* decoration only, never a control's only edge */
+  --accent: #1f4e79;         /* the icon's navy; white on it 8.7:1, on white 8.7:1 */
+  --accent-hover: #163a5b;
+  --accent-soft: #e4edf6;    /* --ink on it: 14.3:1 */
+  --on-accent: #ffffff;
+  --danger: #9a1b1b;         /* white on it: 8.3:1 */
+  --danger-soft: #fbeceb;
+  --warn-paper: #fbefcf;     /* --ink on it: 14.8:1 */
+  --warn-line: #8a5a00;
+  --notice: #1f2a36;         /* white on it: 14.6:1 */
+  --on-notice: #ffffff;
   --focus: #b35c00;
 
   --target: 44px;
-  --gap: 12px;
-  --radius: 6px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --gap: var(--space-3);
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow-float: 0 10px 32px rgb(26 29 33 / 22%);
+  --ease: 120ms ease-out;
+
+  /* Older names, still used here and there. */
+  --paper: var(--surface);
+  --paper-soft: var(--surface-sunken);
+  --line: var(--line-strong);
 
   color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -39,7 +70,7 @@ body {
   font-size: var(--text-size);
   line-height: 1.5;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--canvas);
 }
 
 h1,
@@ -47,20 +78,19 @@ h2,
 h3,
 h4,
 h5 {
+  font-family: var(--font-display);
+  font-weight: 600;
   line-height: 1.25;
   margin: 0 0 0.5em;
 }
 
-h1 {
-  font-size: 1.3em;
-}
-
+h1,
 h2 {
-  font-size: 1.3em;
+  font-size: var(--size-title);
 }
 
 h3 {
-  font-size: 1.1em;
+  font-size: var(--size-heading);
   margin-top: 1em;
 }
 
@@ -81,30 +111,56 @@ textarea {
   color: inherit;
 }
 
+input[type="checkbox"],
+input[type="radio"],
+progress {
+  accent-color: var(--accent);
+}
+
 button {
   min-height: var(--target);
   min-width: var(--target);
-  padding: 6px 16px;
-  border: 2px solid var(--line);
+  padding: 0.35em 1em;
+  border: 2px solid var(--line-strong);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: var(--surface);
   color: var(--ink);
+  font-weight: 600;
   cursor: pointer;
 }
 
-button:hover {
-  background: var(--paper-soft);
+@media (prefers-reduced-motion: no-preference) {
+  button {
+    transition: background-color var(--ease), border-color var(--ease);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+}
+
+/* Only where there is a mouse: on a touch screen a tapped button would keep its hover look. */
+@media (hover: hover) {
+  button:hover {
+    background: var(--hover);
+    border-color: var(--ink-soft);
+  }
+
+  button.primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  button.danger:hover {
+    background: var(--danger);
+    border-color: var(--ink);
+  }
 }
 
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
-}
-
-button.primary:hover {
-  background: #072a66;
+  color: var(--on-accent);
 }
 
 button.danger {
@@ -117,25 +173,28 @@ button.danger {
 button.danger-outline {
   border-color: var(--danger);
   color: var(--danger);
-  font-weight: 600;
 }
 
-/* :hover too: on a touch screen a tapped button keeps its hover look, and a disabled main
-   button would stay dark with grey text. */
+/* :hover too: a disabled main button must not stay dark with grey text. */
 button:disabled,
 button:disabled:hover {
   cursor: default;
   border-style: dashed;
-  background: var(--paper-soft);
+  border-color: var(--line-strong);
+  background: var(--surface-sunken);
   color: var(--ink-soft);
 }
 
+/* "You are here": a fill plus a bar underneath, so it does not rest on colour alone. */
 button[aria-pressed="true"],
 button.current,
-button[aria-current="page"] {
+button[aria-current="page"],
+button[aria-pressed="true"]:hover,
+button.current:hover,
+button[aria-current="page"]:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
-  font-weight: 600;
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 
 :focus-visible {
@@ -159,6 +218,12 @@ button[aria-current="page"] {
   padding: 6px 8px;
 }
 
+@media (hover: hover) {
+  .link-button:hover {
+    background: var(--accent-soft);
+  }
+}
+
 .small-button {
   align-self: flex-start;
 }
@@ -166,7 +231,7 @@ button[aria-current="page"] {
 .button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
 }
 
@@ -185,8 +250,9 @@ button[aria-current="page"] {
 }
 
 .calm-line {
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--accent-soft);
+  border-left: 6px solid var(--accent);
   border-radius: var(--radius);
 }
 
@@ -203,9 +269,11 @@ button[aria-current="page"] {
 .list-button {
   width: 100%;
   text-align: left;
+  font-weight: 400;
   border-color: transparent;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-quiet);
   border-radius: 0;
+  background: transparent;
 }
 
 .row-address,
@@ -214,7 +282,31 @@ button[aria-current="page"] {
   overflow-wrap: anywhere;
 }
 
+/* Windows contrast themes drop fills and shadows; an outline still shows what is chosen. */
+@media (forced-colors: active) {
+  .message-row.selected,
+  .folder-button.current,
+  button.current,
+  button[aria-pressed="true"],
+  button[aria-current="page"] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  .message-row.unread::before {
+    background: CanvasText;
+  }
+
+  .folder-count {
+    border: 1px solid CanvasText;
+  }
+}
+
 @media print {
+  body {
+    background: none;
+  }
+
   .no-print,
   .top-bar,
   .folder-pane,
@@ -226,7 +318,9 @@ button[aria-current="page"] {
     display: none !important;
   }
 
-  .reading-pane {
+  .reading-pane,
+  .mail-body {
+    background: none !important;
     border: none !important;
     overflow: visible !important;
   }

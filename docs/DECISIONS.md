@@ -125,6 +125,16 @@ one by itself.
   encrypted with the pairing key (option "PC to phone over Wi-Fi", chosen over "mailbox first" and
   "export file to phone"). The design is `docs/pc-to-phone.md`; the network hard rule in `CLAUDE.md`
   is changed for it.
+- **Decision 27, the look: warm paper and one navy (Martijn, 18 November 2026).** Kept simple, but no
+  longer a grid of dark lines. The background is the cream of the icon's envelope (`#f6f2ea`), content
+  sits on white, and the icon's navy (`#1f4e79`) is the only accent: the main button, unread marks and
+  "you are here". Text uses the system font (Segoe UI Variable on Windows 11, Segoe UI on Windows 10,
+  Roboto on Android); nothing is downloaded. Areas are told apart by colour, controls keep a clear
+  2px edge, and the open mail, Write and the pages are white sheets with round corners (edge to edge
+  on a phone). Every text pair is 7:1 or better, control edges and focus 3.9:1 or better. Hover looks
+  only where there is a mouse; unread has a dot besides the bold; Windows contrast themes get an
+  outline on what is chosen. Tokens and contrast numbers are in `src/ui/styles/base.css`. No dark
+  mode: that would be new behaviour.
 
 ## Open
 
@@ -270,3 +280,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-17 | Android backup off: mail stays on the phone, no Google Drive backup and no phone-to-phone transfer (Martijn) |
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |
 | 2026-11-17 | Second design review recorded under Build choices; `tauri-plugin-fs` for saving attachments on Android; question 26 (import on a phone) added |
+| 2026-11-18 | Decision 27: the new look (warm paper, one navy, system font, white sheets), Martijn's yes to the design proposal |

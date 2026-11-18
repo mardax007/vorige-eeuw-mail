@@ -17,9 +17,10 @@ function escapeAttr(value: string): string {
 export function buildSrcdoc(html: string, allowRemoteImages: boolean, textSize: number): string {
   const csp = escapeAttr(mailCsp(allowRemoteImages));
   const style =
-    `body{font-family:"Segoe UI",system-ui,sans-serif;font-size:${textSize}px;line-height:1.5;` +
-    "color:#111;background:#fff;margin:12px;overflow-wrap:anywhere}img{max-width:100%;height:auto}" +
-    "a[href]{color:#0a3a8c}";
+    // The frame cannot read the app's CSS variables; these are base.css's --font, --ink and --accent.
+    `body{font-family:"Segoe UI Variable Text","Segoe UI",Roboto,"Noto Sans",system-ui,sans-serif;` +
+    `font-size:${textSize}px;line-height:1.6;color:#1a1d21;background:#fff;margin:16px 20px;` +
+    "overflow-wrap:anywhere}img{max-width:100%;height:auto}a[href]{color:#1f4e79}";
   return (
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${csp}">` +

@@ -2,9 +2,16 @@
 
 /* Not smaller than the text: docs/screens.md asks for at least 18px. */
 .folder-group h3 {
+  font-family: var(--font);
   font-size: 1em;
-  margin: 12px 4px 4px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 20px 12px 4px;
   overflow-wrap: anywhere;
+}
+
+.folder-group:first-child h3 {
+  margin-top: 4px;
 }
 
 .folder-pane ul {
@@ -20,34 +27,45 @@
   align-items: center;
   gap: 8px;
   text-align: left;
+  font-weight: 400;
   border-color: transparent;
   background: transparent;
   margin-bottom: 2px;
 }
 
-.folder-button.current {
+.folder-button.current,
+.folder-button.current:hover {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: transparent;
+  box-shadow: inset 4px 0 0 var(--accent);
+  font-weight: 700;
 }
 
 .folder-name {
   overflow-wrap: anywhere;
 }
 
+/* The number of unread messages, as a pill. */
 .folder-count {
+  flex-shrink: 0;
+  min-width: 1.8em;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 700;
-  color: var(--accent);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .more-button {
   width: 100%;
   margin-top: 12px;
-  font-weight: 600;
 }
 
 .more-links {
   margin-top: 12px !important;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-quiet);
   padding-top: 8px !important;
 }
 
@@ -58,8 +76,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 2px solid var(--line);
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-quiet);
 }
 
 .search-label {
@@ -85,17 +104,18 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-quiet);
 }
 
 .list-header h2 {
   margin: 0;
-  font-size: 1.1em;
+  font-size: var(--size-heading);
 }
 
 .list-note {
-  padding: 12px;
+  padding: 12px 16px;
 }
 
 .rows {
@@ -105,6 +125,7 @@
 }
 
 .message-row {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -112,9 +133,10 @@
   text-align: left;
   font-weight: 400;
   border: none;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-quiet);
   border-radius: 0;
-  padding: 8px 12px;
+  background: var(--surface);
+  padding: 12px 16px 12px 1.6em;
   min-height: 56px;
 }
 
@@ -123,20 +145,38 @@
   font-weight: 700;
 }
 
-.message-row.selected {
-  background: var(--accent-soft);
-  box-shadow: inset 6px 0 0 var(--accent);
+/* Unread: bold, and a dot as a second sign that is not colour alone. */
+.message-row.unread::before {
+  content: "";
+  position: absolute;
+  left: 0.6em;
+  top: 1.15em;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
-/* Windows contrast themes drop backgrounds and shadows; an outline still shows what is chosen. */
-@media (forced-colors: active) {
-  .message-row.selected,
-  .folder-button.current,
-  button.current,
-  button[aria-current="page"] {
-    outline: 3px solid Highlight;
-    outline-offset: -3px;
+/* Rows and folders stay flat on hover: a tint, no frame. */
+@media (hover: hover) {
+  .folder-button:hover,
+  .list-button:hover {
+    border-color: transparent;
   }
+
+  .list-button:hover {
+    border-bottom-color: var(--line-quiet);
+  }
+
+  .message-row:hover {
+    border-bottom-color: var(--line-quiet);
+  }
+}
+
+.message-row.selected,
+.message-row.selected:hover {
+  background: var(--accent-soft);
+  box-shadow: inset 4px 0 0 var(--accent);
 }
 
 .row-top {
@@ -156,6 +196,8 @@
 
 .row-date {
   white-space: nowrap;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 .row-extras {
@@ -167,7 +209,7 @@
 
 .row-important {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .row-attachment,
@@ -178,39 +220,44 @@
 .tag-chip {
   display: inline-block;
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
 }
 
 .load-more {
-  margin: 12px;
+  margin: 12px 16px;
 }
 
 .outbox-list {
   list-style: none;
-  padding: 0 12px;
+  padding: 0 16px;
 }
 
 .outbox-item {
   padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-quiet);
 }
 
 /* Open message */
 
 .action-row {
+  margin-bottom: 16px;
+}
+
+.message-header h2 {
   margin-bottom: 12px;
 }
 
 .message-header dl {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 2px 12px;
-  margin: 0 0 12px;
+  gap: 4px 16px;
+  margin: 0 0 16px;
 }
 
 .message-header dt {
-  font-weight: 600;
+  font-weight: 400;
+  color: var(--ink-soft);
 }
 
 .message-header dd {
@@ -228,6 +275,7 @@
   padding: 10px 14px;
   background: var(--warn-paper);
   border-left: 6px solid var(--warn-line);
+  border-radius: var(--radius);
 }
 
 .images-blocked {
@@ -237,7 +285,8 @@
   gap: 8px;
   padding: 8px 12px;
   margin-bottom: 12px;
-  background: var(--paper-soft);
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
 }
 
 .attachments ul {
@@ -253,26 +302,33 @@
   margin-bottom: 6px;
 }
 
+/* The open mail: a white sheet lying on the desk. */
 .mail-body {
   flex: 1;
   min-height: 20em;
   display: flex;
+  background: var(--surface);
+  border: 1px solid var(--line-quiet);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .mail-frame {
   flex: 1;
   width: 100%;
   min-height: 20em;
-  border: 1px solid var(--line);
+  border: none;
   background: #ffffff;
 }
 
 .mail-text {
   font-family: var(--font);
   font-size: var(--text-size);
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
+  padding: 16px 20px;
 }
 
 /* Error box (docs/errors.md) */
@@ -280,9 +336,9 @@
 .error-box {
   margin: 8px 0;
   padding: 12px 16px;
-  border: 2px solid var(--danger);
+  border-left: 6px solid var(--danger);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: var(--danger-soft);
 }
 
 .error-sentence {
@@ -295,15 +351,27 @@
 }
 
 .error-reply {
-  font-family: Consolas, "Courier New", monospace;
+  font-family: var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--paper-soft);
+  background: var(--surface);
+  border: 1px solid var(--line-quiet);
+  border-radius: var(--radius-sm);
   padding: 8px;
   margin: 0 0 8px;
   user-select: text;
 }
 
 .error-code {
-  font-family: Consolas, "Courier New", monospace;
+  font-family: var(--font-mono);
+}
+
+/* On a phone the sheet goes from edge to edge. */
+@media (max-width: 639px) {
+  .reading-pane .mail-body {
+    margin: 0 -12px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
 }

@@ -7,7 +7,7 @@
 }
 
 .app.loading {
-  background: var(--paper);
+  background: var(--canvas);
   justify-content: center;
   align-items: center;
 }
@@ -21,14 +21,16 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--gap);
-  padding: 8px 12px;
-  border-bottom: 2px solid var(--line);
-  background: var(--paper-soft);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line-quiet);
+  background: var(--surface);
 }
 
 .app-name {
   margin: 0 12px 0 0;
-  font-size: 1.1em;
+  font-family: var(--font-display);
+  font-size: 1.15em;
+  font-weight: 700;
 }
 
 .top-right {
@@ -43,21 +45,25 @@
 }
 
 .global-error {
-  padding: 8px 12px;
+  padding: 8px 16px;
 }
 
 .page-wrap {
   overflow: auto;
-  padding: 12px 16px 24px;
+  padding: 16px 16px 32px;
 }
 
+/* Instellingen, Contactpersonen, Help and the other pages: a sheet on the desk. */
 .page {
   max-width: 52em;
+  padding: 24px 32px;
+  background: var(--surface);
+  border: 1px solid var(--line-quiet);
+  border-radius: var(--radius-lg);
 }
 
 .back-button {
   font-size: 1.1em;
-  font-weight: 600;
   min-height: 52px;
   padding: 8px 20px;
   margin-bottom: 12px;
@@ -75,9 +81,8 @@
   width: 14em;
   flex-shrink: 0;
   overflow-y: auto;
-  padding: 8px;
-  border-right: 2px solid var(--line);
-  background: var(--paper-soft);
+  padding: 12px 8px;
+  background: var(--canvas);
 }
 
 .mail-main {
@@ -85,6 +90,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--line-quiet);
 }
 
 .mail-columns {
@@ -97,7 +104,8 @@
   width: 42%;
   min-width: 16em;
   overflow-y: auto;
-  border-right: 2px solid var(--line);
+  background: var(--surface);
+  border-right: 1px solid var(--line-quiet);
 }
 
 .reading-pane {
@@ -106,7 +114,8 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 16px 24px;
+  background: var(--canvas);
 }
 
 .reading-pane.empty {
@@ -138,7 +147,8 @@
 
 .bottom-bars:not(:empty) {
   padding: 8px 12px;
-  border-top: 2px solid var(--line);
+  background: var(--canvas);
+  border-top: 1px solid var(--line-quiet);
 }
 
 .notice-bar {
@@ -147,22 +157,24 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--gap);
-  padding: 10px 16px;
-  border-radius: var(--radius);
-  background: var(--ink);
-  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--notice);
+  color: var(--on-notice);
 }
 
 .notice-bar.failed {
   background: var(--danger);
 }
 
-/* On the dark and red bars the blue main button and the orange focus ring were hard to see
-   (1.2:1 to 1.9:1); white keeps both clear (18.9:1 and 9.1:1). */
+/* On the dark and red bars the navy main button and the orange focus ring would be hard to see;
+   white keeps both clear (14.6:1 and 8.3:1). */
+.notice-bar:not(.calm) button,
+.notice-bar:not(.calm) button:hover,
 .notice-bar:not(.calm) button.primary,
 .notice-bar:not(.calm) button.primary:hover {
-  background: #ffffff;
-  border-color: #ffffff;
+  background: var(--on-notice);
+  border-color: var(--on-notice);
   color: var(--ink);
 }
 
@@ -174,7 +186,9 @@
   margin: 8px 12px 0;
   background: var(--accent-soft);
   color: var(--ink);
-  border: 2px solid var(--accent);
+  border: none;
+  border-left: 6px solid var(--accent);
+  border-radius: var(--radius);
 }
 
 /* On a phone the PC-copy line comes and goes by itself; over the bottom of the screen it does
@@ -187,7 +201,7 @@
     bottom: 0;
     z-index: 20;
     margin: 0 8px max(8px, env(safe-area-inset-bottom));
-    box-shadow: 0 2px 12px rgb(0 0 0 / 25%);
+    box-shadow: var(--shadow-float);
   }
 }
 
@@ -196,7 +210,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 6px 16px;
   background: var(--accent-soft);
 }
 
@@ -206,7 +220,7 @@
 }
 
 .sync-error {
-  padding: 8px 12px 0;
+  padding: 8px 16px 0;
 }
 
 .sync-error-account {
@@ -222,16 +236,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgb(26 29 33 / 55%);
 }
 
+/* The transparent border still draws an edge in Windows contrast themes. */
 .dialog {
   max-width: 34em;
   margin: 16px;
-  padding: 20px 24px;
-  border-radius: var(--radius);
-  background: var(--paper);
-  border: 2px solid var(--ink);
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-float);
 }
 
 .popup-panel {
@@ -239,7 +255,7 @@
   padding: 12px 16px;
   border: 2px solid var(--accent);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: var(--surface);
 }
 
 .choice-list {
@@ -260,13 +276,15 @@
 .mail-view.phone .folder-pane {
   width: auto;
   flex: 1;
-  border-right: none;
+}
+
+.mail-view.phone .mail-main {
+  border-left: none;
 }
 
 .folders-button {
   align-self: flex-start;
   margin: 8px 12px 0;
-  font-weight: 600;
 }
 
 .phone-back {
@@ -328,8 +346,25 @@
     overflow: hidden;
   }
 
+  .reading-pane {
+    padding: 12px;
+  }
+
+  /* The sheets go from edge to edge: no room to spare for a desk around them. */
   .page-wrap {
-    padding: 8px 12px 24px;
+    padding: 8px 0 24px;
+  }
+
+  .page-wrap > .back-button {
+    margin: 0 12px 8px;
+  }
+
+  .page {
+    max-width: none;
+    padding: 12px;
+    border: none;
+    border-radius: 0;
+    min-height: 100%;
   }
 
   .bottom-bars:not(:empty) {
