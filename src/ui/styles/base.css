@@ -131,7 +131,8 @@ button:disabled:hover {
 }
 
 button[aria-pressed="true"],
-button.current {
+button.current,
+button[aria-current="page"] {
   background: var(--accent-soft);
   border-color: var(--accent);
   font-weight: 600;

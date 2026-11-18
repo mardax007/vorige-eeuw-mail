@@ -1,7 +1,8 @@
 /* Folders, message rows, the open message, errors. */
 
+/* Not smaller than the text: docs/screens.md asks for at least 18px. */
 .folder-group h3 {
-  font-size: 0.9em;
+  font-size: 1em;
   margin: 12px 4px 4px;
   overflow-wrap: anywhere;
 }
@@ -125,6 +126,17 @@
 .message-row.selected {
   background: var(--accent-soft);
   box-shadow: inset 6px 0 0 var(--accent);
+}
+
+/* Windows contrast themes drop backgrounds and shadows; an outline still shows what is chosen. */
+@media (forced-colors: active) {
+  .message-row.selected,
+  .folder-button.current,
+  button.current,
+  button[aria-current="page"] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
 }
 
 .row-top {
