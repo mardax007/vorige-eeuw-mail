@@ -27,6 +27,11 @@ Claude Code updates this file at the end of every session.
   attached to every release (decision 23), every family phone has Google Play (25), and mail kept
   on the PC reaches the paired phone over the home Wi-Fi (26, task 10, `docs/pc-to-phone.md`),
   built and tested between this PC and the emulator. No open questions are left.
+  On 18 November 2026 Martijn chose three more candidates (decision 29): "Ongewenste e-mail"
+  (C8), readable invitations (C11) and a backup to a USB stick with restore, on the PC (C14). All
+  three are built and tested on this PC with unit tests and the screens' mock; not yet
+  against a real mailbox's junk folder, real Outlook or Google invitations, or a restore on
+  another PC (new exit criteria in `docs/phases/5-android.md`).
 - **Next for Claude Code:** nothing can move without Martijn now: every open exit criterion needs a
   real mailbox, a family PC or phone, or GitHub secrets. Every criterion that can be proven on this
   PC, GreenMail and the emulator is ticked in `docs/phases/` with its test and date, and
@@ -189,6 +194,7 @@ session log for 2026-11-17.)
 | 2026-11-17 | Google Cloud project `vorige-eeuw-mail` with its "Desktop app" client, published (unverified, personal use); `docs/privacy.md` on GitHub Pages as its privacy policy. Third design review (ux-engine) of the screens changed since the second, every finding fixed: contact files on a phone (save and add did nothing), the phone's copy line ends when a copy breaks off and a full phone is said once, Doorsturen does not open without its attachments, the mailbox-full import message in Dutch and right on a phone, smaller texts and buttons, a line while Doorsturen makes the attachments ready. Contact files saved and added on the Android emulator through the system's save and pick screens | Android's pick and save screens give a content:// address everywhere, not only for attachments; every file the user picks must go through the fs plugin | Martijn: the rest of the list above |
 | 2026-11-18 | Test mail in bulk: `scripts/seed-greenmail.mjs` (with `seed-data.mjs`) fills five GreenMail mailboxes in Solcon, Gmail, Outlook and plain styles with about 3,500 made-up Dutch messages over three years (nested folders, `$vem_` labels, threads with In-Reply-To and References, read and unread, star, answered, drafts, junk, trash, photos and PDFs, newsletters with remote images, the three warning samples) and writes 250 made-up contacts as vCard files; local hosts only (CLAUDE.md, Commands). On the emulator the seeded `jan@example.test` synced: folder roles from the Dutch and Gmail names, nested folders as "Werk / Projecten", labels in the folder list, and the "geld van een nieuwe afzender" warning on the sample | GreenMail's folder separator is "."; `guess_role` already covers every provider name used. Keywords without the `$vem_` prefix (Thunderbird's `$label1`, `NonJunk`) are rightly ignored | Martijn: try the five mailboxes on the PC (needs the test CA in his own Windows store, his call) |
 | 2026-11-18 | The new look (decision 27, Martijn's yes): tokens rewritten in `base.css`, then `mail.css`, `layout.css`, `forms.css` and the mail frame's own style. Checked in Chrome at 1400 px and at 375 px (list, open message, Instellingen, Write, text size 32: no sideways scroll, buttons wrap) | The proposal's contrast numbers hold when computed (lowest text pair 7.17:1, `--accent` on `--hover`). The settings page's "Terug naar de mail" sits outside the sheet, so on a phone it needed its own side margin | Martijn: look at it on the PC and phone |
+| 2026-11-18 | Decision 29 built. C8: "Ongewenste e-mail" in the reading pane moves a message to the account's junk folder, and "Geen ongewenste e-mail" back to Postvak IN, through the existing move with its undo. C11: `vem-core/src/invite.rs` reads the first VEVENT of a text/calendar part or .ics attachment (folded lines, TZID and Windows zone names, all-day, cancelled, repeating); `InviteBox` shows Wat, Wanneer, Waar and Van in the reader's own time. C14: `vem-core/src/backup.rs` writes the index (VACUUM INTO), mail and originals to a dated folder with a manifest, under a temporary name until done; restore copies into the data folder, the app restarts and swaps it in before the index opens, clears pending work and forgets a pairing whose key stayed behind. Two new error codes (VEM-BACKUP-WRITE-01, -READ-01) with help pages. Checked: 200 core tests, 185 screen tests, clippy for Windows and Android, screens at 1400 px and 375 px | Passwords and the pairing key are DPAPI-sealed to this PC's user, so a backup cannot carry them; after a restore on another PC each mailbox asks for its password again. A keyword for junk could not be undone, a move can | Martijn: try junk on Solcon and Gmail, open a real Outlook and Google invitation, restore a backup on a second PC |
 
 ## Ideas parked
 
@@ -210,5 +216,5 @@ Things that came up but are not in the current phase. Do not build them without 
 - QRESYNC through Pimalaya's `io-imap`, once its API settles.
 - A KPN entry in the provider table, once KPN publishes the Mail en Cloud server names.
 - Automatic tagging rules (left out of version 1 on purpose; see `features.md`, "Out").
-- Read aloud (C5), "This is spam" (C8), photo view (C9), conversations (C10), readable invites
-  (C11), backup of everything (C14): candidates not chosen yet.
+- Read aloud (C5), photo view (C9), conversations (C10): candidates not chosen yet. C8, C11 and
+  C14 were chosen on 18 November 2026 (decision 29).
