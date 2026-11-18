@@ -4,9 +4,7 @@ Deze melding komt uit **Vorige Eeuw Mail**, het e-mailprogramma van de familie.
 
 **Wat er aan de hand is:** Er is niet genoeg ruimte in uw postvak voor de oude mail.
 
-**Wat u kunt doen:** Onder Details staat hoe groot de oude mail is en hoeveel ruimte er nog in uw
-postvak is (oude mail / vrij). Kies bij "Waar moet de mail heen?" de eerste keuze (op deze computer
-of op deze telefoon) en druk opnieuw op Ophalen.
+**Wat u kunt doen:** Onder Details staat hoe groot de oude mail is en hoeveel ruimte er nog is (oude mail / vrij). Kies bij Waar moet de mail heen? de eerste keuze (op dit apparaat) en druk opnieuw op Ophalen.
 
 Onder de melding staat soms "De server zei" met Engelse tekst. Dat is het letterlijke antwoord van
 uw e-mailprovider. Martijn kan daaraan zien wat er precies mis ging; u hoeft het niet te begrijpen.

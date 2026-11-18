@@ -142,7 +142,7 @@ The screen labels are "De server zei" and, when no server was involved, "Details
 | `VEM-IMPORT-READ-04` | Dit bestand is een kopie die Outlook van een postvak bijhoudt. Die kan het programma niet lezen. | Voeg dat postvak hier toe met uw e-mailadres. Dan komt de mail vanzelf binnen. | phases 1-4 |
 | `VEM-IMPORT-READ-05` | Dit Outlook-bestand heeft een wachtwoord, en dat wachtwoord klopt niet. | Typ het wachtwoord van het bestand opnieuw. Weet u het niet meer, vraag het dan aan Martijn. | phases 1-4 |
 | `VEM-IMPORT-SPACE-01` | Er is niet genoeg ruimte op deze computer om de oude mail op te halen. | Maak ruimte vrij, bijvoorbeeld bij Originele bestanden, en probeer het opnieuw. | phases 1-4 |
-| `VEM-IMPORT-SPACE-02` | Er is niet genoeg ruimte in uw postvak voor de oude mail. | Kies Op deze computer bewaren. | phases 1-4 |
+| `VEM-IMPORT-SPACE-02` | Er is niet genoeg ruimte in uw postvak voor de oude mail. | Onder Details staat hoe groot de oude mail is en hoeveel ruimte er nog is (oude mail / vrij). Kies bij Waar moet de mail heen? de eerste keuze (op dit apparaat) en druk opnieuw op Ophalen. | phases 1-4 |
 | `VEM-STORE-WRITE-01` | Het programma kon niets opslaan op deze computer. | Misschien is de schijf vol. Maak ruimte vrij en probeer het opnieuw. | phases 1-4 |
 | `VEM-STORE-READ-01` | Bewaarde mail kon niet gelezen worden. | Sluit het programma met Afsluiten en open het opnieuw. Blijft dit komen, vraag het dan aan Martijn. | phases 1-4 |
 | `VEM-STORE-SECRET-01` | Het bewaarde wachtwoord kon niet gelezen worden. | Typ het wachtwoord van dit postvak opnieuw in. | phases 1-4 |
