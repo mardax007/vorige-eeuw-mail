@@ -141,6 +141,27 @@ one by itself.
   longer carry the same number as the installed app and so be skipped. The rest stays as it was:
   a draft first, installed on Martijn's own PC, then published by hand (`CLAUDE.md`, Updates); once
   published, PCs install it by themselves when idle and phones offer "Bijwerken".
+- **Decision 29, three more candidates for version 1 (Martijn, 18 November 2026: "C14, C8, C11").**
+  Built as phase 5 tasks 11 to 13 (`phases/5-android.md`):
+  - **C8, "Ongewenste e-mail".** A button in the reading pane moves the message to its account's
+    Ongewenste e-mail folder; inside that folder the button reads "Geen ongewenste e-mail" and moves
+    it to Postvak IN. It is an ordinary move, with "Ongedaan maken". The move itself is what tells
+    the server: Gmail, Outlook.com and the usual spam filters learn from mail moved into or out of
+    the junk folder. No `$Junk` keyword is set, because a keyword reaches the server at once and
+    could not be undone. An account without such a folder (mail kept on the PC) shows no button.
+  - **C11, invitations.** A message with an invitation (`text/calendar` or an `.ics` file) shows a
+    box above the text with what, when (in the device's own time), where and who invites; a
+    cancellation says so. No accept or decline buttons, since those send mail and there is no
+    calendar (`features.md`, Out). The `.ics` stays in the attachments, to open in a calendar.
+  - **C14, backup to a USB stick, Windows only** (the phone keeps no backup, 17 November 2026).
+    Instellingen > "Reservekopie maken" writes a folder "Vorige Eeuw Mail reservekopie <date>" on
+    the chosen drive: the index, every message file, the kept original import files and a short
+    description. Never passwords, tokens, the pairing key or the log. "Reservekopie terugzetten"
+    checks a chosen backup, asks once, copies it in and restarts the app. What was there before is
+    kept in the data folder as `voor-terugzetten` until the next restore. A restore drops the
+    actions still waiting for the server and anything unsent in Postvak UIT, so restoring never
+    sends or changes mail. On another PC each mailbox asks for its password once, and the phone is
+    paired again.
 
 ## Open
 
@@ -289,3 +310,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-18 | Decision 27: the new look (warm paper, one navy, system font, white sheets), Martijn's yes to the design proposal |
 | 2026-11-18 | Decision 28: the release workflow numbers every build itself, so each one is an update |
 | 2026-11-18 | Build choices kept: mbox import and the envelope icon (Martijn) |
+| 2026-11-18 | Decision 29: C8 (Ongewenste e-mail), C11 (invitations) and C14 (backup to USB) chosen (Martijn) |

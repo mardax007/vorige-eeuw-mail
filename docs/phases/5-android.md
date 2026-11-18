@@ -42,6 +42,14 @@ mobile support is behind its desktop support; check the current plugin list for 
     by itself; the phone's copy follows the PC (moves, read, star, deletions). On the phone "Oude
     mail ophalen" offers only "Uit een ander postvak".
 
+Added on 18 November 2026 (decision 29), for Windows and the phone alike unless said otherwise:
+
+11. **"Ongewenste e-mail" (C8).** The reading-pane button that moves a message to the account's junk
+    folder, and "Geen ongewenste e-mail" back to Postvak IN, with "Ongedaan maken".
+12. **Invitations shown readably (C11).** What, when, where and who invites, above the text.
+13. **Backup to a USB stick (C14), Windows only.** "Reservekopie maken" and "Reservekopie
+    terugzetten" in Instellingen, with progress and "Stoppen"; no secrets in the backup.
+
 ## Exit criteria
 
 - [ ] The APK installs on each Android phone in the inventory
@@ -55,3 +63,8 @@ mobile support is behind its desktop support; check the current plugin list for 
       the PC
 - [ ] Old mail kept only on the PC shows on the paired phone on the same Wi-Fi, without a firewall
       question on the PC (Martijn's PC and a family phone)
+- [ ] A message marked "Ongewenste e-mail" lands in the junk folder on the server too, and back
+      with "Geen ongewenste e-mail"
+- [ ] An invitation from Outlook and one from Google Agenda show the right day, time and place
+- [ ] A backup made on one PC is restored on another; the mail, labels, contacts and settings are
+      there, and only the passwords are asked again

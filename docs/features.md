@@ -33,6 +33,9 @@ to every feature.
 | Contacts on the phone | 5 | QR pairing; see "Contacts" below |
 | Export local mail | 3 | mbox or EML, because local mail has no other backup |
 | Silent updates | 4 | Published on GitHub; every PC updates itself when idle, no question asked. `PLAN.md` section 6 |
+| "Ongewenste e-mail" (C8) | 5 | Move to the junk folder and back, with undo (decision 29) |
+| Invitations shown readably (C11) | 5 | What, when, where and who invites, above the text (decision 29) |
+| Backup to a USB stick (C14) | 5 | Windows only: everything but passwords, and a restore (decision 29) |
 
 Error reports, log requests and the wish button come in 2b because they send email, which 2b builds.
 Phase 2a already writes the log and builds the error box.
@@ -85,7 +88,7 @@ Phase 2a already writes the log and builds the error box.
 
 Each needs Martijn's yes before it is built. Ordered by how much it helps an older user for its cost.
 "Cost" is a rough guess of the work. C1, C2, C3, C4, C6, C7 and C12 were chosen on 16 November 2026
-(decision 20) and are now in the table above; they stay listed here so the numbers keep their
+(decision 20), C8, C11 and C14 on 18 November 2026 (decision 29); all are now in the table above. They stay listed here so the numbers keep their
 meaning.
 
 | # | Feature | Why | Cost |
@@ -97,13 +100,13 @@ meaning.
 | C5 | Read aloud | Windows' own voices read a message out loud. Helps tired or weak eyes | Small |
 | C6 | Signature (chosen) | One plain-text signature per account | Small |
 | C7 | All inboxes (chosen) | One "Alle postvakken" view over every account, next to each account's own Postvak IN | Medium |
-| C8 | "This is spam" | Move to the Junk folder; tells the server where it supports that | Small |
+| C8 | "This is spam" (chosen) | Move to the Junk folder; tells the server where it supports that | Small |
 | C9 | Photo view | Pictures in a message shown large, with "Save all photos" | Medium |
 | C10 | Conversations | Replies grouped under the first message. Off by default; many older users find it confusing | Medium |
-| C11 | Calendar invites shown readably | A received invitation shows date, time and place in plain words. No calendar in the app | Small |
+| C11 | Calendar invites shown readably (chosen) | A received invitation shows date, time and place in plain words. No calendar in the app | Small |
 | C12 | Start with Windows (chosen) | The app starts hidden at sign-in so new mail is noticed | Small |
 | C13 | Contacts on several devices (chosen) | QR pairing, encrypted through the user's own mailbox (decision 19) | Medium |
-| C14 | Backup of everything | One button that copies the whole store (mail, tags, contacts, settings, no passwords) to a USB disk, and a restore | Medium |
+| C14 | Backup of everything (chosen) | One button that copies the whole store (mail, tags, contacts, settings, no passwords) to a USB disk, and a restore | Medium |
 
 ## Out
 
