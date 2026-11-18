@@ -37,7 +37,7 @@ Claude Code updates this file at the end of every session.
      `mardax007/vorige-eeuw-mail` exists since 17 November 2026, with the Tests workflow green
      and the help pages on GitHub Pages.
   2. The updater key exists since 18 November 2026 (`%USERPROFILE%\.tauri\vem-updater.key` and
-     `.pub`). Still to do: copy both files and the password into the backup (phase 4 task 8).
+     `.pub`). Martijn copied both files and the password into his backup (18 November 2026).
   3. Google: the Cloud project `vorige-eeuw-mail` (External, consent screen "Vorige Eeuw Mail")
      and its "Desktop app" client exist since 17 November 2026. Its id and secret are in the Actions
      secrets `VEM_GOOGLE_CLIENT_ID` and `VEM_GOOGLE_CLIENT_SECRET` (17 November 2026). The project is "In production", unverified
@@ -53,9 +53,9 @@ Claude Code updates this file at the end of every session.
   7. At the first release, check that the rescue tool's source archives (about 190 MB) are
      attached to the draft (decision 23); the release workflow uploads them.
   8. The Android signing key exists since 18 November 2026
-     (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`) and is in the secrets. Still to do:
-     copy it and its password into the backup (a lost key means every family phone reinstalls),
-     then the Android-type Google client (step 3).
+     (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`), is in the secrets and, with its
+     password, in Martijn's backup (18 November 2026). Still to do: the Android-type Google
+     client (step 3).
   9. Phase 5 task 8: the free limited-distribution account at Google before 2027, with each family
      phone added.
   10. On each family phone's make, switch on "Nieuwe mail direct melden", answer Android's battery
@@ -70,9 +70,8 @@ Claude Code updates this file at the end of every session.
       "slowest search". Send Claude Code the output.
   14. Mail from the PC on the phone (task 10): with the phone paired and both on the home Wi-Fi,
       import some old mail on your PC and wait two minutes with the app open on the phone. Check
-      that Windows asked nothing about the firewall and that the folders show on the phone. Also
-      remove the two leftover firewall rules named "tcplisten.exe" (Windows Defender Firewall,
-      Inbound rules) from a test of 17 November; that program is gone.
+      that Windows asked nothing about the firewall and that the folders show on the phone. (The two leftover firewall
+      rules named "tcplisten.exe" are removed, 18 November 2026.)
   15. A debug APK shows a white page for about 8 seconds at start on the emulator before the
       list; check whether the release APK on a real phone does the same.
 
