@@ -49,7 +49,7 @@ Claude Code updates this file at the end of every session.
   4. Try the app against your own Solcon mailbox and a throwaway Gmail account (read-only first),
      and give Claude Code a real old PST and DBX file to import into a local account.
   5. Take the screenshots for `docs/install.md`.
-  6. Say whether the envelope icon and mbox import may stay (`DECISIONS.md`, "Build choices").
+  6. Done 18 November 2026: the envelope icon and mbox import stay (`DECISIONS.md`, "Build choices").
   7. The first release ran on 18 November 2026: the draft `v0.1.0` has the installer and its
      signature, `latest.json`, `vorige-eeuw-mail.apk`, `android.json` and the 14 source archives
      of the rescue tool (decision 23), all signed with the updater key. On 18 November 2026 Claude

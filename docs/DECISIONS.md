@@ -235,10 +235,10 @@ Made while building phases 1 to 4. None of them changes a hard rule; each is eas
 - **mbox import** is built next to PST, DBX, EML and Windows Live Mail, because it costs little and
   covers exports from Gmail Takeout and other programs. It also reads a Thunderbird folder tree.
   Thunderbird stays excluded as a *source we look for*; the app never searches for it.
-  **(Martijn: say if mbox should go.)**
+  **Martijn: keep it (18 November 2026).**
 - **Release builds unwind on a panic instead of aborting**, so a damaged PST that trips the
   `outlook-pst` crate ends that import with an error, not the whole app.
-- **The app icon** is a white envelope on dark blue (`assets/icon.svg`). Martijn may want another.
+- **The app icon** is a white envelope on dark blue (`assets/icon.svg`). Martijn: keep it (18 November 2026).
 - **Screen changes from the UX review:** Contactpersonen sits in the top bar (no longer under Meer
   mappen), and Afsluiten moved from the top bar to the bottom of Instellingen (the icon next to the
   clock keeps it too). The list of skipped import folders is copied with "Lijst kopiëren", because
@@ -288,3 +288,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-17 | Second design review recorded under Build choices; `tauri-plugin-fs` for saving attachments on Android; question 26 (import on a phone) added |
 | 2026-11-18 | Decision 27: the new look (warm paper, one navy, system font, white sheets), Martijn's yes to the design proposal |
 | 2026-11-18 | Decision 28: the release workflow numbers every build itself, so each one is an update |
+| 2026-11-18 | Build choices kept: mbox import and the envelope icon (Martijn) |
