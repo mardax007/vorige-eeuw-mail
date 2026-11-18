@@ -187,6 +187,16 @@ describe("message buttons", () => {
     expect(await screen.findByText("Het bericht is verplaatst naar Vakantie.")).toBeTruthy();
   });
 
+  it("shows an invitation readably, pointing at its calendar file", async () => {
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Herinnering afspraak griepprik/ }));
+    const box = within(await screen.findByRole("region", { name: "Uitnodiging" }));
+    expect(box.getByText("Griepprik")).toBeTruthy();
+    expect(box.getByText(/dinsdag 24 november 2026, \d\d:00 tot \d\d:00/)).toBeTruthy();
+    expect(box.getByText("Huisartsenpraktijk De Linde, Kerkstraat 4")).toBeTruthy();
+    expect(box.getByText(/open dan de bijlage uitnodiging\.ics/)).toBeTruthy();
+  });
+
   it("moves a message to Ongewenste e-mail and back to Postvak IN", async () => {
     const user = await renderApp();
     await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));

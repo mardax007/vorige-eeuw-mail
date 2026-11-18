@@ -271,6 +271,47 @@
   flex-wrap: wrap;
 }
 
+.invite-box {
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  border-left: 6px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.invite-box h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.invite-box dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+
+.invite-box dt {
+  color: var(--ink-soft);
+}
+
+.invite-box dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.invite-box p {
+  margin: var(--space-2) 0 0;
+}
+
+/* Called off: the danger colour and the words say so, not the colour alone. */
+.invite-box.cancelled {
+  background: var(--danger-soft);
+  border-left-color: var(--danger);
+}
+
+.invite-cancelled {
+  font-weight: 700;
+}
+
 .mail-warning {
   padding: 10px 14px;
   background: var(--warn-paper);

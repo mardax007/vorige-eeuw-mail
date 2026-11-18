@@ -1,6 +1,6 @@
 // Made-up Dutch sample data for the mock backend. No real people or addresses.
 
-import type { Account, Contact, MailWarning, MessageDetail, Settings, Tag } from "../types";
+import type { Account, Contact, Invite, MailWarning, MessageDetail, Settings, Tag } from "../types";
 import type { MockFolder, MockState } from "./state";
 
 const SOLCON = "acc-solcon";
@@ -104,6 +104,7 @@ interface Row {
   remote?: boolean;
   attach?: [string, number, string];
   warnings?: MailWarning[];
+  invite?: Invite;
 }
 
 const rows: Row[] = [
@@ -112,7 +113,7 @@ const rows: Row[] = [
   { folderId: "f-s-inbox", from: ["Energiebedrijf Voorbeeld", "klantenservice@energie-voorbeeld.nl"], subject: "Uw jaarnota staat klaar", text: "Geachte mevrouw Jansen,\n\nUw jaarnota staat klaar in Mijn Omgeving.", hours: 20, tags: ["t-rekeningen"], html: "<h2>Uw jaarnota staat klaar</h2><p>Geachte mevrouw Jansen,</p><p>Uw jaarnota over het afgelopen jaar staat klaar.</p><p><img src=\"https://plaatjes.voorbeeld.invalid/logo.png\" alt=\"Logo\"></p>", remote: true },
   { folderId: "f-s-inbox", from: ["ING Bank", "service@ing-veilig-inloggen.example"], subject: "Dringend: bevestig uw gegevens", text: "Uw rekening wordt geblokkeerd. Klik op de link.", hours: 26, unread: true, html: "<p>Beste klant,</p><p>Uw rekening wordt vandaag geblokkeerd. Log direct in via <a href=\"https://ing-veilig-inloggen.example/login\">www.ing.nl</a>.</p>", warnings: [{ kind: "linkMismatch", shown: "www.ing.nl", actual: "ing-veilig-inloggen.example" }, { kind: "firstContactMoney", shown: null, actual: null }] },
   { folderId: "f-s-inbox", from: ["Kees Jansen", "kees.jansen@voorbeeld.nl"], subject: "Verjaardag tante Truus", text: "Hoi zus,\n\nVergeet je niet dat tante Truus volgende week 90 wordt?\n\nKees", hours: 50, important: true, tags: ["t-familie"] },
-  { folderId: "f-s-inbox", from: ["Huisartsenpraktijk De Linde", "assistente@delinde-voorbeeld.nl"], subject: "Herinnering afspraak griepprik", text: "Beste mevrouw Jansen,\n\nU bent welkom voor de griepprik op dinsdag 24 november tussen 14.00 en 16.00 uur.", hours: 75, important: true },
+  { folderId: "f-s-inbox", from: ["Huisartsenpraktijk De Linde", "assistente@delinde-voorbeeld.nl"], subject: "Herinnering afspraak griepprik", text: "Beste mevrouw Jansen,\n\nU bent welkom voor de griepprik op dinsdag 24 november tussen 14.00 en 16.00 uur.", hours: 75, important: true, attach: ["uitnodiging.ics", 1_200, "text/calendar"], invite: { summary: "Griepprik", start: { wall: "2026-11-24T14:00:00", zone: "Europe/Amsterdam", allDay: false }, end: { wall: "2026-11-24T16:00:00", zone: "Europe/Amsterdam", allDay: false }, location: "Huisartsenpraktijk De Linde, Kerkstraat 4", organizer: { name: "Huisartsenpraktijk De Linde", email: "assistente@delinde-voorbeeld.nl" }, cancelled: false, repeats: false } },
   { folderId: "f-s-inbox", from: ["Tennisclub Smash", "secretariaat@smash-voorbeeld.nl"], subject: "Nieuwsbrief november", text: "Beste leden,\n\nDe baan is vanaf december overdekt.", hours: 98, html: "<h1 style=\"color:#0b3d91\">Nieuwsbrief</h1><p>Beste leden,</p><p>De baan is vanaf december overdekt. <b>Kom gezellig kijken!</b></p><p><img src=\"https://plaatjes.voorbeeld.invalid/baan.jpg\" alt=\"De nieuwe baan\"></p>", remote: true },
   { folderId: "f-s-inbox", from: ["Wim Peters", "wim.peters@voorbeeld.nl"], subject: "Sleutel", text: "Hoi Ria,\n\nIk heb je reservesleutel nog. Zal ik hem morgen langsbrengen?\n\nWim", hours: 120 },
   { folderId: "f-s-inbox", from: ["Gemeente Voorbeeld", "info@gemeente-voorbeeld.nl"], subject: "Afvalkalender 2027", text: "Geachte inwoner,\n\nIn de bijlage vindt u de afvalkalender voor 2027.", hours: 160, tags: ["t-bewaren"], attach: ["afvalkalender-2027.pdf", 380_000, "application/pdf"] },
@@ -187,6 +188,7 @@ function toMessage(row: Row, index: number, now: number): MessageDetail {
     warnings: row.warnings ?? [],
     messageIdHeader: `<sample-${index + 1}@voorbeeld.nl>`,
     references: [],
+    invite: row.invite ?? null,
   };
 }
 

@@ -168,6 +168,8 @@ pub struct MessageDetail {
     pub warnings: Vec<MailWarning>,
     pub message_id_header: Option<String>,
     pub references: Vec<String>,
+    /// An invitation in the message, shown readably above the text (C11).
+    pub invite: Option<crate::invite::Invite>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -436,6 +438,7 @@ mod tests {
             warnings: vec![],
             message_id_header: None,
             references: vec![],
+            invite: None,
         };
         let v = serde_json::to_value(&d).unwrap();
         assert_eq!(v["subject"], "s");

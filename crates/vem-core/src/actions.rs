@@ -316,6 +316,7 @@ pub fn message_detail(store: &Store, key: &str, show_remote: bool) -> Result<Mes
         warnings,
         message_id_header: m.message_id_hdr.clone(),
         references: m.references.clone(),
+        invite: crate::invite::find(&raw),
         summary: m.summary,
     })
 }

@@ -79,6 +79,26 @@ export interface MailWarning {
   actual?: string | null;
 }
 
+/** A moment as the invitation wrote it; the screen turns it into the device's own time. */
+export interface InviteTime {
+  /** "2026-11-20T14:00:00", or "2026-11-20" for a whole day. */
+  wall: string;
+  /** "UTC", an IANA zone, the invitation's own zone name, or null for a floating time. */
+  zone?: string | null;
+  allDay: boolean;
+}
+
+/** An invitation in a message (C11): shown readably, never answered from the app. */
+export interface Invite {
+  summary?: string | null;
+  start?: InviteTime | null;
+  end?: InviteTime | null;
+  location?: string | null;
+  organizer?: Addr | null;
+  cancelled: boolean;
+  repeats: boolean;
+}
+
 export interface MessageDetail extends MessageSummary {
   cc: Addr[];
   replyTo: Addr[];
@@ -91,6 +111,7 @@ export interface MessageDetail extends MessageSummary {
   warnings: MailWarning[];
   messageIdHeader?: string | null;
   references: string[];
+  invite?: Invite | null;
 }
 
 export type SearchScope =

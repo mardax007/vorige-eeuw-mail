@@ -8,6 +8,7 @@ import { TagChip } from "../common/TagChip";
 import { formatAddressList } from "../compose/address";
 import { displayName, formatBytes, readableDate } from "../format";
 import { useApp } from "../state/AppContext";
+import { InviteBox } from "./InviteBox";
 import { LabelMenu } from "./LabelMenu";
 import { MailFrame } from "./MailFrame";
 import { MoveMenu } from "./MoveMenu";
@@ -225,6 +226,7 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
           {warningText(w)}
         </p>
       ))}
+      {message.invite && <InviteBox invite={message.invite} attachments={message.attachments} />}
       {message.html && message.hasRemoteImages && !message.remoteImagesShown && (
         <div className="images-blocked no-print">
           <span>{t("read.imagesBlocked")}</span>
