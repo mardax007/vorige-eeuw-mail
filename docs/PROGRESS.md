@@ -60,7 +60,11 @@ Claude Code updates this file at the end of every session.
      `releases/latest/download/latest.json` link only works once it is published). Still to do:
      install the APK on your phone (no phone was connected over USB), use both for a day, then
      publish (`docs/release.md`, "Every release", steps 4 to 6). After publishing, the next start
-     of the PC app should log no update failure.
+     of the PC app should log no update failure. Later that day the draft was rebuilt in place from
+     6fcefd4 (the new look, decision 27; run 44333621209, both jobs green), its installer checked
+     against the updater key again (good) and installed over the first one on this PC; it starts.
+     It is still numbered 0.1.0; from the next run on the workflow numbers builds itself
+     (decision 28), so that one will be `0.1.<run number>` and an update for every installed app.
   8. The Android signing key exists since 18 November 2026
      (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`), is in the secrets and, with its
      password, in Martijn's backup (18 November 2026). Still to do: the Android-type Google
