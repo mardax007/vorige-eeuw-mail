@@ -52,9 +52,15 @@ Claude Code updates this file at the end of every session.
   6. Say whether the envelope icon and mbox import may stay (`DECISIONS.md`, "Build choices").
   7. The first release ran on 18 November 2026: the draft `v0.1.0` has the installer and its
      signature, `latest.json`, `vorige-eeuw-mail.apk`, `android.json` and the 14 source archives
-     of the rescue tool (decision 23), all signed with the updater key. Still to do: install the
-     draft on your own PC and phone, use it for a day, then publish (`docs/release.md`, "Every
-     release", steps 3 to 6).
+     of the rescue tool (decision 23), all signed with the updater key. On 18 November 2026 Claude
+     Code checked the installer's signature against `vem-updater.key.pub` (good), installed the
+     draft on this PC (per user, `%LOCALAPPDATA%\Vorige Eeuw Mail`, rescue tool included) and
+     started it: the window opens. The log has `VEM-UPDATE-CMD-01` "Could not fetch a valid release
+     JSON from the remote", which is expected while the release is a draft (the
+     `releases/latest/download/latest.json` link only works once it is published). Still to do:
+     install the APK on your phone (no phone was connected over USB), use both for a day, then
+     publish (`docs/release.md`, "Every release", steps 4 to 6). After publishing, the next start
+     of the PC app should log no update failure.
   8. The Android signing key exists since 18 November 2026
      (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`), is in the secrets and, with its
      password, in Martijn's backup (18 November 2026). Still to do: the Android-type Google
