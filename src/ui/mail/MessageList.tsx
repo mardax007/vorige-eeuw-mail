@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { MessageSummary, Tag } from "../../api/types";
 import { t } from "../../i18n";
 import { TagChip } from "../common/TagChip";
@@ -120,11 +120,45 @@ export function MessageList({
           />
         ))}
       </ul>
-      {hasMore && onLoadMore && (
-        <button type="button" className="load-more" onClick={onLoadMore} disabled={isLoading}>
-          {isLoading ? t("list.loading") : t("list.more")}
-        </button>
-      )}
+      {hasMore && onLoadMore && <LoadMore isLoading={isLoading} count={items.length} onLoadMore={onLoadMore} />}
     </section>
+  );
+}
+
+/** How far below the screen the next messages start loading, so scrolling rarely has to wait. */
+const LOAD_AHEAD = "600px";
+
+interface LoadMoreProps {
+  isLoading: boolean;
+  /** Rows on screen: after each load the button is looked at again. */
+  count: number;
+  onLoadMore: () => void;
+}
+
+/**
+ * The end of the list. Scrolling near it loads the next messages by itself; the button stays for
+ * the keyboard, and for a browser without IntersectionObserver.
+ */
+function LoadMore({ isLoading, count, onLoadMore }: LoadMoreProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || isLoading || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect();
+          onLoadMore();
+        }
+      },
+      { rootMargin: LOAD_AHEAD },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isLoading, count, onLoadMore]);
+  return (
+    <button ref={ref} type="button" className="load-more" onClick={onLoadMore} disabled={isLoading}>
+      {isLoading ? t("list.loading") : t("list.more")}
+    </button>
   );
 }
