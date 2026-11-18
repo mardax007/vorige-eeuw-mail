@@ -3,6 +3,7 @@
 
 import type { CommandArgs, CommandHandlers, CommandName, CommandResult } from "./commands";
 import { createAppHandlers } from "./mock/appHandlers";
+import { createBackupHandlers } from "./mock/backupHandlers";
 import { clearComposeTimers, createComposeHandlers } from "./mock/composeHandlers";
 import { createSampleState } from "./mock/data";
 import { MockEvents } from "./mock/events";
@@ -44,6 +45,7 @@ export class MockBackend {
       ...createComposeHandlers(store),
       ...createAppHandlers(store),
       ...createImportHandlers(store),
+      ...createBackupHandlers(store),
     };
   }
 

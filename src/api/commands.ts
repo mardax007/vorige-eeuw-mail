@@ -4,6 +4,7 @@
 import type {
   Account,
   AppInfo,
+  BackupInfo,
   UpdateOffer,
   Contact,
   ContactsImported,
@@ -133,6 +134,13 @@ export interface CommandMap {
   pair_with_code: { args: { text: string }; result: void };
   unpair_phone: { args: NoArgs; result: void };
   quit_app: { args: NoArgs; result: void };
+  /** Asks for a folder and starts the backup there; false when none was chosen. */
+  start_backup: { args: NoArgs; result: boolean };
+  stop_backup: { args: NoArgs; result: void };
+  /** Asks for a backup folder and checks it; null when none was chosen. */
+  pick_backup: { args: NoArgs; result: BackupInfo | null };
+  /** Copies the checked backup in; the app then restarts with it. */
+  start_restore: { args: { path: string }; result: void };
 }
 
 export type CommandName = keyof CommandMap;

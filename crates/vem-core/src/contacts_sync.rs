@@ -53,6 +53,16 @@ pub fn paired_account(store: &Store) -> Result<Option<String>> {
     store.kv_get(PAIR_KEY)
 }
 
+/// After a restore on another PC the pairing names a mailbox but its key stayed behind with the
+/// secrets of the old PC: forget it, so "Telefoon koppelen" offers a fresh pairing (decision 29).
+pub fn forget_pairing_without_key(store: &Store, secrets: &Secrets) -> Result<()> {
+    if paired_account(store)?.is_some() && key(secrets)?.is_none() {
+        store.kv_delete(PAIR_KEY)?;
+        log::event("contacts.pairing_forgotten", &[]);
+    }
+    Ok(())
+}
+
 /// The PC side: make a new key (a new pairing replaces the old) and the code for the phone.
 pub fn pair_code(store: &Store, secrets: &Secrets, account_id: &str) -> Result<PairCode> {
     let account = store.account(account_id)?;

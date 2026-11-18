@@ -3,6 +3,7 @@ import { t } from "../../i18n";
 import { mailAccounts } from "../folders";
 import { MAX_TEXT_SIZE, MIN_TEXT_SIZE, useApp } from "../state/AppContext";
 import { AccountSettings } from "./AccountSettings";
+import { BackupSection } from "./BackupSection";
 
 export const TEXT_STEP = 2;
 export const UNDO_SEND_CHOICES = [0, 5, 10, 20, 30] as const;
@@ -116,6 +117,9 @@ export function SettingsView() {
           {t("settings.addAccount")}
         </button>
       </div>
+
+      {/* The phone keeps no backup (decision 29). */}
+      {!appInfo?.isPhone && <BackupSection />}
 
       <h3>{t("nav.quit")}</h3>
       <p>{t("settings.quitText")}</p>

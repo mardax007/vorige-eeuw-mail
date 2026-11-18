@@ -45,6 +45,7 @@ And:
 | `PAIR` | Linking a phone: reading the code the PC shows (stage `READ`) and finding its mailbox on the phone (`FIND`) |
 | `LAN` | Copying the mail kept on the PC to the paired phone over the home network (`docs/pc-to-phone.md`) |
 | `REPORT` | Sending error reports, logs and wishes to Martijn, and reading log requests |
+| `BACKUP` | Writing a backup to a USB stick (stage `WRITE`) and reading one to restore (`READ`) (C14) |
 | `APP` | The app itself: an unexpected internal error |
 
 | Stage | Meaning |
@@ -55,7 +56,7 @@ And:
 | `LOGIN` | Signing in |
 | `CMD` | The command itself |
 
-Areas without a network connection (`IMPORT`, `STORE`) use a short stage name of their own:
+Areas without a network connection (`IMPORT`, `STORE`, `BACKUP`) use a short stage name of their own:
 `READ` (reading a file), `WRITE` (writing the index or a file), `SPACE` (not enough room on the disk
 or in the mailbox) and `SECRET` (the encrypted password file). The area `APP` is the app itself
 (an unexpected internal error). `LAN` uses `COPY` (finding the phone, the connection, the copy
@@ -152,5 +153,7 @@ The screen labels are "De server zei" and, when no server was involved, "Details
 | `VEM-PAIR-FIND-01` | Het postvak van deze code staat nog niet op deze telefoon. | Voeg eerst op deze telefoon het postvak toe dat bij Details staat, en scan de code daarna opnieuw. | phase 5 (Android) |
 | `VEM-LAN-COPY-01` | De mail van de computer kon niet naar de telefoon gekopieerd worden. | U hoeft niets te doen; het programma probeert het straks opnieuw als de computer en de telefoon op hetzelfde wifi zitten. | phase 5 (Android) |
 | `VEM-LAN-SPACE-01` | Er is niet genoeg ruimte op deze telefoon voor de mail van de computer. | Maak ruimte vrij op de telefoon, bijvoorbeeld door oude foto's of apps te verwijderen. Daarna gaat het vanzelf verder. | phase 5 (Android) |
+| `VEM-BACKUP-WRITE-01` | De reservekopie kon niet gemaakt worden. | Kijk of de USB-stick goed in de computer zit en genoeg vrije ruimte heeft, en probeer het opnieuw. | phase 5 (C14) |
+| `VEM-BACKUP-READ-01` | Deze map is geen reservekopie die dit programma kan terugzetten. | Kies de map waarvan de naam begint met "Vorige Eeuw Mail reservekopie". Lukt het niet, vraag het dan aan Martijn. | phase 5 (C14) |
 | `VEM-REPORT-CMD-01` | Uw bericht aan Martijn kon niet verstuurd worden. | Probeer het straks opnieuw. | phases 1-4 |
 | `VEM-APP-CMD-01` | Er ging iets onverwachts mis. | Probeer het nog eens. Blijft dit komen, vraag het dan aan Martijn. | phases 1-4 |

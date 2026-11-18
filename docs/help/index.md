@@ -40,9 +40,9 @@ Elke melding in het programma heeft een code die begint met VEM. Klik op de code
 | [VEM-PAIR-FIND-01](VEM-PAIR-FIND-01.md) | Het postvak van deze code staat nog niet op deze telefoon. |
 | [VEM-LAN-COPY-01](VEM-LAN-COPY-01.md) | De mail van de computer kon niet naar de telefoon gekopieerd worden. |
 | [VEM-LAN-SPACE-01](VEM-LAN-SPACE-01.md) | Er is niet genoeg ruimte op deze telefoon voor de mail van de computer. |
+| [VEM-BACKUP-WRITE-01](VEM-BACKUP-WRITE-01.md) | De reservekopie kon niet gemaakt worden. |
+| [VEM-BACKUP-READ-01](VEM-BACKUP-READ-01.md) | Deze map is geen reservekopie die dit programma kan terugzetten. |
 | [VEM-REPORT-CMD-01](VEM-REPORT-CMD-01.md) | Uw bericht aan Martijn kon niet verstuurd worden. |
 | [VEM-APP-CMD-01](VEM-APP-CMD-01.md) | Er ging iets onverwachts mis. |
 
 [Hulp op afstand](hulp-op-afstand.md)
-
-[Privacy](../privacy.md)

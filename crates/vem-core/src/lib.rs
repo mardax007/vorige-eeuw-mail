@@ -2,6 +2,7 @@
 
 pub mod actions;
 pub mod apk_update;
+pub mod backup;
 pub mod compose;
 pub mod contacts_sync;
 pub mod engine;

@@ -868,5 +868,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         pair_with_code,
         unpair_phone,
         quit_app,
+        crate::backup_cmd::start_backup,
+        crate::backup_cmd::stop_backup,
+        crate::backup_cmd::pick_backup,
+        crate::backup_cmd::start_restore,
     ]
 }

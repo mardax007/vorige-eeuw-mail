@@ -281,6 +281,34 @@ export interface AppInfo {
 }
 
 /** Events the core sends to the screens. */
+/** One mailbox named in a backup's description. */
+export interface BackupAccount {
+  name: string;
+  email: string;
+}
+
+/** A checked backup, shown before "Terugzetten?" (C14). */
+export interface BackupInfo {
+  path: string;
+  createdAt: string;
+  accounts: BackupAccount[];
+  messages: number;
+  bytes: number;
+}
+
+/** A backup being made or put back (C14). */
+export interface BackupProgress {
+  restoring: boolean;
+  doneBytes: number;
+  totalBytes: number;
+  finished: boolean;
+  /** "Stoppen" was pressed; nothing half-done is left. */
+  stopped: boolean;
+  error?: VemError | null;
+  /** The last event of a backup: the folder it wrote. */
+  folder?: string | null;
+}
+
 export interface CoreEvents {
   "mail:changed": { accountId: string; folderId?: string | null };
   "sync:state": { accountId: string; busy: boolean; error?: VemError | null };
@@ -295,6 +323,8 @@ export interface CoreEvents {
   "lan:phone": PcCopyEvent;
   /** PC: the phone got (or already had) the mail kept on this PC. */
   "lan:sent": { received: number; removed: number; skipped: number };
+  /** PC: a backup being made or put back (C14). */
+  "backup:progress": BackupProgress;
 }
 
 /** What the phone says while the PC's local mail comes in. */

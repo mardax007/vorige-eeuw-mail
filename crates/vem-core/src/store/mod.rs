@@ -3,6 +3,7 @@
 //! Passwords and tokens never go in here (CLAUDE.md, Secrets); they live in `secrets`.
 
 mod accounts;
+mod backup;
 pub mod contacts;
 pub mod folders;
 pub mod kv;

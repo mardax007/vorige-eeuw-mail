@@ -59,3 +59,38 @@ describe("Nieuwe mail direct melden (decision 24)", () => {
     expect(screen.getByRole("checkbox", { name: "Starten met Windows" })).toBeTruthy();
   });
 });
+
+describe("Reservekopie (C14)", () => {
+  it("makes a backup with progress and says where it went", async () => {
+    const user = await openSettings(false);
+    await user.click(screen.getByRole("button", { name: "Reservekopie maken" }));
+    expect(await screen.findByText(/De reservekopie wordt gemaakt/)).toBeTruthy();
+    expect(await screen.findByText(/Klaar\. De reservekopie staat in de map E:\\Vorige Eeuw Mail reservekopie/, {}, { timeout: 4000 })).toBeTruthy();
+  });
+
+  it("stops when asked and says nothing was left behind", async () => {
+    const user = await openSettings(false);
+    await user.click(screen.getByRole("button", { name: "Reservekopie maken" }));
+    await user.click(await screen.findByRole("button", { name: "Stoppen" }));
+    expect(await screen.findByText(/Gestopt\. Er is niets half op de USB-stick/)).toBeTruthy();
+  });
+
+  it("asks once before putting a backup back, naming what is in it", async () => {
+    const restore = vi.spyOn(api, "startRestore");
+    const user = await openSettings(false);
+    await user.click(screen.getByRole("button", { name: "Reservekopie terugzetten" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toMatch(/3210 berichten van ria\.jansen@solcon\.nl, ria\.jansen1950@gmail\.com/);
+    await user.click(screen.getByRole("button", { name: "Annuleren" }));
+    expect(restore).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Reservekopie terugzetten" }));
+    await user.click(await screen.findByRole("button", { name: "Terugzetten" }));
+    expect(restore).toHaveBeenCalledWith("E:\\Vorige Eeuw Mail reservekopie 2026-11-01");
+    expect(await screen.findByText("Klaar. Het programma start zo opnieuw, met de reservekopie.", {}, { timeout: 4000 })).toBeTruthy();
+  });
+
+  it("is not offered on a phone", async () => {
+    await openSettings(true);
+    expect(screen.queryByRole("button", { name: "Reservekopie maken" })).toBeNull();
+  });
+});

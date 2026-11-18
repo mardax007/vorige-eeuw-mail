@@ -3,6 +3,7 @@
 
 #[cfg(target_os = "android")]
 mod android_mail;
+mod backup_cmd;
 #[cfg(windows)]
 mod badge;
 mod commands;
@@ -65,8 +66,24 @@ pub fn run() {
             // Android checks certificates through its own Java code; set that up before any mail.
             #[cfg(target_os = "android")]
             vem_core::net::init_android().map_err(|e| format!("{e:?}"))?;
+            // A restore copied a backup in before the restart: swap it in before the index opens.
+            let restored = match vem_core::backup::apply_staged(&data) {
+                Ok(m) => m,
+                Err(e) => {
+                    vem_core::log::error("restore.apply_failed", &e);
+                    None
+                }
+            };
             let store = Arc::new(Store::open(&data).map_err(|e| format!("{e:?}"))?);
             let secrets = Arc::new(Secrets::new(&data));
+            if let Some(m) = restored {
+                if let Err(e) = store.after_restore(&m.data_root) {
+                    vem_core::log::error("restore.after_failed", &e);
+                }
+                if let Err(e) = vem_core::contacts_sync::forget_pairing_without_key(&store, &secrets) {
+                    vem_core::log::error("restore.pairing_failed", &e);
+                }
+            }
             let sink = Arc::new(shell::EventSink(app.handle().clone()));
             let facts = AppFacts { version: vem_core::version().to_string(), os: shell::windows_version() };
             let engine = Engine::new(store, secrets, sink, Trust::Platform, facts);

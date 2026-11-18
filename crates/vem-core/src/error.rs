@@ -46,6 +46,8 @@ pub enum Code {
     LanCopy01,
     LanSpace01,
     ReportCmd01,
+    BackupWrite01,
+    BackupRead01,
     AppCmd01,
 }
 
@@ -88,6 +90,8 @@ impl Code {
         Code::LanCopy01,
         Code::LanSpace01,
         Code::ReportCmd01,
+        Code::BackupWrite01,
+        Code::BackupRead01,
         Code::AppCmd01,
     ];
 
@@ -130,6 +134,8 @@ impl Code {
             Code::LanCopy01 => "VEM-LAN-COPY-01",
             Code::LanSpace01 => "VEM-LAN-SPACE-01",
             Code::ReportCmd01 => "VEM-REPORT-CMD-01",
+            Code::BackupWrite01 => "VEM-BACKUP-WRITE-01",
+            Code::BackupRead01 => "VEM-BACKUP-READ-01",
             Code::AppCmd01 => "VEM-APP-CMD-01",
         }
     }

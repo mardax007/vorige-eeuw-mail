@@ -151,6 +151,14 @@ export const nlErrors = {
     sentence: "Er is niet genoeg ruimte op deze telefoon voor de mail van de computer.",
     next: "Maak ruimte vrij op de telefoon, bijvoorbeeld door oude foto's of apps te verwijderen. Daarna gaat het vanzelf verder.",
   },
+  "VEM-BACKUP-WRITE-01": {
+    sentence: "De reservekopie kon niet gemaakt worden.",
+    next: "Kijk of de USB-stick goed in de computer zit en genoeg vrije ruimte heeft, en probeer het opnieuw.",
+  },
+  "VEM-BACKUP-READ-01": {
+    sentence: "Deze map is geen reservekopie die dit programma kan terugzetten.",
+    next: "Kies de map waarvan de naam begint met \"Vorige Eeuw Mail reservekopie\". Lukt het niet, vraag het dan aan Martijn.",
+  },
   "VEM-REPORT-CMD-01": {
     sentence: "Uw bericht aan Martijn kon niet verstuurd worden.",
     next: "Probeer het straks opnieuw.",

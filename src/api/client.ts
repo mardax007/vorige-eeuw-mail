@@ -142,6 +142,10 @@ export const api = {
   pairWithCode: (text: string) => call("pair_with_code", { text }),
   unpairPhone: () => call("unpair_phone", undefined),
   quitApp: () => call("quit_app", undefined),
+  startBackup: () => call("start_backup", undefined),
+  stopBackup: () => call("stop_backup", undefined),
+  pickBackup: () => call("pick_backup", undefined),
+  startRestore: (path: string) => call("start_restore", { path }),
 };
 
 export type Api = typeof api;
