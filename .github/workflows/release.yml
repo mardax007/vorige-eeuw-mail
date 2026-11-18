@@ -52,6 +52,15 @@ jobs:
         run: |
           { echo 'body<<VEM_NOTES_END'; cat release-notes.md; echo 'VEM_NOTES_END'; } >> "$GITHUB_OUTPUT"
 
+      # Signing the update checks the private key against the config's public key, which stays
+      # empty in the repository (local builds have no updates). This file adds it for this build only.
+      - name: Updater key for the build
+        shell: bash
+        env:
+          VEM_UPDATER_PUBKEY: ${{ secrets.VEM_UPDATER_PUBKEY }}
+        run: |
+          node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({bundle: {createUpdaterArtifacts: true}, plugins: {updater: {pubkey: process.env.VEM_UPDATER_PUBKEY.trim()}}}))" "$RUNNER_TEMP/vem-updater.conf.json"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,7 +84,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true
-          args: --config {"bundle":{"createUpdaterArtifacts":true}}
+          args: --config ${{ runner.temp }}/vem-updater.conf.json
 
       # The source code of the rescue tool's GPL and LGPL packages, at the shipped versions, goes
       # with every release (decision 23). The installer's rescue\README.txt names these files.
