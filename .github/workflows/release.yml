@@ -143,7 +143,6 @@ jobs:
 
       - name: Build the APK
         env:
-          NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
           VEM_SUPPORT_ADDRESS: ${{ secrets.VEM_SUPPORT_ADDRESS }}
           VEM_UPDATER_PUBKEY: ${{ secrets.VEM_UPDATER_PUBKEY }}
           VEM_GOOGLE_CLIENT_ID: ${{ secrets.VEM_GOOGLE_CLIENT_ID }}
@@ -151,7 +150,8 @@ jobs:
           VEM_MICROSOFT_CLIENT_ID: ${{ secrets.VEM_MICROSOFT_CLIENT_ID }}
           VEM_UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
           VEM_LOG_REQUESTS_URL: https://raw.githubusercontent.com/${{ github.repository }}/main/log-requests.json
-        run: npm run tauri android build -- --apk --target aarch64
+        # The runner's own NDK; the env context of the workflow cannot see machine variables.
+        run: NDK_HOME="$ANDROID_NDK_LATEST_HOME" npm run tauri android build -- --apk --target aarch64
 
       - name: Sign the update and attach it to the draft
         env:
