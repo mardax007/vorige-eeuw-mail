@@ -99,6 +99,8 @@ export const nl = {
   "read.markImportant": "Belangrijk maken",
   "read.unmarkImportant": "Niet meer belangrijk",
   "read.print": "Afdrukken",
+  "read.junk": "Ongewenste e-mail",
+  "read.notJunk": "Geen ongewenste e-mail",
   "read.from": "Van",
   "read.to": "Aan",
   "read.cc": "CC",

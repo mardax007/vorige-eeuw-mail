@@ -99,6 +99,10 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
   const isDraft = folder?.role === "drafts";
   // In Verwijderde items Verwijderen would move nothing; emptying the folder is its own button.
   const canDelete = folder?.role !== "trash";
+  // "Ongewenste e-mail" moves to the account's junk folder; inside it the button moves back to
+  // Postvak IN. Without a junk folder (mail kept on the PC) there is no button (decision 29).
+  const isJunk = folder?.role === "junk";
+  const junkTarget = accountFolders.find((f) => f.role === (isJunk ? "inbox" : "junk"));
 
   const toggleImportant = async () => {
     try {
@@ -162,6 +166,11 @@ export function ReadingPane({ messageId, onBack, onRemoved }: ReadingPaneProps) 
         <button type="button" disabled={isForwarding} onClick={() => respond(message, "forward")}>{t("read.forward")}</button>
         {canDelete && (
           <button type="button" onClick={() => remove([message.id]).then((ok) => ok && onRemoved())}>{t("read.delete")}</button>
+        )}
+        {junkTarget && (
+          <button type="button" onClick={() => void move([message.id], junkTarget.id).then((ok) => ok && onRemoved())}>
+            {isJunk ? t("read.notJunk") : t("read.junk")}
+          </button>
         )}
         <button type="button" aria-expanded={panel === "move"} onClick={() => setPanel(panel === "move" ? "none" : "move")}>
           {t("read.move")}

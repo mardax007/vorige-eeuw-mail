@@ -186,6 +186,19 @@ describe("message buttons", () => {
     await user.click(menu.getByRole("button", { name: "Vakantie" }));
     expect(await screen.findByText("Het bericht is verplaatst naar Vakantie.")).toBeTruthy();
   });
+
+  it("moves a message to Ongewenste e-mail and back to Postvak IN", async () => {
+    const user = await renderApp();
+    await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));
+    await user.click(await screen.findByRole("button", { name: "Ongewenste e-mail" }));
+    expect(await screen.findByText("Het bericht is verplaatst naar Ongewenste e-mail.")).toBeTruthy();
+    const nav = within(screen.getByRole("navigation", { name: "Mappen" }));
+    await user.click(nav.getByRole("button", { name: "Meer mappen" }));
+    await user.click(nav.getAllByRole("button", { name: /^Ongewenste e-mail/ })[0]);
+    await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));
+    await user.click(await screen.findByRole("button", { name: "Geen ongewenste e-mail" }));
+    expect(await screen.findByText("Het bericht is verplaatst naar Postvak IN.")).toBeTruthy();
+  });
 });
 
 describe("search", () => {
