@@ -157,6 +157,17 @@ repository, in `F:\Projects\Mail-scratch\greenmail`:
 
 Without it the GreenMail tests print a note and pass. CI (`.github/workflows/ci.yml`) starts it itself.
 
+A lot of test mail (added 18 November 2026): start GreenMail with three more users,
+`-Dgreenmail.users=jan:geheim@example.test,piet:geheim@example.test,oma:geheim@solcon.test,opa.devries:geheim@gmail.test,tante.ria:geheim@outlook.test`,
+then `node scripts/seed-greenmail.mjs --vcards F:\Projects\Mail-scratch\seed\vcards`. It fills the
+five mailboxes with about 3,500 made-up messages in Solcon, Gmail and Outlook folder styles (nested
+folders, `$vem_` labels, threads, photos, PDFs, newsletters with remote images, the three warning
+samples) and writes 250 made-up contacts as vCard files. It refuses any host but this computer.
+GreenMail keeps mail in memory, so run it again after every restart. For the emulator, add
+`-Dgreenmail.tls.keystore.file=tls/gm.p12 -Dgreenmail.tls.keystore.password=changeit` (the test
+certificate for `10.0.2.2`, whose CA is in the emulator's user store) and add the account by hand at
+`10.0.2.2`, port 3993.
+
 Build-time settings, read by `option_env!` and set only in the release workflow from GitHub Actions
 secrets: `VEM_SUPPORT_ADDRESS`, `VEM_UPDATER_PUBKEY`, `VEM_GOOGLE_CLIENT_ID`,
 `VEM_GOOGLE_CLIENT_SECRET`, `VEM_MICROSOFT_CLIENT_ID`, plus `VEM_UPDATE_URL` and
