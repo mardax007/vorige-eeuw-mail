@@ -337,7 +337,6 @@ export const nl = {
   "help.remoteText": "Martijn kan met Snelle hulp van Windows op uw scherm meekijken. Hij belt u dan eerst zelf en geeft u een code om in te typen. Belt, mailt of sms't iemand anders u met zo'n code, of vraagt iemand om mee te kijken: hang op en typ niets in. Dat is oplichting.",
   "help.noticeTitle": "Als er iets misgaat",
   "help.notice": "Als er iets misgaat, krijgt Martijn daar vanzelf bericht van. Er gaat geen inhoud van uw mail mee.",
-  "help.noticeOk": "Begrepen",
 
   // Import
   "import.title": "Oude mail ophalen",

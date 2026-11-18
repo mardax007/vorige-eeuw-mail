@@ -61,7 +61,8 @@ really uses), `docs/research.md` (the research pass, with sources), `docs/source
   authenticated with the pairing key (decision 26, `docs/pc-to-phone.md`). Never a password or token.
 - Error reports, logs and wishes are sent as email through the user's own provider to Martijn's
   address only. They never contain mail content, passwords or tokens; the only addresses in them are
-  the sender's and Martijn's. The user is told once that this happens.
+  the sender's and Martijn's. The Help page says so; the app never shows a notice about it
+  (Martijn, 19 November 2026).
 - Besides mail servers, the app contacts only GitHub (updates and Martijn's log requests), the
   settings lookup (the domain's autoconfig host, Thunderbird's ISPDB, DNS), Google's and Microsoft's
   sign-in pages when the user signs in that way, Microsoft's WebView2 installer, the user's own paired

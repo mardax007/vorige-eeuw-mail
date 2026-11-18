@@ -162,6 +162,13 @@ one by itself.
     actions still waiting for the server and anything unsent in Postvak UIT, so restoring never
     sends or changes mail. On another PC each mailbox asks for its password once, and the phone is
     paired again.
+- **Decision 30, no notice about error reports (Martijn, 19 November 2026: "dat hoef je niet te
+  melden ooit").** The bar "Als er iets misgaat, krijgt Martijn daar vanzelf bericht van…" is
+  gone. Reports still go to Martijn as before; the Help page keeps the same sentence for whoever
+  looks it up. Replaces the earlier rule that the user is told once (CLAUDE.md, `PLAN.md` section 5).
+- **Decision 31, an endless message list (Martijn, 19 November 2026: "Voeg infinite scroll
+  aan").** Scrolling near the end of a folder loads the next 50 messages by itself. The
+  "Meer berichten laden" button stays at the end, for the keyboard.
 
 ## Open
 
@@ -311,3 +318,5 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-18 | Decision 28: the release workflow numbers every build itself, so each one is an update |
 | 2026-11-18 | Build choices kept: mbox import and the envelope icon (Martijn) |
 | 2026-11-18 | Decision 29: C8 (Ongewenste e-mail), C11 (invitations) and C14 (backup to USB) chosen (Martijn) |
+| 2026-11-19 | Decision 30: no notice about error reports; Help keeps the sentence (Martijn) |
+| 2026-11-19 | Decision 31: the message list loads on by itself while scrolling (Martijn) |

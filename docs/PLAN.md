@@ -315,8 +315,9 @@ the Windows version, an install number and the last 50 log lines. Rules:
 - These emails get a fixed subject start, `[Vorige Eeuw Mail]`, so Martijn can filter them. Where
   the provider does not save sent mail itself, the app does not add them to Sent; where it does
   (Gmail), they show there with that clear subject.
-- The first time, the app says in one sentence that Martijn gets a message when something goes
-  wrong, and that no mail content goes with it.
+- The Help page says in one sentence that Martijn gets a message when something goes wrong, and
+  that no mail content goes with it. The app never shows this as a notice (Martijn, 19 November
+  2026).
 
 **Logs on request.** Martijn can ask any PC for its full log without anyone doing anything there.
 The app already checks GitHub for updates; at the same moment it reads a small file in the public

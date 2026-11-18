@@ -312,19 +312,3 @@ export function PcCopyBar() {
     </div>
   );
 }
-
-/** Told once: Martijn hears when something goes wrong, without mail content. */
-export function ReportNotice() {
-  const { settings, updateSettings, ready, accounts } = useApp();
-  // Reports go out through the user's own mailbox, so the note waits until there is one; the
-  // first screen is then only about adding it.
-  if (!ready || settings.reportNoticeShown || accounts.length === 0) return null;
-  return (
-    <div className="notice-bar calm" role="note">
-      <span>{t("help.notice")}</span>
-      <button type="button" onClick={() => updateSettings({ reportNoticeShown: true })}>
-        {t("help.noticeOk")}
-      </button>
-    </div>
-  );
-}
