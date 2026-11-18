@@ -135,6 +135,12 @@ one by itself.
   only where there is a mouse; unread has a dot besides the bold; Windows contrast themes get an
   outline on what is chosen. Tokens and contrast numbers are in `src/ui/styles/base.css`. No dark
   mode: that would be new behaviour.
+- **Decision 28, every release build is an update (Martijn, 18 November 2026: "Have it always auto
+  update").** The release workflow gives each run its own, higher version, `major.minor.<run number>`
+  (`scripts/set-version.mjs`), for the Windows installer and the APK alike. A rebuilt release can no
+  longer carry the same number as the installed app and so be skipped. The rest stays as it was:
+  a draft first, installed on Martijn's own PC, then published by hand (`CLAUDE.md`, Updates); once
+  published, PCs install it by themselves when idle and phones offer "Bijwerken".
 
 ## Open
 
@@ -281,3 +287,4 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-16 | Screen changes from the UX review recorded under Build choices: Contactpersonen in the top bar, Afsluiten in Instellingen, Lijst kopiëren |
 | 2026-11-17 | Second design review recorded under Build choices; `tauri-plugin-fs` for saving attachments on Android; question 26 (import on a phone) added |
 | 2026-11-18 | Decision 27: the new look (warm paper, one navy, system font, white sheets), Martijn's yes to the design proposal |
+| 2026-11-18 | Decision 28: the release workflow numbers every build itself, so each one is an update |

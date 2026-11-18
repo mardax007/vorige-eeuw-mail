@@ -14,6 +14,8 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +31,14 @@ jobs:
           workspaces: '. -> target'
 
       - run: npm ci
+
+      # Every run gets a higher number than the one before (major.minor from the repository, the
+      # run number as patch), so installed apps always take it as an update (decision 28). Set
+      # after rust-cache, so the cache key does not change with every run.
+      - name: Version for this build
+        id: version
+        shell: bash
+        run: echo "version=$(node scripts/set-version.mjs --patch ${{ github.run_number }})" >> "$GITHUB_OUTPUT"
 
       # The rescue tool for damaged Outlook files; scripts/rescue-tool.mjs copies it into the
       # installer and stops the release when it is missing.
@@ -125,6 +135,10 @@ jobs:
           workspaces: '. -> target'
 
       - run: npm ci
+
+      # The same number as the Windows build in this run.
+      - name: Version for this build
+        run: node scripts/set-version.mjs ${{ needs.release.outputs.version }}
 
       # The APK signing key. Every update must carry the same key or Android refuses it, so this
       # key is kept like the updater key: here and in Martijn's offline backup only.

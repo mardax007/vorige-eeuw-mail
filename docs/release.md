@@ -44,9 +44,13 @@ Short on purpose: follow it top to bottom, also half a year from now.
 
 ## Every release
 
-1. **Version number.** Raise it everywhere, the same number: `package.json`,
-   `src-tauri/tauri.conf.json` (`version`), `src-tauri/Cargo.toml` and `crates/vem-core/Cargo.toml`.
-   It must go up (0.1.0, 0.1.1, 0.2.0 …): apps never install a lower number.
+1. **Version number: nothing to do.** The workflow numbers every build itself (decision 28): the
+   first two parts come from the repository (now 0.1), the last is the workflow's run number, so
+   each run is higher than the one before and installed apps always take it as an update. The
+   draft is called `v0.1.<run number>`. For a bigger step, raise the first two parts by hand in
+   `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
+   `crates/vem-core/Cargo.toml` (`node scripts/set-version.mjs 0.2.0` does all four); never lower
+   them. The last part stays under 1000 (Android's version code).
    **What is new:** replace the lines in `release-notes.md` with two or three plain Dutch
    sentences, one per line. They appear in the app behind "Wat is er nieuw?" (on the PC for a day
    after the update, on the phone in the "Bijwerken" bar). Commit and push to `main`. The "Tests"
