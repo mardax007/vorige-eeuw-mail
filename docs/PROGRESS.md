@@ -50,8 +50,11 @@ Claude Code updates this file at the end of every session.
      and give Claude Code a real old PST and DBX file to import into a local account.
   5. Take the screenshots for `docs/install.md`.
   6. Say whether the envelope icon and mbox import may stay (`DECISIONS.md`, "Build choices").
-  7. At the first release, check that the rescue tool's source archives (about 190 MB) are
-     attached to the draft (decision 23); the release workflow uploads them.
+  7. The first release ran on 18 November 2026: the draft `v0.1.0` has the installer and its
+     signature, `latest.json`, `vorige-eeuw-mail.apk`, `android.json` and the 14 source archives
+     of the rescue tool (decision 23), all signed with the updater key. Still to do: install the
+     draft on your own PC and phone, use it for a day, then publish (`docs/release.md`, "Every
+     release", steps 3 to 6).
   8. The Android signing key exists since 18 November 2026
      (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`), is in the secrets and, with its
      password, in Martijn's backup (18 November 2026). Still to do: the Android-type Google

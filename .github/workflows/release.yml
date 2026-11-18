@@ -99,7 +99,7 @@ jobs:
           gh release upload "v$version" dist-sources/* --clobber
 
   # The phone app (phase 5 task 8). Runs after the Windows job, which made the draft release.
-  # NOT YET RUN on GitHub: the first real run is part of the first release with Android.
+  # First ran on GitHub on 18 November 2026 (draft v0.1.0).
   android:
     needs: release
     runs-on: ubuntu-latest
