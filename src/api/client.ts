@@ -72,6 +72,11 @@ export const api = {
   removeAccount: (accountId: string) => call("remove_account", { accountId }),
   setSignature: (accountId: string, signature: string) =>
     call("set_signature", { accountId, signature }),
+  setAccountAddresses: (accountId: string, addresses: string[]) =>
+    call("set_account_addresses", { accountId, addresses }),
+  listDomainInboxes: () => call("list_domain_inboxes", undefined),
+  listDomainMessages: (accountId: string, domain: string, offset: number, limit: number) =>
+    call("list_domain_messages", { accountId, domain, offset, limit }),
 
   listFolders: (accountId: string | null) => call("list_folders", { accountId }),
   listMessages: (folderId: string, offset: number, limit: number) =>

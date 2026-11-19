@@ -72,7 +72,7 @@ export function useMessageActions(): MessageActions {
       // Mail kept on this computer cannot be answered from itself; use the first real mailbox.
       const own = accounts.find((a) => a.id === message.accountId && a.kind === "imap") ?? accounts.find((a) => a.kind === "imap");
       const base = newDraft({ accountId: own?.id ?? "", bodyText: "" });
-      const draft = prefillDraft(base, message, kind, own?.email ?? "", own?.signature);
+      const draft = prefillDraft(base, message, kind, own?.email ?? "", own?.signature, own?.addresses ?? []);
       if (kind !== "forward" || message.attachments.length === 0) {
         compose(draft);
         return;

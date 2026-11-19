@@ -160,7 +160,24 @@ fn set_signature(state: State<'_, AppState>, account_id: String, signature: Stri
     state.engine.store.set_signature(&account_id, (!s.is_empty()).then_some(s))
 }
 
+/// The other addresses of a mailbox (decision 32); returns them as stored.
+#[tauri::command]
+fn set_account_addresses(state: State<'_, AppState>, account_id: String, addresses: Vec<String>) -> R<Vec<String>> {
+    state.engine.store.set_account_addresses(&account_id, &addresses)
+}
+
 // ---- folders and messages ----------------------------------------------------------
+
+/// A Postvak IN per domain of the mailboxes' other addresses (decision 32).
+#[tauri::command]
+fn list_domain_inboxes(state: State<'_, AppState>) -> R<Vec<DomainInbox>> {
+    state.engine.store.domain_inboxes()
+}
+
+#[tauri::command]
+fn list_domain_messages(state: State<'_, AppState>, account_id: String, domain: String, offset: u32, limit: u32) -> R<Vec<MessageSummary>> {
+    state.engine.store.messages_for_domain(&account_id, &domain, offset, limit.clamp(1, 500))
+}
 
 #[tauri::command]
 fn list_folders(state: State<'_, AppState>, account_id: Option<String>) -> R<Vec<Folder>> {
@@ -814,6 +831,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         oauth_available,
         remove_account,
         set_signature,
+        set_account_addresses,
+        list_domain_inboxes,
+        list_domain_messages,
         list_folders,
         list_messages,
         get_message,

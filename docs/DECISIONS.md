@@ -169,6 +169,23 @@ one by itself.
 - **Decision 31, an endless message list (Martijn, 19 November 2026: "Voeg infinite scroll
   aan").** Scrolling near the end of a folder loads the next 50 messages by itself. The
   "Meer berichten laden" button stays at the end, for the keyboard.
+- **Decision 32, several addresses in one mailbox (Martijn, 19 November 2026: "Several addresses
+  in one mailbox", asked for iCloud custom domains).** The mailbox is added as usual; under
+  Instellingen > the mailbox > "Andere adressen in dit postvak" the user lists the other addresses
+  that arrive in it. Each domain of those addresses, other than the mailbox's own, gets its own
+  "Postvak IN <domain>" under that mailbox's Postvak IN: the same server folder, shown filtered on
+  To, Cc and the delivery headers (Delivered-To, X-Original-To, X-Delivered-To, Envelope-To,
+  X-Envelope-To). The main Postvak IN keeps showing all mail, so nothing can get lost. Write shows a
+  "Van" choice when a mailbox has other addresses; a reply starts from the address the mail came to,
+  and "Allen beantwoorden" leaves out every own address. The chosen address is both the From header
+  and the SMTP envelope sender. No server folders are made or changed. Which delivery header iCloud
+  really sets is not yet checked on a real iCloud custom-domain mailbox (Martijn, read-only).
+- **Decision 33, a richer Write screen (Martijn, 19 November 2026: "Make the email writer more
+  advanced", then chose Formatting, BCC, Dutch spellcheck, Photos in the text).** Write gets a BCC
+  field behind "BCC toevoegen" (never in a header that is sent), Dutch spellcheck on the subject and
+  the text, simple formatting (bold, italic, underline, a list, larger text, colour) sent as HTML
+  with a plain-text copy, and photos placed in the text (inline, `cid:` parts in
+  `multipart/related`). Nothing else: no tables, fonts or HTML source.
 
 ## Open
 
@@ -320,3 +337,5 @@ Martijn accepted all three; they are now in `CLAUDE.md`.
 | 2026-11-18 | Decision 29: C8 (Ongewenste e-mail), C11 (invitations) and C14 (backup to USB) chosen (Martijn) |
 | 2026-11-19 | Decision 30: no notice about error reports; Help keeps the sentence (Martijn) |
 | 2026-11-19 | Decision 31: the message list loads on by itself while scrolling (Martijn) |
+| 2026-11-19 | Decision 32: several addresses in one mailbox, a Postvak IN per domain (Martijn) |
+| 2026-11-19 | Decision 33: Write gets formatting, BCC, Dutch spellcheck and photos in the text (Martijn) |

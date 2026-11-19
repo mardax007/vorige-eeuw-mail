@@ -90,6 +90,8 @@ recognise, and leave out what makes Outlook hard.
   "Oude mail ophalen" and "Telefoon koppelen" are always visible below the mailboxes (Martijn, 19
   November 2026: one shared "Meer mappen / Minder mappen" button was not easy to use). The same
   words in the same places on every screen.
+- A mailbox with other addresses on another domain (decision 32) shows "Postvak IN <domain>" for
+  each, indented right under its own Postvak IN, with its own unread count.
 - With one account the main screen is that account. With two or more, "Alle postvakken" (C7) comes
   first, then each account with its own Postvak IN, Verzonden items and Verwijderde items.
 - The "Nieuwe e-mail", "Beantwoorden", "Allen beantwoorden" and "Doorsturen" buttons appear in

@@ -20,6 +20,7 @@ import { useScreenSize } from "./useNarrow";
 function locationTitle(location: MailLocation, folder: Folder | undefined, tagName: string | undefined): string {
   if (location.kind === "outbox") return t("folder.outbox");
   if (location.kind === "tag") return tagName ?? t("folder.tags");
+  if (location.kind === "domain") return t("folder.domainInbox", { domain: location.domain });
   if (location.folderId === ALL_INBOXES_ID) return t("folder.allInboxes");
   return folder ? folderLabel(folder) : "";
 }

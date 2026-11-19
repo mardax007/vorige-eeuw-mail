@@ -36,6 +36,8 @@ to every feature.
 | "Ongewenste e-mail" (C8) | 5 | Move to the junk folder and back, with undo (decision 29) |
 | Invitations shown readably (C11) | 5 | What, when, where and who invites, above the text (decision 29) |
 | Backup to a USB stick (C14) | 5 | Windows only: everything but passwords, and a restore (decision 29) |
+| Several addresses in one mailbox | 5 | Other addresses (an own domain at iCloud) with a Postvak IN per domain and a "Van" choice (decision 32) |
+| A richer Write screen | 5 | Formatting, BCC, Dutch spellcheck and photos in the text (decision 33) |
 
 Error reports, log requests and the wish button come in 2b because they send email, which 2b builds.
 Phase 2a already writes the log and builds the error box.

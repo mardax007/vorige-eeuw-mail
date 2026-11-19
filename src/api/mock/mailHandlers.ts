@@ -24,7 +24,16 @@ type MailCommands =
   | "create_tag"
   | "delete_tag"
   | "set_message_tags"
-  | "list_tag_messages";
+  | "list_tag_messages"
+  | "list_domain_inboxes"
+  | "list_domain_messages";
+
+/** Postvak IN of a mailbox, only mail with an address at the domain in To or Cc (decision 32). */
+function domainMessages(s: MockState, accountId: string, domain: string): MessageDetail[] {
+  const inbox = roleFolder(s, accountId, "inbox");
+  const at = (e: string) => e.toLowerCase().endsWith(`@${domain}`);
+  return s.messages.filter((m) => m.folderId === inbox?.id && [...m.to, ...m.cc].some((a) => at(a.email)));
+}
 
 export function summaryOf(m: MessageDetail): MessageSummary {
   return {
@@ -191,5 +200,19 @@ export function createMailHandlers(store: MockStore): Pick<CommandHandlers, Mail
       }),
     list_tag_messages: ({ tagId }) =>
       newestFirst(store.get().messages.filter((m) => m.tagIds.includes(tagId))).map(summaryOf),
+    list_domain_inboxes: () => {
+      const s = store.get();
+      return s.accounts.flatMap((a) => {
+        const main = a.email.split("@")[1]?.toLowerCase();
+        const domains = [...new Set(a.addresses.map((x) => x.split("@")[1]).filter((d) => d && d !== main))];
+        return domains.map((domain) => ({
+          accountId: a.id,
+          domain,
+          unread: domainMessages(s, a.id, domain).filter((m) => m.unread).length,
+        }));
+      });
+    },
+    list_domain_messages: ({ accountId, domain, offset, limit }) =>
+      newestFirst(domainMessages(store.get(), accountId, domain)).slice(offset, offset + limit).map(summaryOf),
   };
 }

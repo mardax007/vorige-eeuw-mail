@@ -2,7 +2,7 @@ use rusqlite::{OptionalExtension, Row, params};
 
 use super::{Store, json, new_id};
 use crate::error::{Result, VemError};
-use crate::model::{Account, AccountKind, Quota, ServerSettings, now};
+use crate::model::{Account, AccountKind, DomainInbox, Quota, ServerSettings, now};
 
 fn row_to_account(r: &Row<'_>) -> rusqlite::Result<Account> {
     let kind: String = r.get("kind")?;
@@ -20,6 +20,10 @@ fn row_to_account(r: &Row<'_>) -> rusqlite::Result<Account> {
         signature: r.get("signature")?,
         last_error: err.and_then(|e| serde_json::from_str::<StoredError>(&e).ok()).map(Into::into),
         sign_in: settings.as_ref().map(|s| s.sign_in),
+        addresses: r
+            .get::<_, Option<String>>("addresses_json")?
+            .and_then(|j| serde_json::from_str(&j).ok())
+            .unwrap_or_default(),
         settings,
     })
 }
@@ -107,6 +111,47 @@ impl Store {
             params![id, signature.map(str::trim).filter(|s| !s.is_empty())],
         )?;
         Ok(())
+    }
+
+    /// The other addresses of a mailbox (decision 32): checked, lower case, without the main
+    /// address and without duplicates. Returns the list as stored.
+    pub fn set_account_addresses(&self, id: &str, addresses: &[String]) -> Result<Vec<String>> {
+        let account = self.account(id)?;
+        let main = account.email.to_lowercase();
+        let mut list: Vec<String> = Vec::new();
+        for a in addresses {
+            let a = a.trim().to_lowercase();
+            if a.is_empty() || a == main || list.contains(&a) {
+                continue;
+            }
+            if !crate::compose::valid_email(&a) {
+                return Err(VemError::new(crate::error::Code::AppCmd01).with_detail(format!("not an address: {a}")));
+            }
+            list.push(a);
+        }
+        self.db().execute("UPDATE accounts SET addresses_json = ?2 WHERE id = ?1", params![id, json(&list)])?;
+        Ok(list)
+    }
+
+    /// One entry per domain of each mailbox's other addresses, the main address's domain left out
+    /// (its mail is the mailbox's own Postvak IN), with the unread count.
+    pub fn domain_inboxes(&self) -> Result<Vec<DomainInbox>> {
+        let mut out = Vec::new();
+        for a in self.accounts()? {
+            let main = a.email.rsplit_once('@').map(|(_, d)| d.to_lowercase()).unwrap_or_default();
+            let mut domains: Vec<String> = Vec::new();
+            for addr in &a.addresses {
+                if let Some((_, d)) = addr.rsplit_once('@')
+                    && d != main && !domains.iter().any(|x| x == d) {
+                        domains.push(d.to_string());
+                    }
+            }
+            for domain in domains {
+                let unread = self.domain_unread(&a.id, &domain)?;
+                out.push(DomainInbox { account_id: a.id.clone(), domain, unread });
+            }
+        }
+        Ok(out)
     }
 
     pub fn set_account_settings(&self, id: &str, settings: &ServerSettings) -> Result<()> {

@@ -77,6 +77,35 @@ legend {
   color: var(--ink-soft);
 }
 
+/* A field with its button on the same line, wrapping under it on a narrow screen. */
+.input-with-button {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.input-with-button input {
+  flex: 1 1 16em;
+  min-width: 0;
+}
+
+.address-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.address-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-quiet);
+  overflow-wrap: anywhere;
+}
+
 .form-problem {
   padding: 8px 12px;
   background: var(--warn-paper);

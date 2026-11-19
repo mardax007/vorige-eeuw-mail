@@ -18,6 +18,7 @@ type AppCommands =
   | "cancel_sign_in"
   | "remove_account"
   | "set_signature"
+  | "set_account_addresses"
   | "sync_now"
   | "get_settings"
   | "save_settings"
@@ -84,6 +85,7 @@ function createAccount(store: MockStore, displayName: string, email: string, sig
     signature: null,
     lastError: null,
     signIn,
+    addresses: [],
   };
   store.set((s) => ({
     ...s,
@@ -169,6 +171,19 @@ export function createAppHandlers(store: MockStore): Pick<CommandHandlers, AppCo
         folders: s.folders.filter((f) => f.accountId !== accountId),
         messages: s.messages.filter((m) => m.accountId !== accountId),
       })),
+    set_account_addresses: ({ accountId, addresses }) => {
+      const account = store.get().accounts.find((a) => a.id === accountId);
+      if (!account) throw mockError("VEM-APP-CMD-01", undefined, "no such account");
+      const list: string[] = [];
+      for (const raw of addresses) {
+        const a = raw.trim().toLowerCase();
+        if (!a || a === account.email.toLowerCase() || list.includes(a)) continue;
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a)) throw mockError("VEM-APP-CMD-01", undefined, `not an address: ${a}`);
+        list.push(a);
+      }
+      store.set((s) => ({ ...s, accounts: s.accounts.map((x) => (x.id === accountId ? { ...x, addresses: list } : x)) }));
+      return list;
+    },
     set_signature: ({ accountId, signature }) =>
       store.set((s) => ({
         ...s,

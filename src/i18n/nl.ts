@@ -28,6 +28,7 @@ export const nl = {
   "folder.allInboxes": "Alle postvakken",
   "folder.moreCount": "Meer mappen ({count})",
   "folder.tags": "Labels",
+  "folder.domainInbox": "Postvak IN {domain}",
 
   // Phone (one part of the mail screen at a time)
   "small.folders": "Mappen",
@@ -300,6 +301,13 @@ export const nl = {
   "settings.signatureFor": "Handtekening voor {account}",
   "settings.saveSignature": "Handtekening opslaan",
   "settings.signatureSaved": "Opgeslagen.",
+  "settings.addresses": "Andere adressen in dit postvak",
+  "settings.addressesHint": "Komt er in dit postvak ook mail binnen op een ander adres, bijvoorbeeld uw eigen domeinnaam bij iCloud? Zet dat adres hier. U kunt dan ook vanaf dat adres mailen, en de mail aan dat domein krijgt een eigen Postvak IN.",
+  "settings.addressNew": "Nieuw adres",
+  "settings.addressAdd": "Toevoegen",
+  "settings.addressRemove": "Weghalen",
+  "settings.addressRemoveNamed": "{address} weghalen",
+  "settings.addressKnown": "Dit adres hoort al bij dit postvak: {address}",
   "settings.accounts": "Postvakken",
   "settings.addAccount": "Postvak toevoegen",
   "settings.removeAccount": "Postvak verwijderen",

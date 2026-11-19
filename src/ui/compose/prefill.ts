@@ -48,8 +48,17 @@ function signatureBlock(signature: string | null | undefined): string {
   return signature && signature.trim() !== "" ? `\n\n${signature}` : "";
 }
 
-export function replyRecipients(message: MessageDetail, kind: ReplyKind, ownEmail: string): { to: Addr[]; cc: Addr[] } {
-  const own: Addr[] = [{ email: ownEmail }];
+/**
+ * The other address of the mailbox a message came in on (decision 32): in To, Cc or the
+ * server's delivery header. Null when it came in on the main address, so a reply goes from there.
+ */
+export function replyFromAddress(message: Pick<MessageDetail, "to" | "cc" | "deliveredTo">, addresses: readonly string[]): string | null {
+  const got = [...message.to, ...message.cc].map((a) => a.email.toLowerCase()).concat(message.deliveredTo ?? []);
+  return addresses.find((a) => got.includes(a)) ?? null;
+}
+
+export function replyRecipients(message: MessageDetail, kind: ReplyKind, ownEmail: string | readonly string[]): { to: Addr[]; cc: Addr[] } {
+  const own: Addr[] = (typeof ownEmail === "string" ? [ownEmail] : ownEmail).map((email) => ({ email }));
   const first = message.replyTo.length > 0 ? message.replyTo : [message.from];
   if (kind === "forward") return { to: [], cc: [] };
   if (kind === "reply") return { to: first, cc: [] };
@@ -64,8 +73,10 @@ export function prefillDraft(
   kind: ReplyKind,
   ownEmail: string,
   signature: string | null | undefined,
+  otherAddresses: readonly string[] = [],
 ): Draft {
-  const { to, cc } = replyRecipients(message, kind, ownEmail);
+  // Allen beantwoorden leaves out every address of this mailbox, not only the main one.
+  const { to, cc } = replyRecipients(message, kind, [ownEmail, ...otherAddresses]);
   const body = plainBody(message);
   const sig = signatureBlock(signature);
   const quoted =
@@ -91,5 +102,6 @@ export function prefillDraft(
     bodyText: `\n${sig}\n\n${quoted}`,
     inReplyTo: kind === "forward" ? null : (message.messageIdHeader ?? null),
     references: kind === "forward" ? [] : references,
+    fromAddress: replyFromAddress(message, otherAddresses),
   };
 }

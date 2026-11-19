@@ -95,8 +95,37 @@ pub struct Account {
     /// How this mailbox signs in, so the screens offer a password field or "Opnieuw inloggen".
     /// None for the local mailboxes, which never sign in.
     pub sign_in: Option<SignIn>,
+    /// Other addresses that arrive in this mailbox, such as custom-domain addresses on iCloud
+    /// (decision 32). Lower case, without the main address.
+    pub addresses: Vec<String>,
     #[serde(skip)]
     pub settings: Option<ServerSettings>,
+}
+
+impl Account {
+    /// Every address this mailbox may send from: the main one first.
+    pub fn sender_addresses(&self) -> Vec<String> {
+        std::iter::once(self.email.to_lowercase()).chain(self.addresses.iter().cloned()).collect()
+    }
+
+    /// The address to send from: the one the draft names when it belongs to this mailbox,
+    /// otherwise the main address.
+    pub fn send_from(&self, wanted: Option<&str>) -> String {
+        match wanted.map(|w| w.trim().to_lowercase()) {
+            Some(w) if self.addresses.contains(&w) => w,
+            _ => self.email.clone(),
+        }
+    }
+}
+
+/// A Postvak IN for one domain of a mailbox's other addresses (decision 32): the mailbox's
+/// Postvak IN, only the mail addressed to that domain.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainInbox {
+    pub account_id: String,
+    pub domain: String,
+    pub unread: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -170,6 +199,9 @@ pub struct MessageDetail {
     pub references: Vec<String>,
     /// An invitation in the message, shown readably above the text (C11).
     pub invite: Option<crate::invite::Invite>,
+    /// Addresses the mail server delivered this message to (Delivered-To, X-Original-To),
+    /// lower case. Used to answer from the address the message came in on (decision 32).
+    pub delivered_to: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -235,6 +267,10 @@ pub struct Draft {
     pub references: Vec<String>,
     #[serde(default)]
     pub shrink_photos: bool,
+    /// The address to send from, when the mailbox has more than one (decision 32). None or an
+    /// address that is not the mailbox's: the main address.
+    #[serde(default)]
+    pub from_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -439,6 +475,7 @@ mod tests {
             message_id_header: None,
             references: vec![],
             invite: None,
+            delivered_to: vec![],
         };
         let v = serde_json::to_value(&d).unwrap();
         assert_eq!(v["subject"], "s");

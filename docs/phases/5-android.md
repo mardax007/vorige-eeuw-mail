@@ -50,6 +50,14 @@ Added on 18 November 2026 (decision 29), for Windows and the phone alike unless 
 13. **Backup to a USB stick (C14), Windows only.** "Reservekopie maken" and "Reservekopie
     terugzetten" in Instellingen, with progress and "Stoppen"; no secrets in the backup.
 
+Added on 19 November 2026 at Martijn's request:
+
+14. **Several addresses in one mailbox (decision 32).** "Andere adressen in dit postvak" in
+    Instellingen, a "Postvak IN <domain>" per other domain, the "Van" choice in Write, and a reply
+    from the address the mail came to.
+15. **A richer Write screen (decision 33).** BCC, Dutch spellcheck, simple formatting and photos in
+    the text.
+
 ## Exit criteria
 
 - [ ] The APK installs on each Android phone in the inventory
@@ -68,3 +76,7 @@ Added on 18 November 2026 (decision 29), for Windows and the phone alike unless 
 - [ ] An invitation from Outlook and one from Google Agenda show the right day, time and place
 - [ ] A backup made on one PC is restored on another; the mail, labels, contacts and settings are
       there, and only the passwords are asked again
+- [ ] Mail sent to an own domain at iCloud shows in that domain's Postvak IN on a real iCloud
+      mailbox (checked read-only), and a reply goes out from that address
+- [ ] A formatted message with a photo in the text arrives readable in Outlook, Gmail and on a
+      phone, and BCC addresses are not visible to the other receivers

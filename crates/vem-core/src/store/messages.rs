@@ -91,6 +91,28 @@ fn body_text(p: &ParsedMail) -> String {
     }
 }
 
+/// Postvak IN of mailbox ?1, not hidden, with an address at a domain: ?2 matches the JSON of To
+/// and Cc (`"email":"x@domain"`), ?3 the space-separated delivery addresses.
+const DOMAIN_FILTER: &str = "m.account_id = ?1 AND m.hidden = 0
+    AND m.folder_id IN (SELECT id FROM folders WHERE account_id = ?1 AND role = 'inbox')
+    AND (lower(m.to_json) LIKE ?2 OR lower(m.cc_json) LIKE ?2 OR m.delivered_to LIKE ?3)";
+
+/// The two LIKE patterns for a domain. Only letters, digits, dots and hyphens are accepted, so
+/// nothing in it acts as a wildcard.
+fn domain_patterns(domain: &str) -> Result<(String, String)> {
+    let d = domain.trim().trim_start_matches('@').to_lowercase();
+    let ok = d.contains('.') && d.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-');
+    if !ok {
+        return Err(crate::error::VemError::new(crate::error::Code::AppCmd01).with_detail(format!("not a domain: {domain}")));
+    }
+    Ok((format!("%@{d}\"%"), format!("%@{d} %")))
+}
+
+/// Delivery addresses as stored: space-separated with a space at both ends, or NULL.
+fn delivered_text(list: &[String]) -> Option<String> {
+    if list.is_empty() { None } else { Some(format!(" {} ", list.join(" "))) }
+}
+
 impl Store {
     fn write_eml(&self, account_id: &str, id: i64, raw: &[u8]) -> Result<String> {
         let rel = format!("{account_id}/{id}.eml");
@@ -131,8 +153,8 @@ impl Store {
             db.execute(
                 "INSERT INTO messages (account_id, folder_id, uid, message_id_hdr, in_reply_to, references_json,
                     subject, from_name, from_email, to_json, cc_json, date, preview, unread, important,
-                    has_attachments, size, has_body)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                    has_attachments, size, has_body, delivered_to)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
                 params![
                     m.account_id,
                     m.folder_id,
@@ -152,6 +174,7 @@ impl Store {
                     (m.has_body && !p.attachments.is_empty()) as i64,
                     m.size.max(m.raw.len() as u64) as i64,
                     m.has_body as i64,
+                    delivered_text(&p.delivered_to),
                 ],
             )?;
             db.last_insert_rowid()
@@ -188,8 +211,8 @@ impl Store {
         let rel = self.write_eml(&account_id, id, raw)?;
         self.db().execute(
             "UPDATE messages SET eml_path = ?2, has_body = 1, preview = ?3, has_attachments = ?4,
-                size = MAX(size, ?5) WHERE id = ?1",
-            params![id, rel, p.preview, (!p.attachments.is_empty()) as i64, raw.len() as i64],
+                size = MAX(size, ?5), delivered_to = COALESCE(delivered_to, ?6) WHERE id = ?1",
+            params![id, rel, p.preview, (!p.attachments.is_empty()) as i64, raw.len() as i64, delivered_text(&p.delivered_to)],
         )?;
         self.index_search(id, &p, true)
     }
@@ -284,6 +307,27 @@ impl Store {
              ORDER BY m.date DESC, m.id DESC LIMIT ?1 OFFSET ?2",
             &[&limit, &offset],
         )
+    }
+
+    /// Postvak IN of one mailbox, only the mail addressed to one domain (decision 32): in To,
+    /// Cc or the server's delivery header. The main Postvak IN keeps showing everything.
+    pub fn messages_for_domain(&self, account_id: &str, domain: &str, offset: u32, limit: u32) -> Result<Vec<MessageSummary>> {
+        let (to, delivered) = domain_patterns(domain)?;
+        self.summaries_where(
+            &format!("{DOMAIN_FILTER} ORDER BY m.date DESC, m.id DESC LIMIT ?4 OFFSET ?5"),
+            &[&account_id, &to, &delivered, &limit, &offset],
+        )
+    }
+
+    /// Unread messages in Postvak IN addressed to one domain, for the count in the folder pane.
+    pub fn domain_unread(&self, account_id: &str, domain: &str) -> Result<u32> {
+        let (to, delivered) = domain_patterns(domain)?;
+        let n: i64 = self.db().query_row(
+            &format!("SELECT COUNT(*) FROM messages m WHERE {DOMAIN_FILTER} AND m.unread = 1"),
+            params![account_id, to, delivered],
+            |r| r.get(0),
+        )?;
+        Ok(n as u32)
     }
 
     pub fn messages_from_addresses(&self, emails: &[String], limit: u32) -> Result<Vec<MessageSummary>> {
@@ -535,6 +579,65 @@ pub(crate) mod tests {
         let a = s.add_account("Jan", "jan@x.nl", AccountKind::Imap, None).unwrap();
         let f = s.upsert_folder(&a.id, "INBOX", Some("/"), Some(crate::model::FolderRole::Inbox), true).unwrap();
         (a.id, f)
+    }
+
+    /// Decision 32: a mailbox with custom-domain addresses shows, per domain, only the Postvak IN
+    /// mail addressed there: in To, in Cc, or only in the server's Delivered-To (BCC).
+    #[test]
+    fn postvak_in_per_domain_finds_to_cc_and_delivered_to() {
+        let (_d, s) = store();
+        let (acc, inbox) = seed(&s);
+        let put = |raw: String, unread: bool| {
+            s.insert_message(&NewMessage { account_id: acc.clone(), folder_id: inbox, raw: raw.into_bytes(), has_body: true, unread, ..Default::default() })
+                .unwrap()
+        };
+        let head = "From: a@b.nl
+Date: Mon, 16 Nov 2026 10:00:00 +0100
+";
+        put(format!("{head}To: Info <INFO@Familie.nl>
+Subject: aan
+
+x
+"), true);
+        put(format!("{head}To: iemand@elders.nl
+Cc: oma@familie.nl
+Subject: cc
+
+x
+"), false);
+        put(format!("{head}Delivered-To: <ria@familie.nl>
+To: lijst@club.nl
+Subject: bcc
+
+x
+"), true);
+        put(format!("{head}To: jan@x.nl
+Subject: gewoon
+
+x
+"), true);
+        put(format!("{head}To: iemand@nietfamilie.nl
+Subject: lijkt erop
+
+x
+"), true);
+        let mut subjects: Vec<String> = s.messages_for_domain(&acc, "familie.nl", 0, 50).unwrap().into_iter().map(|m| m.subject).collect();
+        subjects.sort();
+        assert_eq!(subjects, ["aan", "bcc", "cc"]);
+        assert_eq!(s.domain_unread(&acc, "familie.nl").unwrap(), 2);
+        assert_eq!(s.messages_in_folder(inbox, 0, 50).unwrap().len(), 5, "the main Postvak IN keeps everything");
+        assert!(s.messages_for_domain(&acc, "fam%lie.nl", 0, 50).is_err(), "no wildcards");
+
+        assert!(s.domain_inboxes().unwrap().is_empty());
+        s.set_account_addresses(&acc, &["Info@Familie.nl".into(), "jan@x.nl".into(), "oma@familie.nl".into(), "post@werk.nl".into()]).unwrap();
+        let account = s.account(&acc).unwrap();
+        assert_eq!(account.addresses, ["info@familie.nl", "oma@familie.nl", "post@werk.nl"], "lower case, no main address");
+        let inboxes: Vec<(String, u32)> = s.domain_inboxes().unwrap().into_iter().map(|d| (d.domain, d.unread)).collect();
+        assert_eq!(inboxes, [("familie.nl".to_string(), 2), ("werk.nl".to_string(), 0)]);
+        assert!(s.set_account_addresses(&acc, &["geen-adres".into()]).is_err());
+        assert_eq!(account.send_from(Some("OMA@familie.nl")), "oma@familie.nl");
+        assert_eq!(account.send_from(Some("vreemd@elders.nl")), "jan@x.nl", "never an address that is not the mailbox's");
+        assert_eq!(account.send_from(None), "jan@x.nl");
     }
 
     #[test]

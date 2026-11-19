@@ -273,7 +273,7 @@ pub fn message_detail(store: &Store, key: &str, show_remote: bool) -> Result<Mes
 
     let mut warnings: Vec<MailWarning> = clean.as_ref().map(|c| sanitize::link_warnings(&c.html)).unwrap_or_default();
     let from = &m.summary.from;
-    let own = store.accounts()?.iter().any(|a| a.email.eq_ignore_ascii_case(&from.email));
+    let own = store.accounts()?.iter().any(|a| a.sender_addresses().contains(&from.email.to_lowercase()));
     if !own {
         if let Some(name) = from.name.as_deref()
             && let Some(c) = store.contact_with_name_other_address(name, &from.email)? {
@@ -317,6 +317,7 @@ pub fn message_detail(store: &Store, key: &str, show_remote: bool) -> Result<Mes
         message_id_header: m.message_id_hdr.clone(),
         references: m.references.clone(),
         invite: crate::invite::find(&raw),
+        delivered_to: p.delivered_to.clone(),
         summary: m.summary,
     })
 }

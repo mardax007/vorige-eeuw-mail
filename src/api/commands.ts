@@ -8,6 +8,7 @@ import type {
   UpdateOffer,
   Contact,
   ContactsImported,
+  DomainInbox,
   Draft,
   Folder,
   ImportKind,
@@ -61,6 +62,13 @@ export interface CommandMap {
   cancel_sign_in: { args: NoArgs; result: void };
   remove_account: { args: { accountId: string }; result: void };
   set_signature: { args: { accountId: string; signature: string }; result: void };
+  /** The other addresses of a mailbox (decision 32); returns them as stored. */
+  set_account_addresses: { args: { accountId: string; addresses: string[] }; result: string[] };
+  list_domain_inboxes: { args: NoArgs; result: DomainInbox[] };
+  list_domain_messages: {
+    args: { accountId: string; domain: string; offset: number; limit: number };
+    result: MessageSummary[];
+  };
 
   list_folders: { args: { accountId: string | null }; result: Folder[] };
   list_messages: {

@@ -15,9 +15,18 @@ interface MessagesState {
   retry: () => void;
 }
 
+/** One string per place, to know when the list belongs somewhere else. */
+export function locationKey(location: MailLocation): string {
+  if (location.kind === "folder") return location.folderId;
+  if (location.kind === "tag") return `tag:${location.tagId}`;
+  if (location.kind === "domain") return `domain:${location.accountId}:${location.domain}`;
+  return "outbox";
+}
+
 async function load(location: MailLocation, limit: number): Promise<MessageSummary[]> {
   if (location.kind === "folder") return api.listMessages(location.folderId, 0, limit);
   if (location.kind === "tag") return api.listTagMessages(location.tagId);
+  if (location.kind === "domain") return api.listDomainMessages(location.accountId, location.domain, 0, limit);
   return [];
 }
 
@@ -32,7 +41,7 @@ export function useMessages(
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [loadError, setLoadError] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const key = location.kind === "folder" ? location.folderId : location.kind === "tag" ? `tag:${location.tagId}` : "outbox";
+  const key = locationKey(location);
   // The place the list on screen belongs to: a failed reload there keeps it, another place does not.
   const loadedKey = useRef<string | null>(null);
 
@@ -69,7 +78,7 @@ export function useMessages(
 
   const loadMore = useCallback(() => setLimit((l) => l + PAGE_SIZE), []);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  const hasMore = !loadError && location.kind === "folder" && messages.length >= limit;
+  const hasMore = !loadError && (location.kind === "folder" || location.kind === "domain") && messages.length >= limit;
 
   return { messages, isLoading, hasMore, loadMore, loadError, retry };
 }

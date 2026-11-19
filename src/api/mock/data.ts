@@ -16,6 +16,7 @@ export const sampleAccounts: Account[] = [
     quota: { usedKb: 1_880_000, limitKb: 2_000_000 },
     signature: "Hartelijke groet,\nRia",
     lastError: null,
+    addresses: [],
     signIn: "password",
   },
   {
@@ -26,6 +27,7 @@ export const sampleAccounts: Account[] = [
     quota: { usedKb: 4_200_000, limitKb: 15_000_000 },
     signature: null,
     lastError: null,
+    addresses: [],
     signIn: "google",
   },
   {
@@ -36,6 +38,7 @@ export const sampleAccounts: Account[] = [
     quota: null,
     signature: null,
     lastError: null,
+    addresses: [],
     signIn: null,
   },
 ];
@@ -105,10 +108,13 @@ interface Row {
   attach?: [string, number, string];
   warnings?: MailWarning[];
   invite?: Invite;
+  /** Sent to this address instead of the mailbox's own. */
+  to?: [string, string];
 }
 
 const rows: Row[] = [
   { folderId: "f-s-inbox", from: ["Sanne Bakker", "sanne.bakker@voorbeeld.nl"], subject: "Foto's van de verjaardag", text: "Lieve oma,\n\nHier zijn de foto's van zaterdag. Wat was het gezellig!\n\nLiefs, Sanne", hours: 1, unread: true, tags: ["t-familie"], attach: ["verjaardag.jpg", 2_400_000, "image/jpeg"] },
+  { folderId: "f-s-inbox", from: ["Neef Bram", "bram@voorbeeld.nl"], to: ["Familie Jansen", "familie@jansen-voorbeeld.nl"], subject: "Familieweekend in mei", text: "Hallo allemaal,\n\nHet familieweekend is van 15 tot 17 mei. Wie komt er?\n\nBram", hours: 30, unread: true },
   { folderId: "f-s-inbox", from: ["Anneke de Vries", "anneke.devries@voorbeeld.nl"], subject: "Koffie donderdag?", text: "Hoi Ria,\n\nZullen we donderdag weer koffie drinken bij De Molen? Om tien uur?\n\nGroetjes, Anneke", hours: 3, unread: true },
   { folderId: "f-s-inbox", from: ["Energiebedrijf Voorbeeld", "klantenservice@energie-voorbeeld.nl"], subject: "Uw jaarnota staat klaar", text: "Geachte mevrouw Jansen,\n\nUw jaarnota staat klaar in Mijn Omgeving.", hours: 20, tags: ["t-rekeningen"], html: "<h2>Uw jaarnota staat klaar</h2><p>Geachte mevrouw Jansen,</p><p>Uw jaarnota over het afgelopen jaar staat klaar.</p><p><img src=\"https://plaatjes.voorbeeld.invalid/logo.png\" alt=\"Logo\"></p>", remote: true },
   { folderId: "f-s-inbox", from: ["ING Bank", "service@ing-veilig-inloggen.example"], subject: "Dringend: bevestig uw gegevens", text: "Uw rekening wordt geblokkeerd. Klik op de link.", hours: 26, unread: true, html: "<p>Beste klant,</p><p>Uw rekening wordt vandaag geblokkeerd. Log direct in via <a href=\"https://ing-veilig-inloggen.example/login\">www.ing.nl</a>.</p>", warnings: [{ kind: "linkMismatch", shown: "www.ing.nl", actual: "ing-veilig-inloggen.example" }, { kind: "firstContactMoney", shown: null, actual: null }] },
@@ -159,7 +165,9 @@ function accountOfFolder(folderId: string): Account {
 
 function toMessage(row: Row, index: number, now: number): MessageDetail {
   const account = accountOfFolder(row.folderId);
-  const toAddr = row.folderId.endsWith("sent")
+  const toAddr = row.to
+    ? [{ name: row.to[0], email: row.to[1] }]
+    : row.folderId.endsWith("sent")
     ? [{ name: "Anneke de Vries", email: "anneke.devries@voorbeeld.nl" }]
     : [{ name: account.displayName, email: account.email || "ria.jansen@home-voorbeeld.nl" }];
   const attachments = row.attach

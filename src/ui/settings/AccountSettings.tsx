@@ -5,6 +5,7 @@ import { t } from "../../i18n";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { formatKb } from "../format";
 import { useApp } from "../state/AppContext";
+import { AccountAddresses } from "./AccountAddresses";
 import { AccountSignIn } from "./AccountSignIn";
 
 /** From this share of the mailbox a calm warning shows (features.md: 90%). */
@@ -92,6 +93,7 @@ export function AccountSettings({ account }: AccountSettingsProps) {
         <button type="button" onClick={saveSignature}>{t("settings.saveSignature")}</button>
         {isSaved && <span role="status">{t("settings.signatureSaved")}</span>}
       </div>
+      {account.kind === "imap" && <AccountAddresses account={account} />}
       <AccountSignIn account={account} currentError={syncErrors[account.id] ?? account.lastError ?? null} />
       <div className="button-row danger-zone">
         <button type="button" className="danger-outline" onClick={() => setIsConfirming(true)}>

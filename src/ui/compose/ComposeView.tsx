@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { toVemError } from "../../api/errors";
-import type { Draft, VemError } from "../../api/types";
+import type { Account, Draft, VemError } from "../../api/types";
 import { t } from "../../i18n";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { ErrorBox } from "../common/ErrorBox";
@@ -24,6 +24,8 @@ interface ComposeViewProps {
 
 interface Fields {
   accountId: string;
+  /** One of the mailbox's other addresses (decision 32); null for its main address. */
+  fromAddress: string | null;
   to: string;
   cc: string;
   subject: string;
@@ -42,6 +44,7 @@ interface FieldProblem {
 function fieldsOf(d: Draft): Fields {
   return {
     accountId: d.accountId,
+    fromAddress: d.fromAddress ?? null,
     to: formatAddressList(d.to),
     cc: formatAddressList(d.cc),
     subject: d.subject,
@@ -49,6 +52,30 @@ function fieldsOf(d: Draft): Fields {
     attachments: d.attachments,
     shrinkPhotos: d.shrinkPhotos,
   };
+}
+
+interface Sender {
+  value: string;
+  label: string;
+  accountId: string;
+  fromAddress: string | null;
+}
+
+function senderValue(accountId: string, fromAddress: string | null): string {
+  return fromAddress ? `${accountId} ${fromAddress}` : accountId;
+}
+
+/** "Van": every mailbox with its main address, then its other addresses (decision 32). */
+function senderChoices(mail: readonly Account[]): Sender[] {
+  return mail.flatMap((a) => [
+    { value: senderValue(a.id, null), label: `${a.displayName} <${a.email}>`, accountId: a.id, fromAddress: null },
+    ...a.addresses.map((address) => ({
+      value: senderValue(a.id, address),
+      label: `${a.displayName} <${address}>`,
+      accountId: a.id,
+      fromAddress: address,
+    })),
+  ]);
 }
 
 /** What is wrong with the addresses before sending, and in which field; null when all is well. */
@@ -82,6 +109,7 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
   const toRef = useRef<HTMLInputElement>(null);
   const ccRef = useRef<HTMLInputElement>(null);
   const mail = mailAccounts(accounts);
+  const senders = senderChoices(mail);
 
   const update = (patch: Partial<Fields>) => {
     setFields((f) => ({ ...f, ...patch }));
@@ -95,6 +123,7 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
       ...initial,
       id,
       accountId: fields.accountId,
+      fromAddress: fields.fromAddress,
       to: parseAddressList(fields.to).addresses,
       cc: parseAddressList(fields.cc).addresses,
       subject: fields.subject,
@@ -214,12 +243,19 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
       </header>
       {error && <ErrorBox error={error} onClose={() => setError(null)} />}
       {isCloseRefused && <p className="form-problem" role="alert">{t("compose.notSavedStays")}</p>}
-      {mail.length > 1 && (
+      {senders.length > 1 && (
         <div className="form-row">
           <label htmlFor="compose-from">{t("compose.from")}</label>
-          <select id="compose-from" value={fields.accountId} onChange={(e) => update({ accountId: e.target.value })}>
-            {mail.map((a) => (
-              <option key={a.id} value={a.id}>{`${a.displayName} <${a.email}>`}</option>
+          <select
+            id="compose-from"
+            value={senderValue(fields.accountId, fields.fromAddress)}
+            onChange={(e) => {
+              const picked = senders.find((s) => s.value === e.target.value);
+              if (picked) update({ accountId: picked.accountId, fromAddress: picked.fromAddress });
+            }}
+          >
+            {senders.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
         </div>

@@ -46,6 +46,30 @@ pub struct ParsedMail {
     pub html: Option<String>,
     pub preview: String,
     pub attachments: Vec<AttachmentInfo>,
+    /// Lower-case addresses from Delivered-To, X-Original-To and the like: where the server
+    /// delivered the message, also when that address is not in To or Cc (BCC, lists).
+    pub delivered_to: Vec<String>,
+}
+
+/// Headers in which mail servers note the address a message was delivered to.
+const DELIVERY_HEADERS: [&str; 5] = ["delivered-to", "x-original-to", "x-delivered-to", "envelope-to", "x-envelope-to"];
+
+/// Every address in the delivery headers, lower case, without duplicates.
+fn delivered_to(msg: &mail_parser::Message<'_>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for h in msg.headers().iter() {
+        if !DELIVERY_HEADERS.iter().any(|n| h.raw_name().eq_ignore_ascii_case(n)) {
+            continue;
+        }
+        let value = String::from_utf8_lossy(h.raw_value());
+        for word in value.split(|c: char| c.is_whitespace() || c == ',' || c == ';') {
+            let a = word.trim_matches(|c: char| matches!(c, '<' | '>' | '"' | '\'')).to_lowercase();
+            if a.contains('@') && crate::compose::valid_email(&a) && !out.contains(&a) {
+                out.push(a);
+            }
+        }
+    }
+    out
 }
 
 pub const PREVIEW_LEN: usize = 200;
@@ -127,6 +151,7 @@ pub fn parse(raw: &[u8]) -> ParsedMail {
         html,
         preview,
         attachments,
+        delivered_to: delivered_to(&msg),
     }
 }
 
@@ -199,6 +224,21 @@ pub fn safe_file_name(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn delivery_headers_give_the_address_the_mail_came_in_on() {
+        let raw = b"Delivered-To: <Info@Familie.nl>
+X-Original-To: info@familie.nl, Oma@familie.nl
+To: lijst@club.nl
+Subject: x
+
+hoi
+";
+        assert_eq!(parse(raw).delivered_to, ["info@familie.nl", "oma@familie.nl"]);
+        assert!(parse(b"To: a@b.nl
+
+x").delivered_to.is_empty());
+    }
 
     const SAMPLE: &[u8] = b"From: =?utf-8?q?Jan_de_Vr=C3=AFes?= <jan@example.nl>\r\n\
 To: Ann <ann@example.com>, bob@example.com\r\n\

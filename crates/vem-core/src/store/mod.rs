@@ -23,7 +23,8 @@ use crate::error::{Code, Result, VemError};
 pub use messages::{NewMessage, StoredMessage};
 pub use outbox::OutboxRow;
 
-const SCHEMA_VERSION: i64 = 1;
+/// 2 (19 November 2026): `accounts.addresses_json` and `messages.delivered_to` (decision 32).
+const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS accounts (
@@ -39,7 +40,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     server_saves_sent INTEGER,
     capabilities TEXT,
     position INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    addresses_json TEXT
 );
 CREATE TABLE IF NOT EXISTS folders (
     id INTEGER PRIMARY KEY,
@@ -79,7 +81,8 @@ CREATE TABLE IF NOT EXISTS messages (
     is_draft INTEGER NOT NULL DEFAULT 0,
     draft_json TEXT,
     hidden INTEGER NOT NULL DEFAULT 0,
-    remote_images_ok INTEGER NOT NULL DEFAULT 0
+    remote_images_ok INTEGER NOT NULL DEFAULT 0,
+    delivered_to TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_folder_uid ON messages(folder_id, uid) WHERE uid IS NOT NULL;
 CREATE INDEX IF NOT EXISTS messages_folder_date ON messages(folder_id, hidden, date DESC, id DESC);
@@ -208,6 +211,7 @@ impl Store {
         )?;
         conn.execute_batch(SCHEMA)?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        add_missing_columns(&conn)?;
         if version < SCHEMA_VERSION {
             conn.execute_batch(&format!("PRAGMA user_version={SCHEMA_VERSION}"))?;
         }
@@ -230,6 +234,23 @@ impl Store {
     pub fn originals_dir(&self) -> PathBuf {
         self.root.join("originals")
     }
+}
+
+/// Columns added after the first version. `CREATE TABLE IF NOT EXISTS` leaves an older index's
+/// tables as they were, so each new column is added when it is not there yet.
+const ADDED_COLUMNS: [(&str, &str, &str); 2] =
+    [("accounts", "addresses_json", "TEXT"), ("messages", "delivered_to", "TEXT")];
+
+fn add_missing_columns(conn: &Connection) -> Result<()> {
+    for (table, column, kind) in ADDED_COLUMNS {
+        let present: bool = conn
+            .prepare(&format!("SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?1"))?
+            .exists([column])?;
+        if !present {
+            conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {kind}"))?;
+        }
+    }
+    Ok(())
 }
 
 /// `PRAGMA quick_check` on a freshly opened index. A file that is not a database at all fails
@@ -275,6 +296,31 @@ pub(crate) mod testutil {
 
 #[cfg(test)]
 mod tests {
+    use super::{Connection, SCHEMA, SCHEMA_VERSION, Store};
+
+    /// An index from before 19 November 2026 (schema 1) gets the new columns on opening and
+    /// keeps its rows.
+    #[test]
+    fn an_older_index_gets_the_new_columns() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let db = Connection::open(dir.path().join("index.sqlite")).unwrap();
+            let old = SCHEMA.replace(",
+    addresses_json TEXT", "").replace(",
+    delivered_to TEXT", "");
+            assert!(!old.contains("delivered_to"));
+            db.execute_batch(&old).unwrap();
+            db.execute_batch("PRAGMA user_version=1;
+                INSERT INTO accounts (id, display_name, email, kind, created_at) VALUES ('a', 'Ria', 'ria@icloud.com', 'imap', 0);").unwrap();
+        }
+        let s = Store::open(dir.path()).unwrap();
+        assert_eq!(s.account("a").unwrap().addresses, Vec::<String>::new());
+        s.set_account_addresses("a", &["info@familie.nl".into()]).unwrap();
+        assert_eq!(s.account("a").unwrap().addresses, ["info@familie.nl"]);
+        let v: i64 = s.db().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        assert_eq!(v, SCHEMA_VERSION);
+    }
+
     #[test]
     fn opens_on_disk_twice() {
         let dir = tempfile::tempdir().unwrap();

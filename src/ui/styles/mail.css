@@ -58,6 +58,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Postvak IN for one domain (decision 32): indented under the mailbox's Postvak IN. */
+.folder-pane .domain-inbox {
+  margin-left: 20px;
+  border-left: 2px solid var(--line-quiet);
+}
+
 /* "Meer mappen (n)" under a mailbox: a quiet row like a folder, with an arrow that turns. */
 .more-button {
   width: 100%;

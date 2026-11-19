@@ -33,6 +33,18 @@ export interface Account {
   lastError?: VemError | null;
   /** How this mailbox signs in; null for local mailboxes (and older indexes). */
   signIn?: SignIn | null;
+  /**
+   * Other addresses that arrive in this mailbox, such as custom-domain addresses on iCloud
+   * (decision 32); lower case, without the main address.
+   */
+  addresses: string[];
+}
+
+/** Postvak IN of one mailbox, only the mail addressed to one domain of its other addresses. */
+export interface DomainInbox {
+  accountId: string;
+  domain: string;
+  unread: number;
 }
 
 export interface Folder {
@@ -112,6 +124,8 @@ export interface MessageDetail extends MessageSummary {
   messageIdHeader?: string | null;
   references: string[];
   invite?: Invite | null;
+  /** Where the server delivered the message (Delivered-To), lower case (decision 32). */
+  deliveredTo?: string[];
 }
 
 export type SearchScope =
@@ -154,6 +168,8 @@ export interface Draft {
   references: string[];
   /** C1: shrink large photos before sending. */
   shrinkPhotos: boolean;
+  /** The address to send from when the mailbox has more than one (decision 32). */
+  fromAddress?: string | null;
 }
 
 export interface OutboxItem {

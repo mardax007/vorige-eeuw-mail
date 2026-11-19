@@ -13,6 +13,8 @@ import type {
 export type MailLocation =
   | { kind: "folder"; folderId: string }
   | { kind: "tag"; tagId: string }
+  /** A mailbox's Postvak IN, only the mail to one domain of its other addresses (decision 32). */
+  | { kind: "domain"; accountId: string; domain: string }
   | { kind: "outbox" };
 
 export type View =

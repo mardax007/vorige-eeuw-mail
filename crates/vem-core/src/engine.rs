@@ -388,7 +388,7 @@ impl Engine {
     /// "Verzenden": into Postvak UIT; it goes after the undo delay.
     pub fn send(&self, draft: Draft) -> Result<OutboxItem> {
         let account = self.store.account(&draft.account_id)?;
-        let from = Addr::new(Some(account.display_name.as_str()), &account.email);
+        let from = Addr::new(Some(account.display_name.as_str()), &account.send_from(draft.from_address.as_deref()));
         // Check the message can be built before promising it will go.
         compose::build(&draft, &from, now())?;
         let delay = i64::from(self.store.settings()?.undo_send_seconds);
@@ -464,10 +464,12 @@ impl Engine {
     async fn deliver(&self, draft: &Draft) -> Result<()> {
         let account = self.store.account(&draft.account_id)?;
         let settings = account.settings.clone().ok_or_else(|| VemError::new(Code::StoreSecret01).with_detail("settings"))?;
-        let from = Addr::new(Some(account.display_name.as_str()), &account.email);
+        // The address the message goes out from, also in MAIL FROM: iCloud refuses another one.
+        let sender = account.send_from(draft.from_address.as_deref());
+        let from = Addr::new(Some(account.display_name.as_str()), &sender);
         let built = compose::build(draft, &from, now())?;
         let auth = self.auth(&account).await?;
-        smtp::send(&Self::smtp_config(&settings, auth, self.trust), &account.email, &built.recipients, &built.raw).await?;
+        smtp::send(&Self::smtp_config(&settings, auth, self.trust), &sender, &built.recipients, &built.raw).await?;
         for a in draft.to.iter().chain(&draft.cc).chain(&draft.bcc) {
             let _ = self.store.learn_contact(a.name.as_deref(), &a.email);
         }
