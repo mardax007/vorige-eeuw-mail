@@ -259,6 +259,10 @@ pub struct Draft {
     pub subject: String,
     #[serde(default)]
     pub body_text: String,
+    /// The text with its formatting and photos (decision 33), or None when it has none; then
+    /// only `body_text` is sent. Always cleaned by `rich::clean` before it is kept or sent.
+    #[serde(default)]
+    pub body_html: Option<String>,
     #[serde(default)]
     pub attachments: Vec<String>,
     #[serde(default)]

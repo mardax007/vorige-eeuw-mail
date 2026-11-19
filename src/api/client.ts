@@ -115,6 +115,7 @@ export const api = {
   cancelSend: (outboxId: string) => call("cancel_send", { outboxId }),
   listOutbox: () => call("list_outbox", undefined),
   pickAttachments: () => call("pick_attachments", undefined),
+  pickTextPhoto: (filterName: string) => call("pick_text_photo", { filterName }),
   openAttachment: (messageId: string, attachmentId: string) =>
     call("open_attachment", { messageId, attachmentId }),
   saveAttachment: (messageId: string, attachmentId: string) =>

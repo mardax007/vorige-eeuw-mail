@@ -387,6 +387,7 @@ impl Engine {
 
     /// "Verzenden": into Postvak UIT; it goes after the undo delay.
     pub fn send(&self, draft: Draft) -> Result<OutboxItem> {
+        let draft = compose::clean_draft(draft);
         let account = self.store.account(&draft.account_id)?;
         let from = Addr::new(Some(account.display_name.as_str()), &account.send_from(draft.from_address.as_deref()));
         // Check the message can be built before promising it will go.

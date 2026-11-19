@@ -11,6 +11,7 @@ type ComposeCommands =
   | "cancel_send"
   | "list_outbox"
   | "pick_attachments"
+  | "pick_text_photo"
   | "open_attachment"
   | "save_attachment"
   | "forward_attachments"
@@ -18,6 +19,9 @@ type ComposeCommands =
   | "save_contact"
   | "delete_contact"
   | "contact_messages";
+
+/** A made-up landscape (sky, grass, sun) for "Foto in de tekst". */
+const SAMPLE_PHOTO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAAA7UlEQVR42u3aoQ2AMBCG0U6HRjMYmnHQnQSNwpJguWt6eck3QZ9p2r/t56XCNUcAWIAFWIAFWIAFGLAAC7AAC/Ds3X15B7im6zfAZWkzmQGP1E0wBjxYN9oY8HjdUGPAgBWvG2cMGLAA0/0rwIABAwYMWIDlFg0YMGDA3qIBAwbsP1gWHbLJklWlXbRdtAALsAADFmABFmABFmABBizAAizAAizAAgxYgAVYgJUNvB2rCgcYsAALsAALsAALMGABFmABFmABFmDAAizAAizAAizAAgxYgAVYgAVYgAUYsAALsAALsAALMGAB1qTAD8TKPS/k3jn8AAAAAElFTkSuQmCC";
 
 /** A recipient the mock refuses, to show what a send error looks like. */
 const REFUSED_ADDRESS = "weigert@voorbeeld.nl";
@@ -39,7 +43,7 @@ function messageFromDraft(store: MockStore, id: string, draft: Draft, folderId: 
     tagIds: [],
     cc: draft.cc,
     replyTo: [],
-    html: null,
+    html: draft.bodyHtml ?? null,
     text: draft.bodyText,
     hasRemoteImages: false,
     remoteImagesShown: false,
@@ -149,6 +153,7 @@ export function createComposeHandlers(store: MockStore): Pick<CommandHandlers, C
       return entry.draft;
     },
     list_outbox: () => store.get().outbox.map((o) => o.item),
+    pick_text_photo: () => ({ dataUrl: SAMPLE_PHOTO }),
     pick_attachments: () => ["C:\\Users\\Ria\\Pictures\\Kleinkinderen.jpg"],
     open_attachment: () => undefined,
     save_attachment: () => true,

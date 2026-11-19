@@ -8,6 +8,7 @@ use std::path::Path;
 use mail_builder::MessageBuilder;
 use mail_builder::headers::address::Address;
 use mail_builder::headers::message_id::MessageId;
+use mail_builder::mime::MimePart;
 
 use crate::error::{Code, Result, VemError};
 use crate::model::{Addr, Draft};
@@ -17,6 +18,13 @@ pub const SHRINK_ABOVE_BYTES: usize = 1024 * 1024;
 /// The long side of a shrunk photo, in pixels.
 pub const SHRINK_LONG_SIDE: u32 = 1600;
 const SHRINK_JPEG_QUALITY: u8 = 80;
+/// The long side of a photo placed in the text (decision 33): wide enough to see, small enough
+/// that it does not fill the receiver's screen or mailbox.
+pub const TEXT_PHOTO_LONG_SIDE: u32 = 1000;
+/// A file larger than this is not read for the text; the screen suggests attaching it instead.
+pub const TEXT_PHOTO_MAX_BYTES: u64 = 30 * 1024 * 1024;
+/// No photo is decoded beyond this many pixels a side, so a crafted file cannot fill the memory.
+const DECODE_MAX_SIDE: u32 = 16_000;
 
 #[derive(Debug, Clone)]
 pub struct Built {
@@ -77,16 +85,25 @@ pub fn build(draft: &Draft, from: &Addr, date: i64) -> Result<Built> {
     let message_id = new_message_id(&from.email);
     let subject: String = draft.subject.chars().filter(|c| !c.is_control()).collect();
     let body = draft.body_text.replace("\r\n", "\n");
+    let domain = message_id.rsplit_once('@').map(|(_, d)| d.to_string()).unwrap_or_default();
+    let rich = draft
+        .body_html
+        .as_deref()
+        .filter(|h| !h.trim().is_empty())
+        .map(|h| crate::rich::with_photo_parts(h, &domain));
 
     let mut b = MessageBuilder::new()
         .from(Address::new_address(clean_name(&from.name), from.email.trim().to_string()))
         .subject(subject)
         .date(date)
         .message_id(message_id.clone())
-        .header("X-Mailer", mail_builder::headers::raw::Raw::new("Vorige Eeuw Mail"))
-        .text_body(body);
+        .header("X-Mailer", mail_builder::headers::raw::Raw::new("Vorige Eeuw Mail"));
     if !draft.to.is_empty() {
         b = b.to(address_list(&draft.to));
+    } else if draft.cc.is_empty() && !draft.bcc.is_empty() {
+        // Only BCC: an empty group, as other mail programs write, so no provider takes a message
+        // without To or Cc for spam.
+        b = b.to(Address::new_group(Some("undisclosed-recipients"), vec![]));
     }
     if !draft.cc.is_empty() {
         b = b.cc(address_list(&draft.cc));
@@ -98,12 +115,72 @@ pub fn build(draft: &Draft, from: &Addr, date: i64) -> Result<Built> {
     if !refs.is_empty() {
         b = b.references(MessageId::from(refs));
     }
+    let mut files = Vec::with_capacity(draft.attachments.len());
     for path in &draft.attachments {
         let (bytes, name, mime) = read_attachment(Path::new(path), draft.shrink_photos)?;
-        b = b.attachment(mime, name, bytes);
+        files.push(MimePart::new(mime, bytes).attachment(name));
     }
+    b = b.body(body_parts(body, rich, files));
     let raw = b.write_to_vec().map_err(|e| VemError::new(Code::AppCmd01).with_detail(e.kind().to_string()))?;
     Ok(Built { raw, recipients, message_id: format!("<{message_id}>") })
+}
+
+/// The MIME tree: the text, or the text and the formatted text (with its photos beside it in
+/// `multipart/related`) as `multipart/alternative`, then the attachments in `multipart/mixed`.
+fn body_parts(text: String, rich: Option<crate::rich::RichBody>, files: Vec<MimePart<'static>>) -> MimePart<'static> {
+    let text = MimePart::new("text/plain", text);
+    let content = match rich {
+        None => text,
+        Some(r) => {
+            let html = MimePart::new("text/html", r.html);
+            let html = if r.photos.is_empty() {
+                html
+            } else {
+                let mut parts = vec![html];
+                parts.extend(r.photos.into_iter().map(|p| MimePart::new(p.mime, p.bytes).inline().cid(p.cid)));
+                MimePart::new("multipart/related", parts)
+            };
+            MimePart::new("multipart/alternative", vec![text, html])
+        }
+    };
+    if files.is_empty() {
+        return content;
+    }
+    let mut parts = vec![content];
+    parts.extend(files);
+    MimePart::new("multipart/mixed", parts)
+}
+
+/// A draft whose formatted text holds only what the Write screen can make (decision 33).
+pub fn clean_draft(draft: Draft) -> Draft {
+    let body_html = draft.body_html.as_deref().map(crate::rich::clean).filter(|h| !h.trim().is_empty());
+    Draft { body_html, ..draft }
+}
+
+/// A photo to place in the text, as a `data:` URL: turned upright and at most
+/// `TEXT_PHOTO_LONG_SIDE` pixels as a JPEG; a small PNG or a GIF stays as it is. None when the
+/// file is not a photo this can read.
+pub fn photo_for_text(bytes: &[u8]) -> Option<String> {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD;
+    let small = bytes.len() <= SHRINK_ABOVE_BYTES;
+    let keep = match image::guess_format(bytes).ok()? {
+        // A GIF may move, so it is never redrawn; a large one goes as an attachment instead.
+        image::ImageFormat::Gif => small.then_some("image/gif"),
+        image::ImageFormat::Png => image::ImageReader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .ok()
+            .and_then(|r| r.into_dimensions().ok())
+            .filter(|(w, h)| *w.max(h) <= TEXT_PHOTO_LONG_SIDE && small)
+            .map(|_| "image/png"),
+        image::ImageFormat::Jpeg => None,
+        _ => return None,
+    };
+    if let Some(mime) = keep {
+        return Some(format!("data:{mime};base64,{}", b64.encode(bytes)));
+    }
+    let jpeg = resized_jpeg(bytes, TEXT_PHOTO_LONG_SIDE)?;
+    Some(format!("data:image/jpeg;base64,{}", b64.encode(jpeg)))
 }
 
 fn read_attachment(path: &Path, shrink: bool) -> Result<(Vec<u8>, String, String)> {
@@ -146,11 +223,20 @@ pub fn mime_for(name: &str) -> &'static str {
 /// A smaller JPEG of a large photo, turned upright, or None when it is small already, not a
 /// JPEG or PNG, or would not get smaller.
 pub fn shrink_photo(bytes: &[u8]) -> Option<Vec<u8>> {
-    use image::{ImageDecoder, ImageReader};
     if bytes.len() <= SHRINK_ABOVE_BYTES {
         return None;
     }
-    let reader = ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?;
+    resized_jpeg(bytes, SHRINK_LONG_SIDE).filter(|out| out.len() < bytes.len())
+}
+
+/// A JPEG or PNG as an upright JPEG whose long side is at most `long_side` pixels.
+fn resized_jpeg(bytes: &[u8], long_side: u32) -> Option<Vec<u8>> {
+    use image::{ImageDecoder, ImageReader};
+    let mut reader = ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(DECODE_MAX_SIDE);
+    limits.max_image_height = Some(DECODE_MAX_SIDE);
+    reader.limits(limits);
     if !matches!(reader.format(), Some(image::ImageFormat::Jpeg | image::ImageFormat::Png)) {
         return None;
     }
@@ -160,14 +246,20 @@ pub fn shrink_photo(bytes: &[u8]) -> Option<Vec<u8>> {
     if let Some(o) = orientation {
         img.apply_orientation(o);
     }
-    if img.width().max(img.height()) > SHRINK_LONG_SIDE {
-        img = img.resize(SHRINK_LONG_SIDE, SHRINK_LONG_SIDE, image::imageops::FilterType::Triangle);
+    if img.width().max(img.height()) > long_side {
+        img = img.resize(long_side, long_side, image::imageops::FilterType::Triangle);
     }
-    let rgb = img.to_rgb8();
+    // See-through parts of a PNG become white, not black.
+    let rgba = img.to_rgba8();
+    let rgb = image::RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+        let [r, g, b, a] = rgba.get_pixel(x, y).0;
+        let mix = |c: u8| ((u16::from(c) * u16::from(a) + 255 * (255 - u16::from(a))) / 255) as u8;
+        image::Rgb([mix(r), mix(g), mix(b)])
+    });
     let mut out = Vec::new();
     let enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, SHRINK_JPEG_QUALITY);
     rgb.write_with_encoder(enc).ok()?;
-    (out.len() < bytes.len()).then_some(out)
+    Some(out)
 }
 
 #[cfg(test)]
@@ -234,6 +326,64 @@ mod tests {
 
         d.attachments = vec![dir.path().join("weg.pdf").to_string_lossy().into()];
         assert_eq!(build(&d, &Addr::new(None, "jan@example.nl"), 0).unwrap_err().code, "VEM-STORE-READ-01");
+    }
+
+    #[test]
+    fn formatted_text_goes_with_a_plain_copy_and_its_photos() {
+        let dot = "data:image/png;base64,iVBORw0KGgo=";
+        let mut d = draft();
+        d.body_text = "Hoi oma, kijk".into();
+        d.body_html = Some(format!("<p>Hoi <b>oma</b>, kijk</p><img src=\"{dot}\"><script>x()</script>"));
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("brief.pdf");
+        std::fs::write(&path, b"%PDF-1.4 test").unwrap();
+        d.attachments = vec![path.to_string_lossy().into()];
+        let b = build(&d, &Addr::new(None, "jan@example.nl"), 0).unwrap();
+        let raw = String::from_utf8_lossy(&b.raw);
+        for part in ["multipart/mixed", "multipart/alternative", "multipart/related", "text/plain", "text/html"] {
+            assert!(raw.contains(part), "{part} missing");
+        }
+        assert!(!raw.contains("x()") && !raw.contains("data:image"));
+        let p = parse::parse(&b.raw);
+        assert!(p.text.unwrap().contains("Hoi oma, kijk"));
+        assert!(p.html.unwrap().contains("<b>oma</b>"));
+        let photo = p.attachments.iter().find(|a| a.mime == "image/png").expect("the photo is a part");
+        assert!(photo.content_id.as_deref().is_some_and(|c| b.raw.windows(c.len()).any(|w| w == c.as_bytes())));
+        let pdf = p.attachments.iter().find(|a| a.name == "brief.pdf").expect("the attachment");
+        assert!(pdf.content_id.is_none());
+
+        d.to.clear();
+        d.cc.clear();
+        let hidden = String::from_utf8_lossy(&build(&d, &Addr::new(None, "jan@example.nl"), 0).unwrap().raw).to_string();
+        assert!(hidden.contains("To: undisclosed-recipients:;") || hidden.contains("To: \"undisclosed-recipients\":;"), "{hidden}");
+        assert!(!hidden.contains("geheim@example.nl"));
+
+        d.body_html = None;
+        d.attachments.clear();
+        let plain = build(&d, &Addr::new(None, "jan@example.nl"), 0).unwrap();
+        assert!(!String::from_utf8_lossy(&plain.raw).contains("multipart"), "no formatting: one plain part");
+    }
+
+    #[test]
+    fn a_photo_for_the_text_is_made_smaller() {
+        let img = image::RgbImage::from_fn(3000, 2000, |x, y| image::Rgb([(x % 256) as u8, (y % 256) as u8, 90]));
+        let mut jpg = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut jpg), image::ImageFormat::Jpeg).unwrap();
+        let url = photo_for_text(&jpg).expect("a photo");
+        use base64::Engine;
+        let bytes = base64::engine::general_purpose::STANDARD.decode(url.strip_prefix("data:image/jpeg;base64,").unwrap()).unwrap();
+        let back = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((back.width(), back.height()), (1000, 667));
+        assert!(photo_for_text(b"%PDF-1.4 geen foto").is_none());
+
+        // See-through becomes white.
+        let clear = image::RgbaImage::from_pixel(2400, 1200, image::Rgba([0, 0, 0, 0]));
+        let mut png = Vec::new();
+        clear.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        let url = photo_for_text(&png).expect("a large PNG is redrawn");
+        let bytes = base64::engine::general_purpose::STANDARD.decode(url.strip_prefix("data:image/jpeg;base64,").unwrap()).unwrap();
+        let px = image::load_from_memory(&bytes).unwrap().to_rgb8().get_pixel(10, 10).0;
+        assert!(px.iter().all(|c| *c > 240), "{px:?}");
     }
 
     #[test]

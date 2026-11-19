@@ -162,6 +162,8 @@ export interface Draft {
   bcc: Addr[];
   subject: string;
   bodyText: string;
+  /** The text with its formatting and photos (decision 33); null when it has none. */
+  bodyHtml?: string | null;
   /** Paths of files on this computer. */
   attachments: string[];
   inReplyTo?: string | null;
@@ -170,6 +172,11 @@ export interface Draft {
   shrinkPhotos: boolean;
   /** The address to send from when the mailbox has more than one (decision 32). */
   fromAddress?: string | null;
+}
+
+/** A photo picked for the text: a data: URL, or null when the file is no photo the app can read. */
+export interface TextPhoto {
+  dataUrl: string | null;
 }
 
 export interface OutboxItem {

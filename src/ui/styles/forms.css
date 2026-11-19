@@ -186,11 +186,6 @@ legend {
   margin: 0;
 }
 
-.compose textarea#compose-body {
-  min-height: 14em;
-  flex: 1;
-}
-
 .compose-attachments {
   display: flex;
   flex-direction: column;
@@ -320,4 +315,72 @@ html.scanning .scan-overlay * {
   image-rendering: pixelated;
   border: 8px solid #ffffff;
   outline: 1px solid var(--line);
+}
+
+/* Write: the formatting bar and the text (decision 33). */
+
+.add-fields {
+  margin-bottom: 12px;
+}
+
+.format-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 0;
+}
+
+.format-bar button {
+  font-weight: 400;
+}
+
+.format-bar .format-bold {
+  font-weight: 700;
+}
+
+.format-bar .format-italic {
+  font-style: italic;
+}
+
+.format-bar .format-underline {
+  text-decoration: underline;
+}
+
+/* The colour list sits in the bar with its own word in front. */
+.format-bar .format-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.rich-editor {
+  flex: 1;
+  min-height: 14em;
+  padding: 0.4em 0.7em;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.rich-editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+.rich-editor ul,
+.rich-editor ol {
+  margin: 0.25em 0;
+  padding-left: 1.5em;
+}
+
+@media (hover: hover) {
+  .rich-editor:hover:not(:focus) {
+    border-color: var(--ink-soft);
+  }
 }

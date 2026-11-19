@@ -15,6 +15,8 @@ interface AddressFieldProps {
   onChange: (value: string) => void;
   /** What is wrong with this field, shown right under it. */
   problem?: string | null;
+  /** A short explanation under the box, read out with it. */
+  hint?: string;
   inputRef?: Ref<HTMLInputElement>;
 }
 
@@ -29,11 +31,13 @@ function suggestionsFrom(contacts: readonly Contact[], typed: string): Addr[] {
 }
 
 /** An address box that suggests contacts while typing. */
-export function AddressField({ id, label, value, onChange, problem = null, inputRef }: AddressFieldProps) {
+export function AddressField({ id, label, value, onChange, problem = null, hint, inputRef }: AddressFieldProps) {
   const [suggestions, setSuggestions] = useState<Addr[]>([]);
   const rowRef = useRef<HTMLDivElement>(null);
   const typed = lastToken(value);
   const problemId = `${id}-problem`;
+  const hintId = `${id}-hint`;
+  const describedBy = [hint ? hintId : null, problem ? problemId : null].filter(Boolean).join(" ") || undefined;
 
   useEffect(() => {
     if (typed.length < 2) {
@@ -86,7 +90,7 @@ export function AddressField({ id, label, value, onChange, problem = null, input
         spellCheck={false}
         value={value}
         aria-invalid={problem ? true : undefined}
-        aria-describedby={problem ? problemId : undefined}
+        aria-describedby={describedBy}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape" && suggestions.length > 0) {
@@ -95,6 +99,11 @@ export function AddressField({ id, label, value, onChange, problem = null, input
           }
         }}
       />
+      {hint && (
+        <p id={hintId} className="hint">
+          {hint}
+        </p>
+      )}
       {problem && (
         <p id={problemId} className="form-problem" role="alert">
           {problem}

@@ -96,6 +96,11 @@ recognise, and leave out what makes Outlook hard.
   first, then each account with its own Postvak IN, Verzonden items and Verwijderde items.
 - The "Nieuwe e-mail", "Beantwoorden", "Allen beantwoorden" and "Doorsturen" buttons appear in
   phase 2b, when writing exists; phase 2a shows no button that does nothing.
+- Write (decision 33): CC and BCC stay behind "CC toevoegen" and "BCC toevoegen"; BCC says in one
+  line that the others do not see those people. Above the text one row of worded buttons: "Vet",
+  "Schuin", "Onderstreept", "Opsomming", "Grote letters", a "Kleur" list with four named colours,
+  and "Foto in de tekst". Pasted text loses its formatting. A message without formatting goes as
+  plain text only. The subject and the text are spell-checked in Dutch.
 - Imported old mail shows as its own clearly named group (for example "Oude mail uit Outlook"), not
   mixed invisibly into Postvak IN.
 - Search is one box at the top ("Zoeken"). Next to it, a plain choice of where to look: "Alle mail"

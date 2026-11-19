@@ -330,6 +330,7 @@ fn drafts_folder(state: &AppState, account_id: &str) -> R<i64> {
 
 #[tauri::command]
 fn save_draft(app: AppHandle, state: State<'_, AppState>, draft: Draft) -> R<String> {
+    let draft = vem_core::compose::clean_draft(draft);
     state.last_draft_save.store(now(), Ordering::Relaxed);
     let account = state.engine.store.account(&draft.account_id)?;
     let folder = drafts_folder(&state, &account.id)?;
@@ -355,7 +356,9 @@ fn delete_draft(state: State<'_, AppState>, draft_id: String) -> R<()> {
 #[tauri::command]
 fn load_draft(state: State<'_, AppState>, message_id: String) -> R<Draft> {
     let m = state.engine.store.message(parse_message_key(&message_id)?)?;
-    m.draft.ok_or_else(|| VemError::new(Code::StoreRead01).with_detail("draft"))
+    m.draft
+        .map(vem_core::compose::clean_draft)
+        .ok_or_else(|| VemError::new(Code::StoreRead01).with_detail("draft"))
 }
 
 #[tauri::command]
@@ -365,7 +368,7 @@ fn send_message(state: State<'_, AppState>, draft: Draft) -> R<OutboxItem> {
 
 #[tauri::command]
 fn cancel_send(state: State<'_, AppState>, outbox_id: String) -> R<Draft> {
-    state.engine.cancel_send(&outbox_id)
+    state.engine.cancel_send(&outbox_id).map(vem_core::compose::clean_draft)
 }
 
 #[tauri::command]
@@ -384,6 +387,44 @@ async fn pick_attachments(app: AppHandle) -> R<Vec<String>> {
         .filter_map(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().into_owned())
         .collect())
+}
+
+/// A photo the user picked to place in the text (decision 33).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TextPhoto {
+    /// The photo, made smaller, as a `data:` URL; None when the file is not a photo the app can
+    /// read (an iPhone's HEIC, say), so the screen can suggest adding it as an attachment.
+    data_url: Option<String>,
+}
+
+/// "Foto in de tekst": pick one photo. None when the user closed the dialog. `filter_name` is the
+/// dialog's word for photos, from the screen's catalogue.
+#[tauri::command]
+async fn pick_text_photo(app: AppHandle, filter_name: String) -> R<Option<TextPhoto>> {
+    use std::io::Read;
+    use tauri_plugin_fs::FsExt;
+    let dialog_app = app.clone();
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app.dialog().file().add_filter(filter_name, &["jpg", "jpeg", "png", "gif", "heic"]).blocking_pick_file()
+    })
+    .await
+    .map_err(|e| app_error(e.to_string()))?;
+    let Some(picked) = picked else { return Ok(None) };
+    // A Windows path, or on Android a content:// address; the fs plugin reads both.
+    let unreadable = |e: std::io::Error| VemError::new(Code::StoreRead01).with_detail(e.kind().to_string());
+    let mut options = tauri_plugin_fs::OpenOptions::new();
+    options.read(true);
+    let mut bytes = Vec::new();
+    let limit = vem_core::compose::TEXT_PHOTO_MAX_BYTES;
+    app.fs().open(picked, options).map_err(unreadable)?.take(limit + 1).read_to_end(&mut bytes).map_err(unreadable)?;
+    if bytes.len() as u64 > limit {
+        return Ok(Some(TextPhoto { data_url: None }));
+    }
+    let data_url = tauri::async_runtime::spawn_blocking(move || vem_core::compose::photo_for_text(&bytes))
+        .await
+        .map_err(|e| app_error(e.to_string()))?;
+    Ok(Some(TextPhoto { data_url }))
 }
 
 fn attachment(state: &AppState, message_id: &str, attachment_id: &str) -> R<(String, Vec<u8>)> {
@@ -860,6 +901,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         cancel_send,
         list_outbox,
         pick_attachments,
+        pick_text_photo,
         open_attachment,
         save_attachment,
         forward_attachments,

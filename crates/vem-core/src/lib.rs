@@ -19,6 +19,7 @@ pub mod model;
 pub mod oauth;
 pub mod parse;
 pub mod report;
+pub mod rich;
 pub mod sanitize;
 pub mod secrets;
 pub mod smtp;

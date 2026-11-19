@@ -80,3 +80,5 @@ Added on 19 November 2026 at Martijn's request:
       mailbox (checked read-only), and a reply goes out from that address
 - [ ] A formatted message with a photo in the text arrives readable in Outlook, Gmail and on a
       phone, and BCC addresses are not visible to the other receivers
+- [ ] On a Dutch family PC the spellcheck underlines misspelt Dutch words and leaves correct ones
+      alone (WebView2 follows the Windows language)

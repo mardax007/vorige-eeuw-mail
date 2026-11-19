@@ -10,7 +10,9 @@ import { fileName } from "../format";
 import { mailAccounts } from "../folders";
 import { useApp } from "../state/AppContext";
 import { AddressField } from "./AddressField";
+import { RichEditor } from "./RichEditor";
 import { formatAddressList, parseAddressList } from "./address";
+import { textToHtml } from "./richText";
 import { AUTOSAVE_MS, useAutosave } from "./useAutosave";
 
 /** More recipients than this asks once before sending (docs/screens.md). */
@@ -28,13 +30,16 @@ interface Fields {
   fromAddress: string | null;
   to: string;
   cc: string;
+  bcc: string;
   subject: string;
   body: string;
+  /** The text with formatting or photos (decision 33); null for plain text. */
+  bodyHtml: string | null;
   attachments: string[];
   shrinkPhotos: boolean;
 }
 
-type AddressFieldName = "to" | "cc";
+type AddressFieldName = "to" | "cc" | "bcc";
 
 interface FieldProblem {
   field: AddressFieldName;
@@ -47,8 +52,10 @@ function fieldsOf(d: Draft): Fields {
     fromAddress: d.fromAddress ?? null,
     to: formatAddressList(d.to),
     cc: formatAddressList(d.cc),
+    bcc: formatAddressList(d.bcc),
     subject: d.subject,
     body: d.bodyText,
+    bodyHtml: d.bodyHtml ?? null,
     attachments: d.attachments,
     shrinkPhotos: d.shrinkPhotos,
   };
@@ -79,13 +86,20 @@ function senderChoices(mail: readonly Account[]): Sender[] {
 }
 
 /** What is wrong with the addresses before sending, and in which field; null when all is well. */
-export function addressProblem(fields: Pick<Fields, "to" | "cc">): FieldProblem | null {
-  const to = parseAddressList(fields.to);
-  const cc = parseAddressList(fields.cc);
-  if (to.invalid.length > 0) return { field: "to", text: t("compose.badAddress", { address: to.invalid[0] }) };
-  if (cc.invalid.length > 0) return { field: "cc", text: t("compose.badAddress", { address: cc.invalid[0] }) };
-  if (to.addresses.length === 0) return { field: "to", text: t("compose.needTo") };
+export function addressProblem(fields: Pick<Fields, AddressFieldName>): FieldProblem | null {
+  const names: AddressFieldName[] = ["to", "cc", "bcc"];
+  for (const field of names) {
+    const invalid = parseAddressList(fields[field]).invalid;
+    if (invalid.length > 0) return { field, text: t("compose.badAddress", { address: invalid[0] }) };
+  }
+  // Only BCC is fine too: a newsletter to the family with every address hidden.
+  const hasReceiver = names.some((field) => field !== "cc" && parseAddressList(fields[field]).addresses.length > 0);
+  if (!hasReceiver) return { field: "to", text: t("compose.needTo") };
   return null;
+}
+
+function recipientCountOf(fields: Pick<Fields, AddressFieldName>): number {
+  return (["to", "cc", "bcc"] as const).reduce((n, field) => n + parseAddressList(fields[field]).addresses.length, 0);
 }
 
 /** "Nieuwe e-mail": write, attach, send. The text is kept in Concepten all along. */
@@ -96,6 +110,7 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
   const draftId = useRef<string | null>(initial.id ?? null);
   const [version, setVersion] = useState(0);
   const [isCcShown, setIsCcShown] = useState(initial.cc.length > 0);
+  const [isBccShown, setIsBccShown] = useState(initial.bcc.length > 0);
   const [problem, setProblem] = useState<FieldProblem | null>(null);
   const [error, setError] = useState<VemError | null>(null);
   const [isSavedNoteShown, setIsSavedNoteShown] = useState(false);
@@ -108,6 +123,8 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
   const lastSaveError = useRef<VemError | null>(null);
   const toRef = useRef<HTMLInputElement>(null);
   const ccRef = useRef<HTMLInputElement>(null);
+  const bccRef = useRef<HTMLInputElement>(null);
+  const [initialHtml] = useState(() => initial.bodyHtml ?? textToHtml(initial.bodyText));
   const mail = mailAccounts(accounts);
   const senders = senderChoices(mail);
 
@@ -126,8 +143,10 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
       fromAddress: fields.fromAddress,
       to: parseAddressList(fields.to).addresses,
       cc: parseAddressList(fields.cc).addresses,
+      bcc: parseAddressList(fields.bcc).addresses,
       subject: fields.subject,
       bodyText: fields.body,
+      bodyHtml: fields.bodyHtml,
       attachments: fields.attachments,
       shrinkPhotos: fields.shrinkPhotos,
     }),
@@ -135,8 +154,9 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
   );
 
   const hasContent =
-    fields.to.trim() !== "" || fields.cc.trim() !== "" || fields.subject.trim() !== "" ||
-    fields.body.trim() !== initial.bodyText.trim() || fields.attachments.length > 0;
+    fields.to.trim() !== "" || fields.cc.trim() !== "" || fields.bcc.trim() !== "" || fields.subject.trim() !== "" ||
+    fields.body.trim() !== initial.bodyText.trim() || fields.bodyHtml !== (initial.bodyHtml ?? null) ||
+    fields.attachments.length > 0;
 
   const save = useCallback(async (): Promise<boolean> => {
     try {
@@ -215,15 +235,14 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
     const found = addressProblem(fields);
     setProblem(found);
     if (found) {
-      (found.field === "cc" ? ccRef : toRef).current?.focus();
+      ({ to: toRef, cc: ccRef, bcc: bccRef })[found.field].current?.focus();
       return;
     }
-    const count = parseAddressList(fields.to).addresses.length + parseAddressList(fields.cc).addresses.length;
-    if (count > MANY_RECIPIENTS) return setIsConfirming(true);
+    if (recipientCountOf(fields) > MANY_RECIPIENTS) return setIsConfirming(true);
     void send();
   };
 
-  const recipientCount = parseAddressList(fields.to).addresses.length + parseAddressList(fields.cc).addresses.length;
+  const recipientCount = recipientCountOf(fields);
   const problemFor = (field: AddressFieldName) => (problem?.field === field ? problem.text : null);
   const title = initial.inReplyTo ? t("compose.titleReply") : t("compose.title");
 
@@ -268,7 +287,7 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
         inputRef={toRef}
         onChange={(to) => update({ to })}
       />
-      {isCcShown ? (
+      {isCcShown && (
         <AddressField
           id="compose-cc"
           label={t("compose.cc")}
@@ -277,17 +296,46 @@ export function ComposeView({ initial, autosaveMs = AUTOSAVE_MS, onClose }: Comp
           inputRef={ccRef}
           onChange={(cc) => update({ cc })}
         />
-      ) : (
-        <button type="button" className="small-button" onClick={() => setIsCcShown(true)}>{t("compose.addCc")}</button>
+      )}
+      {isBccShown && (
+        <AddressField
+          id="compose-bcc"
+          label={t("compose.bcc")}
+          hint={t("compose.bccHint")}
+          value={fields.bcc}
+          problem={problemFor("bcc")}
+          inputRef={bccRef}
+          onChange={(bcc) => update({ bcc })}
+        />
+      )}
+      {(!isCcShown || !isBccShown) && (
+        <div className="button-row add-fields">
+          {!isCcShown && (
+            <button type="button" onClick={() => setIsCcShown(true)}>{t("compose.addCc")}</button>
+          )}
+          {!isBccShown && (
+            <button type="button" onClick={() => setIsBccShown(true)}>{t("compose.addBcc")}</button>
+          )}
+        </div>
       )}
       <div className="form-row">
         <label htmlFor="compose-subject">{t("compose.subject")}</label>
-        <input id="compose-subject" type="text" value={fields.subject} onChange={(e) => update({ subject: e.target.value })} />
+        <input
+          id="compose-subject"
+          type="text"
+          spellCheck
+          lang="nl"
+          value={fields.subject}
+          onChange={(e) => update({ subject: e.target.value })}
+        />
       </div>
-      <div className="form-row grow">
-        <label htmlFor="compose-body">{t("compose.body")}</label>
-        <textarea id="compose-body" value={fields.body} rows={14} onChange={(e) => update({ body: e.target.value })} />
-      </div>
+      <RichEditor
+        id="compose-body"
+        label={t("compose.body")}
+        initialHtml={initialHtml}
+        onChange={({ text, html }) => update({ body: text, bodyHtml: html })}
+        onError={(e) => setError(toVemError(e))}
+      />
       <div className="compose-attachments">
         <button type="button" onClick={addAttachments}>{t("compose.attach")}</button>
         <label className="check-row">

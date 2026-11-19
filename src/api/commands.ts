@@ -10,6 +10,7 @@ import type {
   ContactsImported,
   DomainInbox,
   Draft,
+  TextPhoto,
   Folder,
   ImportKind,
   ImportProgress,
@@ -104,6 +105,7 @@ export interface CommandMap {
   cancel_send: { args: { outboxId: string }; result: Draft };
   list_outbox: { args: NoArgs; result: OutboxItem[] };
   pick_attachments: { args: NoArgs; result: string[] };
+  pick_text_photo: { args: { filterName: string }; result: TextPhoto | null };
   open_attachment: { args: { messageId: string; attachmentId: string }; result: void };
   /** False when the user closed the save dialog without choosing a place. */
   save_attachment: { args: { messageId: string; attachmentId: string }; result: boolean };
