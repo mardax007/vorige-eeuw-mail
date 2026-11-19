@@ -12,7 +12,6 @@ async function openImport() {
   const user = userEvent.setup();
   render(<App />);
   await screen.findByRole("navigation", { name: "Mappen" });
-  await user.click(screen.getByRole("button", { name: "Meer mappen" }));
   await user.click(screen.getByRole("button", { name: "Oude mail ophalen" }));
   await screen.findByRole("heading", { name: "Oude mail ophalen" });
   return user;
@@ -60,8 +59,7 @@ describe("a running import", () => {
     await user.click(screen.getByRole("button", { name: "Ophalen" }));
     await screen.findByText(/van 500 berichten/);
     await user.click(screen.getByRole("button", { name: /Terug naar de mail/ }));
-    await user.click(await screen.findByRole("button", { name: "Meer mappen" }));
-    await user.click(screen.getByRole("button", { name: "Oude mail ophalen" }));
+    await user.click(await screen.findByRole("button", { name: "Oude mail ophalen" }));
     await screen.findByRole("heading", { name: "Oude mail ophalen" });
     expect(await screen.findByText(/van 500 berichten/)).toBeTruthy();
     await user.click(within(accountRow(/^Outlook.pst/)).getByRole("button", { name: "Kiezen" }));

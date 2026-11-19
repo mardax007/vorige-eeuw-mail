@@ -84,9 +84,12 @@ recognise, and leave out what makes Outlook hard.
 
 **Finding things**
 
-- One main screen: Postvak IN, Nieuwe e-mail, Verzonden items, Verwijderde items. Other folders, and
-  the imported old mail, behind one "Meer mappen" item. The same words in the same places on every
-  screen.
+- One main screen: Postvak IN, Nieuwe e-mail, Verzonden items, Verwijderde items. Each mailbox's
+  other folders sit behind its own "Meer mappen (n)" right under it, with an arrow that turns; they
+  open in place, indented, inside that mailbox. Labels, the imported old mail and the links
+  "Oude mail ophalen" and "Telefoon koppelen" are always visible below the mailboxes (Martijn, 19
+  November 2026: one shared "Meer mappen / Minder mappen" button was not easy to use). The same
+  words in the same places on every screen.
 - With one account the main screen is that account. With two or more, "Alle postvakken" (C7) comes
   first, then each account with its own Postvak IN, Verzonden items and Verwijderde items.
 - The "Nieuwe e-mail", "Beantwoorden", "Allen beantwoorden" and "Doorsturen" buttons appear in
@@ -102,7 +105,7 @@ recognise, and leave out what makes Outlook hard.
 
 - A tag shows as its word on a coloured background, with enough contrast; colour never carries the
   meaning alone. One "Label" button on a message; no drag and drop needed.
-- Tags appear under "Meer mappen" as lists ("Rekeningen", "Familie"), each across all accounts.
+- Tags appear under "Labels" in the folder pane as lists ("Rekeningen", "Familie"), each across all accounts.
 - Contactpersonen: one simple list, sorted by name, with a search box. Opening a contact shows its
   addresses and the recent mail with that person. No columns, no groups in version 1.
 

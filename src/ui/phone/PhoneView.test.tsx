@@ -17,9 +17,8 @@ vi.mock("../../api/scanner", async (original) => {
   };
 });
 
-/** "Telefoon koppelen" sits under the folder pane's "more" button. */
+/** "Telefoon koppelen" sits at the bottom of the folder pane. */
 async function openPhonePage(user: ReturnType<typeof userEvent.setup>, nav: HTMLElement) {
-  await user.click(within(nav).getByRole("button", { expanded: false }));
   await user.click(within(nav).getByRole("button", { name: "Telefoon koppelen" }));
 }
 

@@ -16,15 +16,21 @@ describe("main screen", () => {
     const nav = screen.getByRole("navigation", { name: "Mappen" });
     const pane = within(nav);
     expect(pane.getByRole("button", { name: /^Alle postvakken/ })).toBeTruthy();
-    expect(pane.getAllByRole("button", { name: /^Postvak IN/ })).toHaveLength(2);
-    expect(pane.getAllByRole("button", { name: /^Verzonden items/ })).toHaveLength(2);
+    // Two mailboxes and the old mail from Outlook, each with its own main folders, always shown.
+    expect(pane.getAllByRole("button", { name: /^Postvak IN/ })).toHaveLength(3);
+    expect(pane.getAllByRole("button", { name: /^Verzonden items/ })).toHaveLength(3);
     expect(pane.getAllByRole("button", { name: /^Verwijderde items/ })).toHaveLength(2);
+    expect(pane.getByText("Oude mail uit Outlook")).toBeTruthy();
     expect(pane.queryByRole("button", { name: /^Concepten/ })).toBeNull();
 
-    await user.click(pane.getByRole("button", { name: "Meer mappen" }));
-    expect(pane.getAllByRole("button", { name: /^Concepten/ }).length).toBeGreaterThan(0);
-    expect(pane.getAllByRole("button", { name: /^Ongewenste e-mail/ }).length).toBeGreaterThan(0);
-    expect(pane.getByText("Oude mail uit Outlook")).toBeTruthy();
+    // Each mailbox has its own "Meer mappen (n)", which opens its other folders under it.
+    const more = pane.getAllByRole("button", { name: /^Meer mappen \(\d+\)$/ });
+    expect(more).toHaveLength(2);
+    await user.click(more[0]);
+    expect(pane.getAllByRole("button", { name: /^Concepten/ })).toHaveLength(1);
+    expect(pane.getAllByRole("button", { name: /^Ongewenste e-mail/ })).toHaveLength(1);
+    await user.click(more[1]);
+    expect(pane.getAllByRole("button", { name: /^Concepten/ })).toHaveLength(2);
     expect(pane.queryByRole("button", { name: "Contactpersonen" })).toBeNull();
     expect(document.querySelector(".top-bar")?.textContent).toContain("Contactpersonen");
     expect(pane.getByText("Rekeningen")).toBeTruthy();

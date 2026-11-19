@@ -26,8 +26,7 @@ export const nl = {
   "folder.outbox": "Postvak UIT",
   "folder.archive": "Archief",
   "folder.allInboxes": "Alle postvakken",
-  "folder.more": "Meer mappen",
-  "folder.less": "Minder mappen",
+  "folder.moreCount": "Meer mappen ({count})",
   "folder.tags": "Labels",
 
   // Phone (one part of the mail screen at a time)

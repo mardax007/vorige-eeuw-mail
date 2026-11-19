@@ -47,28 +47,55 @@ function isAt(location: MailLocation, folderId: string): boolean {
 interface FolderGroupProps {
   title: string;
   folders: Folder[];
+  /** The mailbox's other folders, behind its own "Meer mappen". */
+  more?: Folder[];
 }
 
-function FolderGroup({ title, folders }: FolderGroupProps) {
+/**
+ * One mailbox: its main folders, then "Meer mappen (n)", which opens the rest right below, in the
+ * same group. The button keeps its words; the arrow and aria-expanded say whether it is open.
+ */
+function FolderGroup({ title, folders, more = [] }: FolderGroupProps) {
   const { location, setLocation, go } = useApp();
-  if (folders.length === 0) return null;
+  const isInMore = more.some((f) => isAt(location, f.id));
+  const [isOpen, setIsOpen] = useState(isInMore);
+  useEffect(() => {
+    // The open folder is always visible in the pane.
+    if (isInMore) setIsOpen(true);
+  }, [isInMore]);
+  if (folders.length === 0 && more.length === 0) return null;
+  const button = (f: Folder) => (
+    <FolderButton
+      key={f.id}
+      label={folderLabel(f)}
+      unread={f.role === "trash" || f.role === "junk" ? 0 : f.unread}
+      isCurrent={isAt(location, f.id)}
+      onSelect={() => {
+        setLocation({ kind: "folder", folderId: f.id });
+        go({ kind: "mail" });
+      }}
+    />
+  );
   return (
     <div className="folder-group">
       <h3>{title}</h3>
-      <ul>
-        {folders.map((f) => (
-          <FolderButton
-            key={f.id}
-            label={folderLabel(f)}
-            unread={f.role === "trash" || f.role === "junk" ? 0 : f.unread}
-            isCurrent={isAt(location, f.id)}
-            onSelect={() => {
-              setLocation({ kind: "folder", folderId: f.id });
-              go({ kind: "mail" });
-            }}
-          />
-        ))}
-      </ul>
+      <ul>{folders.map(button)}</ul>
+      {more.length > 0 && (
+        <>
+          <button
+            type="button"
+            className="more-button"
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <span className="more-arrow" aria-hidden="true">
+              {isOpen ? "▼" : "▶"}
+            </span>
+            <span>{t("folder.moreCount", { count: more.length })}</span>
+          </button>
+          {isOpen && <ul className="more-folders">{more.map(button)}</ul>}
+        </>
+      )}
     </div>
   );
 }
@@ -78,22 +105,14 @@ function allInboxesUnread(accounts: readonly Account[], folders: readonly Folder
   return folders.filter((f) => f.role === "inbox" && ids.has(f.accountId)).reduce((n, f) => n + f.unread, 0);
 }
 
-/** Left pane: the few folders people use, and the rest behind "Meer mappen". */
+/**
+ * Left pane: per mailbox the folders people use, with that mailbox's other folders behind its own
+ * "Meer mappen"; then labels, old mail and the two links, always visible.
+ */
 export function FolderPane() {
   const { accounts, folders, tags, outbox, location, setLocation, go } = useApp();
   const mail = mailAccounts(accounts);
   const local = localAccounts(accounts);
-  // A folder or label behind "Meer mappen" that is open keeps that part open, so the current
-  // place is always visible in the pane.
-  const isInMore =
-    location.kind === "tag" ||
-    (location.kind === "folder" &&
-      (mail.some((a) => otherFolders(folders, a.id).some((f) => f.id === location.folderId)) ||
-        local.some((a) => folders.some((f) => f.accountId === a.id && f.id === location.folderId))));
-  const [isMoreOpen, setIsMoreOpen] = useState(isInMore);
-  useEffect(() => {
-    if (isInMore) setIsMoreOpen(true);
-  }, [isInMore]);
   const select = (next: MailLocation) => {
     setLocation(next);
     go({ kind: "mail" });
@@ -112,7 +131,7 @@ export function FolderPane() {
         </ul>
       )}
       {mail.map((a) => (
-        <FolderGroup key={a.id} title={a.displayName} folders={mainFolders(folders, a.id)} />
+        <FolderGroup key={a.id} title={a.displayName} folders={mainFolders(folders, a.id)} more={otherFolders(folders, a.id)} />
       ))}
       {outbox.length > 0 && (
         <ul>
@@ -125,58 +144,43 @@ export function FolderPane() {
           />
         </ul>
       )}
-      <button
-        type="button"
-        className="more-button"
-        aria-expanded={isMoreOpen}
-        onClick={() => setIsMoreOpen(!isMoreOpen)}
-      >
-        {isMoreOpen ? t("folder.less") : t("folder.more")}
-      </button>
-      {isMoreOpen && (
-        <div className="more-folders">
-          {mail.map((a) => (
-            <FolderGroup key={a.id} title={a.displayName} folders={otherFolders(folders, a.id)} />
-          ))}
-          {tags.length > 0 && (
-            <div className="folder-group">
-              <h3>{t("folder.tags")}</h3>
-              <ul>
-                {tags.map((tag) => {
-                  const isCurrent = location.kind === "tag" && location.tagId === tag.id;
-                  return (
-                    <li key={tag.id}>
-                      <button
-                        type="button"
-                        className={`folder-button${isCurrent ? " current" : ""}`}
-                        aria-current={isCurrent ? "true" : undefined}
-                        onClick={() => select({ kind: "tag", tagId: tag.id })}
-                      >
-                        <TagChip tag={tag} />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-          {local.map((a) => (
-            <FolderGroup key={a.id} title={a.displayName} folders={folders.filter((f) => f.accountId === a.id)} />
-          ))}
-          <ul className="more-links">
-            <li>
-              <button type="button" className="folder-button" onClick={() => go({ kind: "import" })}>
-                {t("nav.import")}
-              </button>
-            </li>
-            <li>
-              <button type="button" className="folder-button" onClick={() => go({ kind: "phone" })}>
-                {t("nav.phone")}
-              </button>
-            </li>
+      {tags.length > 0 && (
+        <div className="folder-group">
+          <h3>{t("folder.tags")}</h3>
+          <ul>
+            {tags.map((tag) => {
+              const isCurrent = location.kind === "tag" && location.tagId === tag.id;
+              return (
+                <li key={tag.id}>
+                  <button
+                    type="button"
+                    className={`folder-button${isCurrent ? " current" : ""}`}
+                    aria-current={isCurrent ? "true" : undefined}
+                    onClick={() => select({ kind: "tag", tagId: tag.id })}
+                  >
+                    <TagChip tag={tag} />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
+      {local.map((a) => (
+        <FolderGroup key={a.id} title={a.displayName} folders={folders.filter((f) => f.accountId === a.id)} />
+      ))}
+      <ul className="more-links">
+        <li>
+          <button type="button" className="folder-button" onClick={() => go({ kind: "import" })}>
+            {t("nav.import")}
+          </button>
+        </li>
+        <li>
+          <button type="button" className="folder-button" onClick={() => go({ kind: "phone" })}>
+            {t("nav.phone")}
+          </button>
+        </li>
+      </ul>
     </nav>
   );
 }

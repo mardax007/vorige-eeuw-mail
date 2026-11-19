@@ -203,7 +203,11 @@ describe("message buttons", () => {
     await user.click(await screen.findByRole("button", { name: "Ongewenste e-mail" }));
     expect(await screen.findByText("Het bericht is verplaatst naar Ongewenste e-mail.")).toBeTruthy();
     const nav = within(screen.getByRole("navigation", { name: "Mappen" }));
-    await user.click(nav.getByRole("button", { name: "Meer mappen" }));
+    // The first mailbox's own "Meer mappen" opens its other folders right under it.
+    const more = nav.getAllByRole("button", { name: /^Meer mappen/ })[0];
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    await user.click(more);
+    expect(more.getAttribute("aria-expanded")).toBe("true");
     await user.click(nav.getAllByRole("button", { name: /^Ongewenste e-mail/ })[0]);
     await user.click(await screen.findByRole("button", { name: /Koffie donderdag\?/ }));
     await user.click(await screen.findByRole("button", { name: "Geen ongewenste e-mail" }));

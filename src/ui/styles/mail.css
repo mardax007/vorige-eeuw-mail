@@ -58,9 +58,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* "Meer mappen (n)" under a mailbox: a quiet row like a folder, with an arrow that turns. */
 .more-button {
   width: 100%;
-  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-weight: 400;
+  color: var(--ink-soft);
+  border-color: transparent;
+  background: transparent;
+}
+
+.more-arrow {
+  display: inline-block;
+  width: 1em;
+  font-size: 0.75em;
+  line-height: 1;
+  text-align: center;
+  color: var(--accent);
+}
+
+/* The other folders sit indented below their button, inside the same mailbox. */
+.folder-pane .more-folders {
+  margin-left: 20px;
+  border-left: 2px solid var(--line-quiet);
 }
 
 .more-links {
