@@ -77,8 +77,13 @@ Claude Code updates this file at the end of every session.
      On 19 November 2026 a new draft `v0.1.5` was made from d6d6c5c (C8, C11, C14, no report
      notice, the endless list; run 44419073412, both jobs green). Its installer's signature was
      checked against `vem-updater.key.pub` (good) and it was installed over 0.1.0 on this PC; the
-     log says `app.start version="0.1.5"`. Publish `v0.1.5`, not `v0.1.0`; the old draft can be
-     deleted.
+     log says `app.start version="0.1.5"`. Later that day Martijn asked to publish: draft
+     `v0.1.6` was made from 27a36da (decisions 32 and 33; run 44536753471, both jobs green), its
+     installer's signature checked (good), installed over 0.1.5 on this PC (log:
+     `app.start version="0.1.6"`) and published as the latest release on 19 November 2026.
+     `releases/latest/download/latest.json` and `android.json` now answer, so installed apps
+     update from here on. The drafts `v0.1.0` and `v0.1.5` can be deleted. Not done before
+     publishing: the phone install (step 4) and the day of use (step 5).
   8. The Android signing key exists since 18 November 2026
      (`%USERPROFILE%\.android\vem-upload.jks`, alias `vem`), is in the secrets and, with its
      password, in Martijn's backup (18 November 2026). Still to do: the Android-type Google
@@ -206,6 +211,7 @@ session log for 2026-11-17.)
 | 2026-11-18 | Decision 29 built. C8: "Ongewenste e-mail" in the reading pane moves a message to the account's junk folder, and "Geen ongewenste e-mail" back to Postvak IN, through the existing move with its undo. C11: `vem-core/src/invite.rs` reads the first VEVENT of a text/calendar part or .ics attachment (folded lines, TZID and Windows zone names, all-day, cancelled, repeating); `InviteBox` shows Wat, Wanneer, Waar and Van in the reader's own time. C14: `vem-core/src/backup.rs` writes the index (VACUUM INTO), mail and originals to a dated folder with a manifest, under a temporary name until done; restore copies into the data folder, the app restarts and swaps it in before the index opens, clears pending work and forgets a pairing whose key stayed behind. Two new error codes (VEM-BACKUP-WRITE-01, -READ-01) with help pages. Checked: 200 core tests, 185 screen tests, clippy for Windows and Android, screens at 1400 px and 375 px | Passwords and the pairing key are DPAPI-sealed to this PC's user, so a backup cannot carry them; after a restore on another PC each mailbox asks for its password again. A keyword for junk could not be undone, a move can | Martijn: try junk on Solcon and Gmail, open a real Outlook and Google invitation, restore a backup on a second PC |
 | 2026-11-19 | Decision 30: the bar about error reports is gone (Help keeps the sentence). Decision 31: the message list loads the next 50 messages by itself when its end comes within 600 px of the screen (IntersectionObserver), with the button kept for the keyboard. New draft v0.1.5 built on GitHub, signature checked, installed on this PC and started | The release workflow now numbers the draft by its run, so a second draft sits next to v0.1.0 | Martijn: use 0.1.5 for a day, then publish it and delete the v0.1.0 draft |
 | 2026-11-19 | "Meer mappen (n)" under each mailbox. Decision 32: other addresses in one mailbox, a filtered Postvak IN per domain (To, Cc and the delivery headers), a "Van" choice, replies from the address the mail came to; index schema 2. Decision 33: Write gets BCC, Dutch spellcheck, a worded formatting row (contentEditable with execCommand, which WebView2 and Android's WebView share), and photos in the text (made at most 1000 px, sent as `cid:` parts in `multipart/related`); the HTML is cleaned in the core with an allow-list before it is kept or sent | Pasting keeps only plain text, so nothing from outside reaches the app's own window; jsdom has no execCommand, so the tests stand in for it. Spellcheck uses WebView2's language, which follows Windows; this PC's Chrome marks Dutch words because it has only English | Martijn: check spellcheck on a Dutch family PC; send a formatted message with a photo to Outlook and Gmail; check an own domain on iCloud (read-only) |
+| 2026-11-19 | v0.1.6 (27a36da) built, signature checked, installed on this PC and published as the first release, on Martijn's word | The updater's links (`latest.json`, `android.json`, the installer asset) answer 200 once a release is published; a check that finds nothing new logs nothing | Martijn: delete the drafts v0.1.0 and v0.1.5; install the APK from v0.1.6 on the phone |
 
 ## Ideas parked
 
